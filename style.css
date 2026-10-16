@@ -384,6 +384,106 @@ body {
   margin-top: 2px;
 }
 
+/* Encart Reprise de Partie en Cours */
+.encart-reprise-partie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(245, 199, 98, 0.18) 0%, rgba(13, 20, 36, 0.95) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--gold-primary);
+  border-radius: var(--rayon-lg);
+  padding: 20px 24px;
+  margin-bottom: 32px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 24px var(--gold-glow);
+  animation: fadeInQuestion 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 680px) {
+  .encart-reprise-partie {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+}
+
+.reprise-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.badge-reprise {
+  display: inline-block;
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--gold-primary);
+  letter-spacing: 0.1em;
+  background: rgba(245, 199, 98, 0.15);
+  border: 1px solid var(--border-gold);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 680px) {
+  .badge-reprise {
+    align-self: center;
+  }
+}
+
+.reprise-titre-niveau {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.reprise-details {
+  font-size: 0.88rem;
+  color: var(--ink-cream);
+  font-family: var(--font-mono);
+}
+
+.reprise-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 680px) {
+  .reprise-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .reprise-actions .btn {
+    width: 100%;
+  }
+}
+
+.btn-abandonner {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  padding: 12px 18px;
+  border-radius: var(--rayon-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-abandonner:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--error-ruby);
+  color: #ffffff;
+}
+
 /* Titre de section Niveaux */
 .section-titre-niveaux {
   text-align: center;
@@ -482,6 +582,31 @@ body {
 @keyframes pulsationHalo {
   0%, 100% { box-shadow: 0 0 20px rgba(245, 199, 98, 0.2); }
   50% { box-shadow: 0 0 35px rgba(245, 199, 98, 0.45); }
+}
+
+/* Niveau avec manche entamée en cours de jeu */
+.carte-niveau.en-cours {
+  border-color: #38bdf8;
+  box-shadow: 0 0 28px rgba(56, 189, 248, 0.35);
+  animation: pulsationReprise 2.4s infinite ease-in-out;
+}
+
+@keyframes pulsationReprise {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+    border-color: rgba(56, 189, 248, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(56, 189, 248, 0.55);
+    border-color: #38bdf8;
+  }
+}
+
+.carte-niveau.en-cours .btn-lancer-niveau {
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  color: #030712;
+  font-weight: 800;
+  border-color: #7dd3fc;
 }
 
 /* Niveau Terminé / Parfait */

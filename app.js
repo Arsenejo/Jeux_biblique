@@ -16,6 +16,7 @@
   const TEMPS_PAR_QUESTION = 25;       // 25 secondes par question
   const SEUIL_DEBLOCAGE = 6;           // 6/10 pour valider et débloquer le niveau suivant
   const CLE_STOCKAGE_V2 = 'defiJean.v2.progression';
+  const CLE_STOCKAGE_MANCHE = 'defiJean.v2.mancheEnCours';
   const CIRCONFERENCE_CHRONO = 263.89; // 2 * PI * 42
 
   const $ = function (id) { return document.getElementById(id); };
@@ -40,6 +41,11 @@
     erreurPseudo: $('erreur-pseudo'),
     statNiveauxDebloques: $('stat-niveaux-debloques'),
     statQuestionsReussies: $('stat-questions-reussies'),
+    encartReprisePartie: $('encart-reprise-partie'),
+    repriseTitreNiveau: $('reprise-titre-niveau'),
+    repriseDetails: $('reprise-details'),
+    btnReprendrePartie: $('btn-reprendre-partie'),
+    btnAbandonnerPartie: $('btn-abandonner-partie'),
     grilleNiveaux: $('grille-niveaux'),
     btnReinitialiser: $('btn-reinitialiser-progression'),
 
@@ -270,6 +276,188 @@
   let derniereCarteBlob = null;
   let alerteChronoJouee = false;
 
+  /* ---------------- Persistance & Reprise de la Manche en Cours ---------------- */
+
+  function sauvegarderMancheEnCours() {
+    if (!stockage) return;
+    if (!questionsManche || questionsManche.length === 0 || indexQuestion >= questionsManche.length) {
+      nettoyerMancheEnCours();
+      return;
+    }
+    const snapshot = {
+      idNiveau: niveauEnCours,
+      questions: questionsManche,
+      indexQuestion: indexQuestion,
+      scoreManche: scoreManche,
+      reponsesJoueur: reponsesJoueur,
+      dejaRepondu: dejaRepondu,
+      horodatage: Date.now()
+    };
+    try {
+      stockage.setItem(CLE_STOCKAGE_MANCHE, JSON.stringify(snapshot));
+    } catch (e) {
+      console.warn("Impossible d'enregistrer la manche en cours :", e);
+    }
+  }
+
+  function lireMancheEnCours() {
+    if (!stockage) return null;
+    try {
+      const brut = stockage.getItem(CLE_STOCKAGE_MANCHE);
+      if (!brut) return null;
+      const data = JSON.parse(brut);
+      if (
+        !data ||
+        typeof data.idNiveau !== 'number' ||
+        data.idNiveau < 1 ||
+        data.idNiveau > 10 ||
+        !Array.isArray(data.questions) ||
+        data.questions.length === 0 ||
+        typeof data.indexQuestion !== 'number' ||
+        data.indexQuestion >= data.questions.length
+      ) {
+        return null;
+      }
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function nettoyerMancheEnCours() {
+    if (!stockage) return;
+    try {
+      stockage.removeItem(CLE_STOCKAGE_MANCHE);
+    } catch (e) {}
+  }
+
+  function verifierEtAfficherReprise() {
+    const saved = lireMancheEnCours();
+    if (!saved || !els.encartReprisePartie) {
+      if (els.encartReprisePartie) {
+        els.encartReprisePartie.classList.add('hidden');
+      }
+      return null;
+    }
+
+    const metaNiveau = NIVEAUX_DEFI.find(n => n.id === saved.idNiveau) || { titre: `Niveau ${saved.idNiveau}` };
+    const numQ = Math.min(saved.indexQuestion + 1, saved.questions.length);
+
+    els.repriseTitreNiveau.textContent = `Niveau ${saved.idNiveau} : ${metaNiveau.titre}`;
+    els.repriseDetails.textContent = `Progression : Question ${numQ} / ${saved.questions.length} • Score actuel : ${saved.scoreManche} / ${Math.max(0, numQ - 1)}`;
+    els.encartReprisePartie.classList.remove('hidden');
+    return saved;
+  }
+
+  function reprendreMancheEnCours() {
+    const saved = lireMancheEnCours();
+    if (!saved) return;
+
+    const pseudoSaisi = (els.pseudo.value || '').trim() || progression.pseudo || 'Disciple';
+    progression.pseudo = pseudoSaisi;
+    els.pseudo.value = pseudoSaisi;
+    sauvegarderProgression();
+
+    niveauEnCours = saved.idNiveau;
+    questionsManche = saved.questions;
+    indexQuestion = saved.indexQuestion;
+    scoreManche = saved.scoreManche;
+    reponsesJoueur = saved.reponsesJoueur || [];
+    dejaRepondu = !!saved.dejaRepondu;
+
+    const metaNiveau = NIVEAUX_DEFI.find(n => n.id === niveauEnCours) || { titre: `Niveau ${niveauEnCours}`, badge: '📖' };
+    els.quizBadgeIcone.textContent = metaNiveau.badge;
+    els.quizTitreNiveau.textContent = `Niveau ${niveauEnCours} : ${metaNiveau.titre}`;
+    els.quizTotalQuestions.textContent = NB_QUESTIONS_PAR_NIVEAU;
+    els.scoreEnCours.textContent = String(scoreManche);
+
+    basculerEcran(els.ecranQuiz);
+
+    if (dejaRepondu) {
+      restaurerQuestionRepondue();
+    } else {
+      afficherQuestion();
+    }
+  }
+
+  function abandonnerMancheEnCours() {
+    if (confirm('Es-tu certain de vouloir abandonner cette partie en cours ? Ta progression sur ce niveau sera réinitialisée.')) {
+      stopperChrono();
+      nettoyerMancheEnCours();
+      if (els.encartReprisePartie) {
+        els.encartReprisePartie.classList.add('hidden');
+      }
+      rendreGrilleNiveaux();
+    }
+  }
+
+  function restaurerQuestionRepondue() {
+    if (indexQuestion >= questionsManche.length) {
+      terminerManche();
+      return;
+    }
+
+    stopperChrono();
+    const q = questionsManche[indexQuestion];
+    const derniereRep = reponsesJoueur[reponsesJoueur.length - 1];
+
+    if (!derniereRep || !derniereRep.question || derniereRep.question.q !== q.q) {
+      dejaRepondu = false;
+      afficherQuestion();
+      return;
+    }
+
+    const pourcentage = ((indexQuestion + 1) / NB_QUESTIONS_PAR_NIVEAU) * 100;
+    els.quizProgressBar.style.width = `${pourcentage}%`;
+
+    els.compteurQuestionBadge.textContent = `Question ${indexQuestion + 1} / ${NB_QUESTIONS_PAR_NIVEAU}`;
+    els.referenceVerset.textContent = q.ref || 'Jean';
+
+    if (q.verset) {
+      els.texteVerset.textContent = q.verset;
+      els.blocVerset.classList.remove('hidden');
+    } else {
+      els.blocVerset.classList.add('hidden');
+    }
+
+    els.enonceQuestion.textContent = q.q;
+
+    if (derniereRep.tempsEcoule) {
+      els.alerteTemps.classList.remove('hidden');
+    } else {
+      els.alerteTemps.classList.add('hidden');
+    }
+
+    els.grilleOptions.innerHTML = '';
+    const lettres = ['A', 'B', 'C', 'D'];
+
+    q.options.forEach((opt, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-option';
+      btn.type = 'button';
+      btn.disabled = true;
+
+      if (idx === q.answer) {
+        btn.classList.add('correcte');
+      } else if (idx === derniereRep.indexChoisi) {
+        btn.classList.add('incorrecte');
+      }
+
+      btn.innerHTML = `
+        <span class="lettre-option">${lettres[idx]}</span>
+        <span class="texte-option">${echapper(opt)}</span>
+      `;
+      els.grilleOptions.appendChild(btn);
+    });
+
+    mettreAJourChronoVisuel(0, 0);
+
+    els.texteLecon.textContent = q.lecon;
+    els.zoneLecon.classList.remove('hidden');
+    els.btnQuestionSuivante.classList.remove('hidden');
+    els.btnQuestionSuivante.focus();
+  }
+
   /* ---------------- Animation d'Arrière-Plan (Particules Célestes) ---------------- */
 
   function initFondCeleste() {
@@ -476,6 +664,7 @@
   function rendreGrilleNiveaux() {
     if (!els.grilleNiveaux) return;
     actualiserStatsGlobales();
+    const mancheSauvegardee = verifierEtAfficherReprise();
     els.grilleNiveaux.innerHTML = '';
 
     // Trouver le niveau en cours le plus haut débloqué mais non complété
@@ -491,9 +680,13 @@
       const carte = document.createElement('div');
       carte.className = 'carte-niveau';
 
+      const estEnCours = mancheSauvegardee && mancheSauvegardee.idNiveau === niveau.id;
+
       if (etat.debloque) {
         carte.classList.add('debloque');
-        if (etat.complete) {
+        if (estEnCours) {
+          carte.classList.add('en-cours');
+        } else if (etat.complete) {
           carte.classList.add('complete');
         } else if (niveau.id === idNiveauActuel) {
           carte.classList.add('niveau-actuel');
@@ -513,10 +706,25 @@
         }
       }
 
+      const statutBadge = estEnCours
+        ? '⚔️'
+        : (etat.debloque ? (etat.complete ? '👑' : niveau.badge) : '🔒');
+
+      let libelleBouton = 'Verrouillé';
+      if (etat.debloque) {
+        if (estEnCours) {
+          libelleBouton = `Reprendre (${mancheSauvegardee.indexQuestion + 1}/10) ▶️`;
+        } else if (etat.scoreMax > 0) {
+          libelleBouton = 'Rejouer';
+        } else {
+          libelleBouton = 'Jouer';
+        }
+      }
+
       carte.innerHTML = `
         <div class="en-tete-carte-niveau">
-          <span class="badge-numero-niveau">NIVEAU ${niveau.id.toString().padStart(2, '0')}</span>
-          <span class="icone-statut-niveau">${etat.debloque ? (etat.complete ? '👑' : niveau.badge) : '🔒'}</span>
+          <span class="badge-numero-niveau">NIVEAU ${niveau.id.toString().padStart(2, '0')}${estEnCours ? ' • EN COURS' : ''}</span>
+          <span class="icone-statut-niveau">${statutBadge}</span>
         </div>
         <div class="corps-carte-niveau">
           <h3 class="titre-carte-niveau">${echapper(niveau.titre)}</h3>
@@ -528,17 +736,26 @@
             ${htmlEtoiles}
           </div>
           <div class="score-max-niveau">
-            ${etat.scoreMax > 0 ? `Record : <strong>${etat.scoreMax}/10</strong>` : ''}
+            ${estEnCours ? `Partie en cours : <strong>Q${mancheSauvegardee.indexQuestion + 1}/10</strong>` : (etat.scoreMax > 0 ? `Record : <strong>${etat.scoreMax}/10</strong>` : '')}
           </div>
           <button class="btn-lancer-niveau" type="button" ${!etat.debloque ? 'disabled' : ''}>
-            ${etat.debloque ? (etat.scoreMax > 0 ? 'Rejouer' : 'Jouer') : 'Verrouillé'}
+            ${libelleBouton}
           </button>
         </div>
       `;
 
       if (etat.debloque) {
         carte.addEventListener('click', () => {
-          demarrerMancheNiveau(niveau.id);
+          if (estEnCours) {
+            reprendreMancheEnCours();
+          } else if (mancheSauvegardee) {
+            if (confirm(`Tu as une partie en cours au Niveau ${mancheSauvegardee.idNiveau}. Commencer le Niveau ${niveau.id} va l'annuler. Continuer ?`)) {
+              nettoyerMancheEnCours();
+              demarrerMancheNiveau(niveau.id);
+            }
+          } else {
+            demarrerMancheNiveau(niveau.id);
+          }
         });
       }
 
@@ -597,6 +814,7 @@
     scoreManche = 0;
     reponsesJoueur = [];
     dejaRepondu = false;
+    sauvegarderMancheEnCours();
 
     // Mise à jour de l'en-tête du quiz
     els.quizBadgeIcone.textContent = metaNiveau.badge;
@@ -707,6 +925,7 @@
       els.grilleOptions.appendChild(btn);
     });
 
+    sauvegarderMancheEnCours();
     demarrerChrono();
   }
 
@@ -743,6 +962,8 @@
       tempsEcoule: false
     });
 
+    sauvegarderMancheEnCours();
+
     // Affichage de la leçon explicative
     els.texteLecon.textContent = q.lecon;
     els.zoneLecon.classList.remove('hidden');
@@ -774,6 +995,8 @@
       tempsEcoule: true
     });
 
+    sauvegarderMancheEnCours();
+
     els.texteLecon.textContent = q.lecon;
     els.zoneLecon.classList.remove('hidden');
     els.btnQuestionSuivante.classList.remove('hidden');
@@ -791,6 +1014,7 @@
 
   function terminerManche() {
     stopperChrono();
+    nettoyerMancheEnCours();
 
     const metaNiveau = NIVEAUX_DEFI.find(n => n.id === niveauEnCours) || { titre: `Niveau ${niveauEnCours}` };
     const reussi = scoreManche >= SEUIL_DEBLOCAGE;
@@ -1163,9 +1387,18 @@
       els.erreurPseudo.classList.add('hidden');
     });
 
-    // Réinitialiser Progression
+    // Reprise & Abandon de Manche en cours
+    if (els.btnReprendrePartie) {
+      els.btnReprendrePartie.addEventListener('click', reprendreMancheEnCours);
+    }
+    if (els.btnAbandonnerPartie) {
+      els.btnAbandonnerPartie.addEventListener('click', abandonnerMancheEnCours);
+    }
+
+    // Réinitialiser Progression Globale
     els.btnReinitialiser.addEventListener('click', () => {
       if (confirm('Es-tu certain de vouloir réinitialiser ta progression des 10 niveaux ?')) {
+        nettoyerMancheEnCours();
         progression = {
           pseudo: progression.pseudo,
           sonActif: progression.sonActif,
@@ -1179,12 +1412,24 @@
       }
     });
 
-    // Quitter le quiz
+    // Quitter le quiz (progression préservée pour reprise ultérieure)
     els.btnQuitterQuiz.addEventListener('click', () => {
-      if (confirm('Voulez-vous quitter ce niveau ? Votre progression sur cette manche sera réinitialisée.')) {
+      if (confirm('Voulez-vous quitter ce niveau ? Votre progression actuelle sur cette manche est enregistrée et vous pourrez la reprendre quand vous le souhaitez.')) {
         stopperChrono();
+        sauvegarderMancheEnCours();
         rendreGrilleNiveaux();
         basculerEcran(els.ecranAccueil);
+      }
+    });
+
+    // Sauvegarde de sécurité lors de la fermeture ou du rechargement de l'onglet
+    window.addEventListener('beforeunload', () => {
+      if (
+        indexQuestion < questionsManche.length &&
+        els.ecranQuiz &&
+        !els.ecranQuiz.classList.contains('hidden')
+      ) {
+        sauvegarderMancheEnCours();
       }
     });
 
