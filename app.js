@@ -786,18 +786,14 @@
     ctx.textAlign = 'center';
     ctx.font = 'bold 18px Georgia, serif';
     ctx.fillStyle = '#c9a961';
-    ctx.fillText('EMPREINTE DU SCORE', cx, cy - 20);
+    ctx.fillText('EMPREINTE DU SCORE', cx, cy - 10);
 
     ctx.font = 'bold 34px ui-monospace, "Courier New", monospace';
     ctx.fillStyle = '#e8c86a';
     ctx.shadowColor = 'rgba(232, 200, 106, 0.45)';
     ctx.shadowBlur = 10;
-    ctx.fillText(code, cx, cy + 18);
+    ctx.fillText(code, cx, cy + 28);
     ctx.shadowBlur = 0;
-
-    ctx.font = 'italic 16px Georgia, serif';
-    ctx.fillStyle = 'rgba(216, 195, 154, 0.75)';
-    ctx.fillText('Identifiant local · non vérifié par un serveur', cx, cy + 42);
     ctx.restore();
   }
 
