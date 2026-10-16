@@ -1,18 +1,14 @@
 /**
  * CONFIGURATION FIREBASE FIRESTORE — DÉFI JEAN
- * 
- * Pour activer la synchronisation en ligne du classement mondial :
- * 1. Rendez-vous sur https://console.firebase.google.com/
- * 2. Créez un projet gratuit (ou utilisez un projet existant).
- * 3. Activez "Firestore Database" en mode Production ou Test.
- * 4. Dans Paramètres du projet > Vos applications > Web (</>), copiez vos identifiants ci-dessous.
+ * Projet Firebase : defi-jean
  */
 
 window.FIREBASE_CONFIG = {
-  apiKey: "VOTRE_API_KEY",
-  authDomain: "votre-projet.firebaseapp.com",
-  projectId: "votre-projet",
-  storageBucket: "votre-projet.firebasestorage.app",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef1234567890"
+  apiKey: "AIzaSyDsIYH4rplT1giMld2cxq4x1IqWmNyIZ6Q",
+  authDomain: "defi-jean.firebaseapp.com",
+  projectId: "defi-jean",
+  storageBucket: "defi-jean.firebasestorage.app",
+  messagingSenderId: "23332908996",
+  appId: "1:23332908996:web:7ac92b21d43c01b23a7e91",
+  measurementId: "G-JDRRPPV15D"
 };
