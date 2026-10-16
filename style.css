@@ -1886,6 +1886,27 @@ body {
   margin-bottom: 4px;
 }
 
+.podium-classement.seul {
+  display: flex;
+  justify-content: center;
+}
+
+.podium-classement.seul .carte-podium {
+  max-width: 320px;
+  width: 100%;
+}
+
+.podium-classement.duo {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.podium-classement.duo .carte-podium {
+  max-width: 280px;
+  width: 100%;
+}
+
 @media (max-width: 680px) {
   .podium-classement {
     grid-template-columns: 1fr;

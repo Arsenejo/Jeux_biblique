@@ -222,9 +222,16 @@
     }
   })();
 
+  const CLE_PSEUDO = 'defiJean.v2.pseudo';
+
   function chargerProgression() {
+    let pseudoSauvegarde = '';
+    try {
+      pseudoSauvegarde = localStorage.getItem(CLE_PSEUDO) || sessionStorage.getItem(CLE_PSEUDO) || '';
+    } catch (e) {}
+
     const parDefaut = {
-      pseudo: '',
+      pseudo: pseudoSauvegarde,
       sonActif: true,
       niveaux: {
         1: { debloque: true, scoreMax: 0, etoiles: 0, complete: false }
@@ -239,6 +246,9 @@
       const brut = stockage.getItem(CLE_STOCKAGE_V2);
       if (!brut) return parDefaut;
       const parsed = JSON.parse(brut);
+      if (!parsed.pseudo && pseudoSauvegarde) {
+        parsed.pseudo = pseudoSauvegarde;
+      }
       // Fusionner pour garantir l'intégrité de tous les 10 niveaux
       for (let lvl = 1; lvl <= 10; lvl++) {
         if (!parsed.niveaux || !parsed.niveaux[lvl]) {
@@ -255,6 +265,12 @@
   let progression = chargerProgression();
 
   function sauvegarderProgression() {
+    try {
+      if (progression && progression.pseudo) {
+        localStorage.setItem(CLE_PSEUDO, progression.pseudo);
+        sessionStorage.setItem(CLE_PSEUDO, progression.pseudo);
+      }
+    } catch (e) {}
     if (!stockage) return;
     try {
       stockage.setItem(CLE_STOCKAGE_V2, JSON.stringify(progression));
@@ -1384,14 +1400,29 @@
       if (progression.sonActif) jouerSon('bonne_reponse');
     });
 
-    // Saisie Pseudo
-    if (progression.pseudo) {
+    // Saisie Pseudo avec persistance immédiate et liaison Cloud
+    if (progression.pseudo && els.pseudo) {
       els.pseudo.value = progression.pseudo;
     }
+    let timerSyncPseudo = null;
     els.pseudo.addEventListener('input', () => {
       progression.pseudo = (els.pseudo.value || '').trim();
       sauvegarderProgression();
       els.erreurPseudo.classList.add('hidden');
+
+      // Dès que le joueur saisit son nom, reconnecter son profil Cloud s'il existe
+      clearTimeout(timerSyncPseudo);
+      timerSyncPseudo = setTimeout(async () => {
+        if (progression.pseudo.length >= 2 && window.Classement) {
+          if (typeof window.Classement.restaurerProgression === 'function') {
+            const restauree = await window.Classement.restaurerProgression(progression);
+            if (restauree) {
+              progression = restauree;
+              rendreGrilleNiveaux();
+            }
+          }
+        }
+      }, 500);
     });
 
     // Reprise & Abandon de Manche en cours
@@ -1473,15 +1504,29 @@
 
   /* ---------------- Initialisation Globale ---------------- */
 
-  function init() {
+  async function init() {
     initFondCeleste();
     els.iconeSon.textContent = progression.sonActif ? '🔊' : '🔇';
+    if (progression.pseudo && els.pseudo) {
+      els.pseudo.value = progression.pseudo;
+    }
     rendreGrilleNiveaux();
     initialiserEvenements();
 
-    // Synchronisation initiale du joueur avec le classement en ligne
-    if (window.Classement && typeof window.Classement.synchroniserScore === 'function') {
-      window.Classement.synchroniserScore(progression);
+    // Restauration automatique et transparente depuis Cloud Firestore
+    if (window.Classement && typeof window.Classement.restaurerProgression === 'function') {
+      try {
+        const restauree = await window.Classement.restaurerProgression(progression);
+        if (restauree) {
+          progression = restauree;
+          if (progression.pseudo && els.pseudo) {
+            els.pseudo.value = progression.pseudo;
+          }
+          rendreGrilleNiveaux();
+        }
+      } catch (e) {
+        console.warn("Restauration Cloud au démarrage :", e);
+      }
     }
   }
 
