@@ -6,6 +6,7 @@ Application web interactive de quiz biblique couvrant l'intégrale des écrits d
 - **Aléatoire & Équité** : Tirage aléatoire des questions dans le pool du niveau à chaque partie et permutation aléatoire des 4 options de réponse.
 - **Progression** : Système de déblocage (seuil de réussite : 6/10) avec attribution d'étoiles (1 à 3 ⭐) persistées dans `localStorage`.
 - **Reprise de partie en cours** : Si le joueur quitte la page, ferme son onglet ou son navigateur en plein milieu d'un niveau, sa manche est automatiquement sauvegardée dans `localStorage` (`defiJean.v2.mancheEnCours`). À son retour, un bandeau doré interactif lui propose de reprendre immédiatement là où il s'était arrêté (même niveau, même question, même score et mêmes choix).
+- **Classement Mondial en Ligne (Firebase Firestore)** : Synchronisation en direct des scores, étoiles et niveaux débloqués sur le cloud avec podium Top 3 (Or, Argent, Bronze), filtres dynamiques et position personnelle du disciple.
 - **Design & Motion** : Inspiré des principes `motion-web` (toile cosmique interactive, typographie Cinzel / Plus Jakarta Sans / JetBrains Mono, glassmorphism, chrono SVG animé, son Web Audio API natif, carte PNG de score haute résolution 1080x1350).
 - **Architecture** : 100 % statique, zéro dépendance d'exécution, aucun serveur requis.
 

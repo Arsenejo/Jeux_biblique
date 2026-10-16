@@ -33,6 +33,10 @@
         </div>
       </div>
       <div class="header-actions">
+        <button id="btn-ouvrir-classement" class="btn-classement-nav" type="button" aria-label="Voir le classement mondial" title="Consulter le classement des joueurs">
+          <span class="icone-trophee">🏆</span>
+          <span class="texte-btn-classement">Classement</span>
+        </button>
         <div class="badge-etoiles-global" title="Total d'étoiles remportées">
           <span>⭐</span>
           <strong id="etoiles-total-global">0</strong><span class="total-max">/30</span>
@@ -80,6 +84,20 @@
               <span class="stat-libelle">Bonnes réponses</span>
             </div>
           </div>
+        </div>
+
+        <!-- Bannière d'accès direct au Classement Mondial -->
+        <div class="acces-classement-hub-wrap">
+          <button id="btn-classement-hub" class="btn-acces-classement" type="button">
+            <div class="acces-classement-gauche">
+              <span class="icone-grand-trophee">🏆</span>
+              <div class="texte-acces-classement">
+                <strong>Classement Mondial des Disciples</strong>
+                <span>Consulter les meilleurs scores et niveaux atteints en ligne</span>
+              </div>
+            </div>
+            <span class="badge-voir-classement">Voir le palmarès →</span>
+          </button>
         </div>
 
         <!-- Encart de reprise de partie en cours -->
@@ -271,6 +289,9 @@
               🗺️ Choix des Niveaux
             </button>
           </div>
+          <button id="btn-voir-classement-fin" class="btn btn-classement-fin" type="button">
+            🏆 Consulter le Classement Mondial en Ligne
+          </button>
         </div>
 
         <!-- ============ EXPORT CARTE VISUELLE (CANVAS PNG) ============ -->
@@ -313,7 +334,92 @@
 
   </div>
 
+  <!-- =========================================================================
+       MODAL : CLASSEMENT MONDIAL DES JOUEURS (EN LIGNE)
+       ========================================================================= -->
+  <div id="modal-classement" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="titre-modal-classement">
+    <div class="modal-conteneur-classement">
+      <div class="modal-entete">
+        <div class="titre-modal-groupe">
+          <span class="embleme-modal">🏆</span>
+          <div>
+            <h2 id="titre-modal-classement" class="titre-modal">Classement Mondial des Joueurs</h2>
+            <p class="sous-titre-modal">Palmarès des disciples • 10 Niveaux • Défi Jean</p>
+          </div>
+        </div>
+        <button id="btn-fermer-classement" class="btn-fermer-modal" type="button" aria-label="Fermer le classement">✕</button>
+      </div>
+
+      <!-- Statut de synchronisation Cloud -->
+      <div class="barre-statut-cloud">
+        <span id="badge-statut-cloud" class="badge-cloud">Chargement du statut…</span>
+        <button id="btn-actualiser-classement" class="btn-actualiser-mini" type="button" title="Actualiser les scores">
+          🔄 Actualiser
+        </button>
+      </div>
+
+      <!-- Filtres de classement -->
+      <div class="filtres-classement" role="tablist">
+        <button class="btn-filtre-classement actif" data-filtre="tous" type="button">
+          ⭐ Top Étoiles & Scores
+        </button>
+        <button class="btn-filtre-classement" data-filtre="complets" type="button">
+          👑 10 Niveaux Débloqués
+        </button>
+        <button class="btn-filtre-classement" data-filtre="recents" type="button">
+          ⏱️ Parties Récentes
+        </button>
+      </div>
+
+      <div class="modal-corps-classement">
+        <!-- Podium Top 3 (Or, Argent, Bronze) -->
+        <div id="podium-classement" class="podium-classement">
+          <!-- Injecté dynamiquement par classement.js -->
+        </div>
+
+        <!-- Tableau du classement (Rangs 4 à 50) -->
+        <div class="table-classement-wrap">
+          <table class="table-classement">
+            <thead>
+              <tr>
+                <th class="col-rang">Rang</th>
+                <th class="col-joueur">Disciple</th>
+                <th class="col-niveau">Niveau Max</th>
+                <th class="col-etoiles">Étoiles</th>
+                <th class="col-score">Score Cumulé</th>
+              </tr>
+            </thead>
+            <tbody id="corps-table-classement">
+              <!-- Lignes injectées dynamiquement -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Cartouche « Ta Position Actuelle » -->
+        <div id="ma-position-classement" class="ma-position-classement hidden">
+          <!-- Injecté dynamiquement -->
+        </div>
+
+        <!-- Guide d'aide pour connecter Firebase -->
+        <details class="guide-firebase-accordéon">
+          <summary>⚙️ Guide d'activation : Comment connecter votre projet Firebase Firestore ?</summary>
+          <div class="guide-firebase-contenu">
+            <ol>
+              <li>Rendez-vous sur <strong><a href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebase Console</a></strong> (gratuit).</li>
+              <li>Créez un projet ou utilisez-en un existant, puis activez <strong>Firestore Database</strong>.</li>
+              <li>Dans l'onglet <em>Règles</em> de Firestore, collez le contenu du fichier <code>firestore.rules</code> présent dans ce projet.</li>
+              <li>Dans <em>Paramètres du projet > Vos applications > Web (&lt;/&gt;)</em>, copiez vos clés dans <code>firebase-config.js</code>.</li>
+              <li>Vos scores seront alors instantanément enregistrés et visibles en direct pour tous les joueurs en ligne !</li>
+            </ol>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
   <script src="questions.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="classement.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

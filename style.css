@@ -1487,6 +1487,584 @@ body {
 }
 
 /* ── Accessibilité & Réduction de mouvement ───────────────────────────────── */
+/* ── Classement Mondial & Modale en Ligne ────────────────────────────── */
+
+.btn-classement-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(245, 199, 98, 0.16) 0%, rgba(245, 199, 98, 0.05) 100%);
+  border: 1px solid var(--border-gold);
+  color: var(--gold-primary);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-classement-nav:hover {
+  background: linear-gradient(135deg, rgba(245, 199, 98, 0.28) 0%, rgba(245, 199, 98, 0.12) 100%);
+  border-color: var(--gold-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(245, 199, 98, 0.25);
+}
+
+@media (max-width: 600px) {
+  .btn-classement-nav .texte-btn-classement {
+    display: none;
+  }
+  .btn-classement-nav {
+    padding: 8px 12px;
+  }
+}
+
+/* Bannière d'accès au classement sur l'écran d'accueil */
+.acces-classement-hub-wrap {
+  margin-bottom: 24px;
+}
+
+.btn-acces-classement {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(245, 199, 98, 0.12) 0%, rgba(13, 20, 36, 0.85) 100%);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--rayon-lg);
+  padding: 16px 20px;
+  color: var(--ink-pure);
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-smooth);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.btn-acces-classement:hover {
+  border-color: var(--gold-primary);
+  background: linear-gradient(135deg, rgba(245, 199, 98, 0.2) 0%, rgba(19, 29, 53, 0.95) 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 20px rgba(245, 199, 98, 0.2);
+}
+
+.acces-classement-gauche {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.icone-grand-trophee {
+  font-size: 2rem;
+  filter: drop-shadow(0 2px 8px rgba(245, 199, 98, 0.5));
+}
+
+.texte-acces-classement strong {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  color: var(--gold-light);
+  margin-bottom: 2px;
+}
+
+.texte-acces-classement span {
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+}
+
+.badge-voir-classement {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gold-primary);
+  background: rgba(245, 199, 98, 0.15);
+  border: 1px solid var(--border-gold);
+  padding: 6px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .btn-acces-classement {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .badge-voir-classement {
+    align-self: flex-end;
+  }
+}
+
+.btn-classement-fin {
+  width: 100%;
+  margin-top: 10px;
+  background: rgba(245, 199, 98, 0.14);
+  border-color: var(--border-gold);
+  color: var(--gold-light);
+  font-weight: 700;
+}
+
+.btn-classement-fin:hover {
+  background: rgba(245, 199, 98, 0.25);
+  border-color: var(--gold-primary);
+  color: #ffffff;
+}
+
+/* Modale Classement */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 5, 10, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeInQuestion 0.3s ease-out;
+}
+
+.modal-conteneur-classement {
+  background: var(--bg-card);
+  border: 1.5px solid var(--gold-primary);
+  border-radius: var(--rayon-xl);
+  max-width: 860px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px var(--gold-glow);
+}
+
+.modal-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(245, 199, 98, 0.05);
+}
+
+.titre-modal-groupe {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.embleme-modal {
+  font-size: 2rem;
+}
+
+.titre-modal {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  color: var(--gold-light);
+  margin-bottom: 2px;
+}
+
+.sous-titre-modal {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+
+.btn-fermer-modal {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--ink-muted);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+}
+
+.btn-fermer-modal:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--error-ruby);
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+/* Barre de Statut Cloud */
+.barre-statut-cloud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.78rem;
+}
+
+.badge-cloud {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.badge-cloud.en-ligne {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.badge-cloud.mode-local {
+  background: rgba(245, 199, 98, 0.15);
+  border: 1px solid var(--border-gold);
+  color: var(--gold-light);
+}
+
+.btn-actualiser-mini {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--ink-muted);
+  padding: 4px 10px;
+  border-radius: var(--rayon-sm);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-actualiser-mini:hover {
+  border-color: var(--gold-primary);
+  color: var(--gold-primary);
+}
+
+/* Filtres Classement */
+.filtres-classement {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px;
+  background: rgba(13, 20, 36, 0.5);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+}
+
+.btn-filtre-classement {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--ink-muted);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition-smooth);
+}
+
+.btn-filtre-classement:hover {
+  border-color: var(--border-gold);
+  color: var(--ink-pure);
+}
+
+.btn-filtre-classement.actif {
+  background: rgba(245, 199, 98, 0.18);
+  border-color: var(--gold-primary);
+  color: var(--gold-light);
+  box-shadow: 0 0 12px rgba(245, 199, 98, 0.2);
+}
+
+/* Corps Modale & Scroll */
+.modal-corps-classement {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Podium Top 3 */
+.podium-classement {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 680px) {
+  .podium-classement {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+.carte-podium {
+  position: relative;
+  background: rgba(13, 20, 36, 0.85);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--rayon-lg);
+  padding: 20px 14px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition-smooth);
+}
+
+.carte-podium.or {
+  border-color: #ffd700;
+  box-shadow: 0 8px 24px rgba(255, 215, 0, 0.25);
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.15) 0%, rgba(13, 20, 36, 0.95) 100%);
+  transform: translateY(-8px);
+}
+
+.carte-podium.argent {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 20px rgba(203, 213, 225, 0.2);
+  background: linear-gradient(180deg, rgba(203, 213, 225, 0.12) 0%, rgba(13, 20, 36, 0.95) 100%);
+}
+
+.carte-podium.bronze {
+  border-color: #d97706;
+  box-shadow: 0 6px 20px rgba(217, 119, 6, 0.2);
+  background: linear-gradient(180deg, rgba(217, 119, 6, 0.12) 0%, rgba(13, 20, 36, 0.95) 100%);
+}
+
+.carte-podium.c-est-moi {
+  outline: 2px dashed var(--cyan-céleste);
+  outline-offset: 3px;
+}
+
+.podium-couronne {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.podium-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 2px solid var(--border-gold);
+  color: var(--gold-primary);
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.podium-rang {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.podium-nom {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink-pure);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.podium-etoiles {
+  font-size: 0.88rem;
+  color: var(--gold-light);
+}
+
+.podium-score {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.podium-niveau {
+  font-size: 0.75rem;
+  color: var(--cyan-céleste);
+  font-family: var(--font-mono);
+}
+
+/* Tableau Rangs 4 à 50 */
+.table-classement-wrap {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--rayon-md);
+  overflow-x: auto;
+  background: rgba(13, 20, 36, 0.4);
+}
+
+.table-classement {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.table-classement th {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.table-classement td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--ink-pure);
+}
+
+.table-classement tr:hover {
+  background: rgba(245, 199, 98, 0.05);
+}
+
+.table-classement tr.ligne-moi {
+  background: rgba(56, 189, 248, 0.12);
+  border-left: 3px solid var(--cyan-céleste);
+}
+
+.badge-rang {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.col-joueur {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar-mini {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(245, 199, 98, 0.15);
+  border: 1px solid var(--border-gold);
+  color: var(--gold-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nom-joueur-table {
+  font-weight: 600;
+}
+
+.tag-moi-mini {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  background: var(--cyan-céleste);
+  color: #030712;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.pilule-niveau {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--cyan-céleste);
+}
+
+.col-etoiles {
+  color: var(--gold-light);
+}
+
+.col-score {
+  font-family: var(--font-mono);
+}
+
+.chargement-classement,
+.classement-vide {
+  text-align: center;
+  padding: 32px 16px !important;
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* Cartouche « Ma Position » */
+.ma-position-classement {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.14) 0%, rgba(13, 20, 36, 0.95) 100%);
+  border: 1.5px solid var(--cyan-céleste);
+  border-radius: var(--rayon-md);
+  padding: 16px 20px;
+  box-shadow: 0 4px 20px rgba(56, 189, 248, 0.2);
+}
+
+.ma-position-titre {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: var(--cyan-céleste);
+  margin-bottom: 8px;
+}
+
+.ma-position-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.82rem;
+  color: var(--ink-pure);
+}
+
+/* Guide Firebase */
+.guide-firebase-accordéon {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--rayon-md);
+  font-size: 0.82rem;
+}
+
+.guide-firebase-accordéon summary {
+  padding: 14px 18px;
+  cursor: pointer;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.guide-firebase-accordéon summary:hover {
+  color: var(--gold-primary);
+}
+
+.guide-firebase-contenu {
+  padding: 0 20px 18px 36px;
+  color: var(--ink-subtle);
+  line-height: 1.6;
+}
+
+.guide-firebase-contenu a {
+  color: var(--cyan-céleste);
+  text-decoration: underline;
+}
+
+.guide-firebase-contenu code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  color: var(--gold-light);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -1497,3 +2075,4 @@ body {
     display: none;
   }
 }
+

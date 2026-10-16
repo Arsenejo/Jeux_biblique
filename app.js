@@ -1039,6 +1039,11 @@
     progression.niveaux[niveauEnCours] = etatActuel;
     sauvegarderProgression();
 
+    // Synchronisation automatique vers le classement en ligne (Firebase)
+    if (window.Classement && typeof window.Classement.synchroniserScore === 'function') {
+      window.Classement.synchroniserScore(progression, scoreManche, niveauEnCours);
+    }
+
     // Rendu de l'écran de fin
     els.bilanNomNiveau.textContent = `Niveau ${niveauEnCours} : ${metaNiveau.titre}`;
     els.scoreFinalChiffre.textContent = scoreManche;
@@ -1473,6 +1478,11 @@
     els.iconeSon.textContent = progression.sonActif ? '🔊' : '🔇';
     rendreGrilleNiveaux();
     initialiserEvenements();
+
+    // Synchronisation initiale du joueur avec le classement en ligne
+    if (window.Classement && typeof window.Classement.synchroniserScore === 'function') {
+      window.Classement.synchroniserScore(progression);
+    }
   }
 
   // Démarrage dès le chargement du DOM

@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Règles pour le classement mondial du Défi Jean
+    match /classement_defi_jean/{joueurId} {
+      // Tout le monde peut consulter le classement
+      allow read: if true;
+
+      // Tout joueur peut enregistrer ou mettre à jour son score
+      allow create, update: if request.resource.data.pseudo is string
+                            && request.resource.data.pseudo.size() >= 2
+                            && request.resource.data.pseudo.size() <= 25
+                            && request.resource.data.scoreTotal is number
+                            && request.resource.data.scoreTotal >= 0
+                            && request.resource.data.scoreTotal <= 100
+                            && request.resource.data.etoilesTotal is number
+                            && request.resource.data.etoilesTotal >= 0
+                            && request.resource.data.etoilesTotal <= 30
+                            && request.resource.data.niveauxDebloques is number
+                            && request.resource.data.niveauxDebloques >= 1
+                            && request.resource.data.niveauxDebloques <= 10;
+
+      // Interdiction de suppression pour préserver l'historique
+      allow delete: if false;
+    }
+  }
+}
