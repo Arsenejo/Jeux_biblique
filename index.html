@@ -350,9 +350,9 @@
         <button id="btn-fermer-classement" class="btn-fermer-modal" type="button" aria-label="Fermer le classement">✕</button>
       </div>
 
-      <!-- Statut de synchronisation Cloud -->
-      <div class="barre-statut-cloud">
-        <span id="badge-statut-cloud" class="badge-cloud">Chargement du statut…</span>
+      <!-- Statut du Palmarès -->
+      <div class="barre-statut-classement">
+        <span id="badge-statut-cloud" class="badge-classement">Chargement du palmarès…</span>
         <button id="btn-actualiser-classement" class="btn-actualiser-mini" type="button" title="Actualiser les scores">
           🔄 Actualiser
         </button>
@@ -372,6 +372,11 @@
       </div>
 
       <div class="modal-corps-classement">
+        <!-- Cartouche « Ta Position Actuelle » (Placé en tête pour une visibilité immédiate) -->
+        <div id="ma-position-classement" class="ma-position-classement hidden">
+          <!-- Injecté dynamiquement -->
+        </div>
+
         <!-- Podium Top 3 (Or, Argent, Bronze) -->
         <div id="podium-classement" class="podium-classement">
           <!-- Injecté dynamiquement par classement.js -->
@@ -394,25 +399,6 @@
             </tbody>
           </table>
         </div>
-
-        <!-- Cartouche « Ta Position Actuelle » -->
-        <div id="ma-position-classement" class="ma-position-classement hidden">
-          <!-- Injecté dynamiquement -->
-        </div>
-
-        <!-- Guide d'aide pour connecter Firebase -->
-        <details class="guide-firebase-accordéon">
-          <summary>⚙️ Guide d'activation : Comment connecter votre projet Firebase Firestore ?</summary>
-          <div class="guide-firebase-contenu">
-            <ol>
-              <li>Rendez-vous sur <strong><a href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebase Console</a></strong> (gratuit).</li>
-              <li>Créez un projet ou utilisez-en un existant, puis activez <strong>Firestore Database</strong>.</li>
-              <li>Dans l'onglet <em>Règles</em> de Firestore, collez le contenu du fichier <code>firestore.rules</code> présent dans ce projet.</li>
-              <li>Dans <em>Paramètres du projet > Vos applications > Web (&lt;/&gt;)</em>, copiez vos clés dans <code>firebase-config.js</code>.</li>
-              <li>Vos scores seront alors instantanément enregistrés et visibles en direct pour tous les joueurs en ligne !</li>
-            </ol>
-          </div>
-        </details>
       </div>
     </div>
   </div>

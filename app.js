@@ -1301,7 +1301,7 @@
 
     ctx.font = '700 24px "JetBrains Mono", monospace';
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText(`Validation Antifraude : ${donnees.empreinte}`, W / 2, 1185);
+    ctx.fillText(`Sceau d'Authenticité : ${donnees.empreinte}`, W / 2, 1185);
 
     // Convertir en Blob et Image Preview
     canvas.toBlob(function (blob) {

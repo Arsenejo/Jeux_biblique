@@ -238,23 +238,49 @@
     if (!tableCorps) return;
 
     // Indicateur de chargement
-    tableCorps.innerHTML = `<tr><td colspan="5" class="chargement-classement">Chargement du classement mondial…</td></tr>`;
+    tableCorps.innerHTML = `<tr><td colspan="5" class="chargement-classement">Chargement du palmarès des disciples…</td></tr>`;
 
     const joueurs = await recupererScores();
     const monId = obtenirIdJoueur();
 
-    // Mise à jour du badge de connexion
+    // Mise à jour du badge de connexion (sans termes techniques)
     if (statutBadge) {
       if (statutConnexion === 'online') {
-        statutBadge.className = 'badge-cloud en-ligne';
-        statutBadge.innerHTML = '🟢 Synchronisé en direct (Firebase Firestore)';
+        statutBadge.className = 'badge-classement en-ligne';
+        statutBadge.innerHTML = '🟢 En direct • Classement mondial des disciples';
       } else {
-        statutBadge.className = 'badge-cloud mode-local';
-        statutBadge.innerHTML = '🟡 Mode Local / Démo (Éditez firebase-config.js pour activer le cloud)';
+        statutBadge.className = 'badge-classement mode-local';
+        statutBadge.innerHTML = '🟡 Palmarès des disciples';
       }
     }
 
-    // 1. Rendu du Podium (Top 3)
+    // 1. Rendu du Cartouche « Ma position » (En tête pour visibilité immédiate)
+    if (cartoucheMoi) {
+      const monRangIndex = joueurs.findIndex(j => j.idJoueur === monId);
+      if (monRangIndex >= 0) {
+        const moi = joueurs[monRangIndex];
+        const surLePodium = monRangIndex < 3;
+        cartoucheMoi.classList.remove('hidden');
+        cartoucheMoi.innerHTML = `
+          <div class="ma-position-contenu">
+            <div class="ma-position-entete">
+              <span class="icone-cible">🎯</span>
+              <span class="ma-position-titre-texte">Ta Position Actuelle : <strong class="valeur-mon-rang">#${monRangIndex + 1}</strong> <span class="sur-total-disciples">sur ${joueurs.length} disciples ${surLePodium ? '• 🏆 Sur le Podium !' : ''}</span></span>
+            </div>
+            <div class="ma-position-stats">
+              <span class="stat-pilule-moi"><span class="pilule-icone">👤</span> Disciple : <strong>${echapper(moi.pseudo)}</strong></span>
+              <span class="stat-pilule-moi"><span class="pilule-icone">⭐</span> Étoiles : <strong>${moi.etoilesTotal || 0} / 30</strong></span>
+              <span class="stat-pilule-moi"><span class="pilule-icone">⚡</span> Score : <strong>${moi.scoreTotal || 0} / 100</strong></span>
+              <span class="stat-pilule-moi"><span class="pilule-icone">📜</span> Progression : <strong>Niveau ${moi.niveauxDebloques || 1} / 10</strong></span>
+            </div>
+          </div>
+        `;
+      } else {
+        cartoucheMoi.classList.add('hidden');
+      }
+    }
+
+    // 2. Rendu du Podium (Top 3)
     if (conteneurPodium) {
       conteneurPodium.innerHTML = '';
       const top3 = joueurs.slice(0, 3);
@@ -278,7 +304,7 @@
             <div class="podium-couronne">${item.couronne}</div>
             <div class="podium-avatar">${obtenirInitiale(j.pseudo)}</div>
             <div class="podium-rang">#${item.place}</div>
-            <h4 class="podium-nom">${echapper(j.pseudo)}${estMoi ? ' <span class="tag-moi">(Toi)</span>' : ''}</h4>
+            <h4 class="podium-nom" title="${echapper(j.pseudo)}">${echapper(j.pseudo)}${estMoi ? ' <span class="tag-moi">(Toi)</span>' : ''}</h4>
             <div class="podium-etoiles">⭐ <strong>${j.etoilesTotal || 0}</strong> / 30</div>
             <div class="podium-score">Score total : <strong>${j.scoreTotal || 0}</strong></div>
             <div class="podium-niveau">Niveau atteint : <strong>${j.niveauxDebloques || 1}/10</strong></div>
@@ -288,14 +314,15 @@
       }
     }
 
-    // 2. Rendu de la Table (Rangs 4 à 50)
+    // 3. Rendu de la Table (Rangs 4 à 50)
     tableCorps.innerHTML = '';
     const resteJoueurs = joueurs.slice(3);
 
-    if (resteJoueurs.length === 0 && joueurs.length <= 3) {
-      // Si moins de 4 joueurs au total
+    if (resteJoueurs.length === 0) {
       if (joueurs.length === 0) {
         tableCorps.innerHTML = `<tr><td colspan="5" class="classement-vide">Aucun score enregistré pour l'instant. Sois le premier disciple à inscrire ton nom !</td></tr>`;
+      } else {
+        tableCorps.innerHTML = `<tr><td colspan="5" class="classement-vide">✨ Les premiers disciples occupent actuellement le podium d'honneur ! Les rangs 4 et suivants s'afficheront ici au fil des nouvelles parties.</td></tr>`;
       }
     } else {
       resteJoueurs.forEach((j, idx) => {
@@ -318,31 +345,6 @@
         tableCorps.appendChild(tr);
       });
     }
-
-    // 3. Carte « Ma position »
-    if (cartoucheMoi) {
-      const monRangIndex = joueurs.findIndex(j => j.idJoueur === monId);
-      if (monRangIndex >= 0) {
-        const moi = joueurs[monRangIndex];
-        cartoucheMoi.classList.remove('hidden');
-        cartoucheMoi.innerHTML = `
-          <div class="ma-position-contenu">
-            <div class="ma-position-titre">
-              <span class="icone-cible">🎯</span>
-              <span>Ta Position Actuelle : <strong>#${monRangIndex + 1}</strong> sur ${joueurs.length} disciples</span>
-            </div>
-            <div class="ma-position-stats">
-              <span>Pseudo : <strong>${echapper(moi.pseudo)}</strong></span>
-              <span>Étoiles : <strong>⭐ ${moi.etoilesTotal || 0} / 30</strong></span>
-              <span>Score : <strong>${moi.scoreTotal || 0} / 100</strong></span>
-              <span>Progression : <strong>${moi.niveauxDebloques || 1} / 10 niveaux</strong></span>
-            </div>
-          </div>
-        `;
-      } else {
-        cartoucheMoi.classList.add('hidden');
-      }
-    }
   }
 
   /* ---------------- Gestion de l'Interface Utilisateur (Modal) ---------------- */
@@ -352,6 +354,8 @@
     if (!modal) return;
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    const corps = modal.querySelector('.modal-corps-classement');
+    if (corps) corps.scrollTop = 0;
     afficherClassementDansModal();
   }
 
