@@ -387,6 +387,98 @@ input[type="text"]:focus {
 #corrige .bonne { color: #86efac; }
 #corrige .mauvaise { color: #fca5a5; }
 
+/* ---------- Carte visuelle du score (Canvas) ---------- */
+
+.zone-carte-visuelle {
+  margin: 18px 0 16px;
+  padding: 16px 14px 18px;
+  background: linear-gradient(170deg, rgba(30, 58, 95, 0.3) 0%, rgba(20, 13, 8, 0.85) 100%);
+  border: 1px solid var(--or);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.carte-visuelle-en-tete {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.badge-carte {
+  display: inline-block;
+  padding: 3px 12px;
+  font-size: 0.82em;
+  font-weight: bold;
+  color: #1e293b;
+  background: var(--or-clair);
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.aide-carte {
+  margin: 6px 0 0;
+  font-size: 0.82em;
+  color: var(--creme-sombre);
+  font-style: italic;
+}
+
+.apercu-carte-conteneur {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0 16px;
+}
+
+.apercu-carte-img {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  border-radius: 10px;
+  border: 2px solid var(--or);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
+}
+
+.actions-carte {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.actions-carte .btn {
+  margin-top: 0;
+}
+
+.grille-actions-secondaires {
+  display: flex;
+  gap: 10px;
+}
+
+.grille-actions-secondaires .btn {
+  flex: 1;
+}
+
+.feedback-carte {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  font-size: 0.88em;
+  text-align: center;
+  color: #86efac;
+  background: rgba(21, 128, 61, 0.25);
+  border: 1px solid var(--vert-clair);
+  border-radius: 8px;
+}
+
+.bloc-partage-texte {
+  margin-top: 14px;
+}
+
+@media (max-width: 480px) {
+  .grille-actions-secondaires {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
 @media (max-width: 380px) {
   .carte { padding: 18px 14px; }
   h1 { font-size: 1.45em; }

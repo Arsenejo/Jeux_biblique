@@ -28,6 +28,7 @@ Thumbs.db
 
 # Tooling & Temporary Data
 .freebuff/
+.vercel/
 dist/
 build/
 .cache/

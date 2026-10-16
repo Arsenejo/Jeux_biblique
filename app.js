@@ -23,7 +23,7 @@
 
   /* ---------------- Configuration ---------------- */
 
-  const APP_VERSION = '1.1.0';
+  const APP_VERSION = '1.2.0';
   const NB_QUESTIONS = 10;          // questions par partie
   const TEMPS_PAR_QUESTION = 15;    // secondes par question officielle
   const INTERVALLE_CHRONO = 100;    // rafraîchissement du chrono (ms)
@@ -74,7 +74,14 @@
     corrige: $('corrige'),
     btnRejouer: $('btn-rejouer'),
     messageRejouer: $('message-rejouer'),
-    versionApp: $('version-app')
+    versionApp: $('version-app'),
+    zoneCarteVisuelle: $('zone-carte-visuelle'),
+    canvasCarteScore: $('canvas-carte-score'),
+    apercuCarteImg: $('apercu-carte-img'),
+    btnPartagerImage: $('btn-partager-image'),
+    btnTelechargerImage: $('btn-telecharger-image'),
+    btnCopierImage: $('btn-copier-image'),
+    feedbackCarte: $('feedback-carte')
   };
 
   /* ---------------- État de la partie ---------------- */
@@ -550,6 +557,16 @@
     els.empreinte.textContent = (mode === 'entrainement' ? 'ENTRAINEMENT-' : '') + code;
 
     afficherCorrige();
+    genererCarteVisuelle({
+      pseudo: pseudo,
+      score: score,
+      total: total,
+      mention: mention,
+      empreinte: els.empreinte.textContent,
+      sorties: sortiesEcran,
+      date: dateCle,
+      mode: mode
+    });
 
     let resultatEnregistre = true;
     if (mode === 'quotidien') {
@@ -669,6 +686,395 @@
     setTimeout(function () { bouton.textContent = bouton.dataset.origine; }, 1800);
   }
 
+  /* ---------------- Carte visuelle du score (Canvas) ---------------- */
+
+  let carteScoreBlob = null;
+  let carteScoreDataUrl = '';
+  let carteScoreNomFichier = '';
+
+  function tracerRectangleArrondi(ctx, x, y, w, h, r) {
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    const rayon = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rayon, y);
+    ctx.lineTo(x + w - rayon, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rayon);
+    ctx.lineTo(x + w, y + h - rayon);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rayon, y + h);
+    ctx.lineTo(x + rayon, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rayon);
+    ctx.lineTo(x, y + rayon);
+    ctx.quadraticCurveTo(x, y, x + rayon, y);
+    ctx.closePath();
+  }
+
+  function dessinerOrnementCoin(ctx, x, y, taille) {
+    ctx.save();
+    ctx.fillStyle = '#e8c86a';
+    ctx.beginPath();
+    ctx.moveTo(x, y - taille);
+    ctx.lineTo(x + taille * 0.35, y - taille * 0.35);
+    ctx.lineTo(x + taille, y);
+    ctx.lineTo(x + taille * 0.35, y + taille * 0.35);
+    ctx.lineTo(x, y + taille);
+    ctx.lineTo(x - taille * 0.35, y + taille * 0.35);
+    ctx.lineTo(x - taille, y);
+    ctx.lineTo(x - taille * 0.35, y - taille * 0.35);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function dessinerPilule(ctx, cx, cy, texte, w, h, bg, couleurTexte, taillePolice, bordureOr) {
+    ctx.save();
+    const x = cx - w / 2;
+    const y = cy - h / 2;
+    tracerRectangleArrondi(ctx, x, y, w, h, h / 2);
+    ctx.fillStyle = bg;
+    ctx.fill();
+    if (bordureOr) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#c9a961';
+      ctx.stroke();
+    }
+    ctx.font = '600 ' + taillePolice + 'px Georgia, serif';
+    ctx.fillStyle = couleurTexte;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(texte, cx, cy + 1, Math.max(1, w - 32));
+    ctx.restore();
+  }
+
+  function dessinerBoiteStat(ctx, x, y, w, h, label, valeur) {
+    ctx.save();
+    tracerRectangleArrondi(ctx, x, y, w, h, 14);
+    ctx.fillStyle = 'rgba(26, 17, 11, 0.85)';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(201, 169, 97, 0.45)';
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.font = '600 19px Georgia, serif';
+    ctx.fillStyle = '#c9a961';
+    ctx.fillText(label, x + w / 2, y + 36, w - 20);
+
+    ctx.font = 'bold 26px Georgia, serif';
+    ctx.fillStyle = '#f5e6c8';
+    ctx.fillText(valeur, x + w / 2, y + 76, w - 20);
+    ctx.restore();
+  }
+
+  function dessinerCartoucheEmpreinte(ctx, cx, cy, code) {
+    ctx.save();
+    const w = 780;
+    const h = 110;
+    const x = cx - w / 2;
+    const y = cy - h / 2;
+
+    tracerRectangleArrondi(ctx, x, y, w, h, 16);
+    ctx.fillStyle = 'rgba(16, 25, 38, 0.9)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#c9a961';
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 18px Georgia, serif';
+    ctx.fillStyle = '#c9a961';
+    ctx.fillText('EMPREINTE DU SCORE', cx, cy - 20);
+
+    ctx.font = 'bold 34px ui-monospace, "Courier New", monospace';
+    ctx.fillStyle = '#e8c86a';
+    ctx.shadowColor = 'rgba(232, 200, 106, 0.45)';
+    ctx.shadowBlur = 10;
+    ctx.fillText(code, cx, cy + 18);
+    ctx.shadowBlur = 0;
+
+    ctx.font = 'italic 16px Georgia, serif';
+    ctx.fillStyle = 'rgba(216, 195, 154, 0.75)';
+    ctx.fillText('Identifiant local · non vérifié par un serveur', cx, cy + 42);
+    ctx.restore();
+  }
+
+  function dessinerCarteScore(donnees) {
+    if (!els.canvasCarteScore) return;
+    const canvas = els.canvasCarteScore;
+    const ctx = canvas.getContext('2d');
+    const W = 1080;
+    const H = 1350;
+    canvas.width = W;
+    canvas.height = H;
+
+    // 1. Fond luxueux en dégradé
+    const fond = ctx.createLinearGradient(0, 0, W, H);
+    fond.addColorStop(0, '#0c1a2c');
+    fond.addColorStop(0.3, '#192f4c');
+    fond.addColorStop(0.65, '#22150f');
+    fond.addColorStop(1, '#110b08');
+    ctx.fillStyle = fond;
+    ctx.fillRect(0, 0, W, H);
+
+    // Halo radial chaud au centre
+    const halo = ctx.createRadialGradient(W / 2, 590, 50, W / 2, 590, 560);
+    halo.addColorStop(0, 'rgba(201, 169, 97, 0.16)');
+    halo.addColorStop(0.5, 'rgba(201, 169, 97, 0.04)');
+    halo.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, W, H);
+
+    // 2. Cadre orné double
+    const m1 = 36;
+    tracerRectangleArrondi(ctx, m1, m1, W - m1 * 2, H - m1 * 2, 28);
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#c9a961';
+    ctx.stroke();
+
+    const m2 = 48;
+    tracerRectangleArrondi(ctx, m2, m2, W - m2 * 2, H - m2 * 2, 20);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(232, 200, 106, 0.45)';
+    ctx.stroke();
+
+    // 4 coins avec ornement
+    dessinerOrnementCoin(ctx, m2, m2, 14);
+    dessinerOrnementCoin(ctx, W - m2, m2, 14);
+    dessinerOrnementCoin(ctx, m2, H - m2, 14);
+    dessinerOrnementCoin(ctx, W - m2, H - m2, 14);
+
+    // 3. En-tête
+    ctx.textAlign = 'center';
+
+    ctx.font = '600 22px Georgia, serif';
+    ctx.fillStyle = '#c9a961';
+    ctx.fillText(donnees.mode === 'entrainement'
+      ? '📖  ENTRAÎNEMENT BIBLIQUE  📖'
+      : '📖  DÉFI BIBLIQUE QUOTIDIEN  📖', W / 2, 115);
+
+    ctx.font = 'bold 64px Georgia, serif';
+    ctx.fillStyle = '#f5e6c8';
+    ctx.shadowColor = 'rgba(232, 200, 106, 0.4)';
+    ctx.shadowBlur = 18;
+    ctx.fillText('DÉFI JEAN', W / 2, 190);
+    ctx.shadowBlur = 0;
+
+    ctx.font = 'italic 26px Georgia, serif';
+    ctx.fillStyle = '#c9a961';
+    ctx.fillText('Version Louis Segond 1910', W / 2, 235);
+
+    // Date
+    const dateFormatee = dateLongue(dateDepuisCle(donnees.date || cleJour(new Date())));
+    dessinerPilule(ctx, W / 2, 288, '📅 ' + dateFormatee.toUpperCase(), 480, 44, 'rgba(201, 169, 97, 0.15)', '#e8c86a', 18, true);
+
+    // 4. Joueur / Pseudo
+    const pseudoAffiche = (donnees.pseudo || 'Participant').trim();
+    dessinerPilule(ctx, W / 2, 375, '👤  ' + pseudoAffiche, 540, 64, 'rgba(26, 17, 11, 0.9)', '#f5e6c8', 30, true);
+
+    // 5. Grand Cercle de Score Central
+    const centreX = W / 2;
+    const centreY = 585;
+    const rayon = 150;
+
+    const anneau = ctx.createLinearGradient(centreX - rayon, centreY - rayon, centreX + rayon, centreY + rayon);
+    anneau.addColorStop(0, '#fde68a');
+    anneau.addColorStop(0.5, '#c9a961');
+    anneau.addColorStop(1, '#8c6d32');
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centreX, centreY, rayon + 10, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(201, 169, 97, 0.08)';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(centreX, centreY, rayon, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(16, 25, 38, 0.96)';
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = anneau;
+    ctx.shadowColor = 'rgba(232, 200, 106, 0.5)';
+    ctx.shadowBlur = 24;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(centreX, centreY, rayon - 14, 0, Math.PI * 2);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(201, 169, 97, 0.45)';
+    ctx.stroke();
+
+    // Chiffres du score
+    ctx.font = 'bold 112px Georgia, serif';
+    ctx.fillStyle = '#e8c86a';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(donnees.score), centreX + 15, centreY + 28);
+
+    ctx.font = 'bold 50px Georgia, serif';
+    ctx.fillStyle = 'rgba(245, 230, 200, 0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText('/ ' + donnees.total, centreX + 25, centreY + 28);
+
+    // % réussite
+    ctx.textAlign = 'center';
+    const pourcent = donnees.total > 0 ? Math.round((donnees.score / donnees.total) * 100) : 0;
+    ctx.font = '600 23px Georgia, serif';
+    ctx.fillStyle = '#c9a961';
+    ctx.fillText(pourcent + '% DE RÉUSSITE', centreX, centreY + 95);
+
+    // Mention honorifique sous le cercle
+    ctx.font = 'bold 36px Georgia, serif';
+    ctx.fillStyle = donnees.score >= 8 ? '#86efac' : (donnees.score >= 5 ? '#fde68a' : '#f5e6c8');
+    ctx.fillText(donnees.mention || 'Résultat du défi', centreX, 798, W - 120);
+
+    // 6. Blocs de Statistiques
+    const yStats = 865;
+    const largeurStat = 280;
+    const ecartStat = 25;
+    const debutX = (W - (3 * largeurStat + 2 * ecartStat)) / 2;
+
+    dessinerBoiteStat(ctx, debutX, yStats, largeurStat, 100, '⏱️ CHRONO', donnees.mode === 'entrainement' ? 'Sans chrono' : '15 s / question');
+    const sortiesTexte = (donnees.sorties || 0) === 0 ? '0 sortie' : donnees.sorties + ' sortie' + (donnees.sorties > 1 ? 's' : '');
+    dessinerBoiteStat(ctx, debutX + largeurStat + ecartStat, yStats, largeurStat, 100, '👁️ SORTIES', sortiesTexte);
+    dessinerBoiteStat(ctx, debutX + 2 * (largeurStat + ecartStat), yStats, largeurStat, 100, '🎯 ÉPREUVE', donnees.mode === 'entrainement' ? 'Entraînement' : 'Officielle');
+
+    // 7. Cartouche Empreinte
+    dessinerCartoucheEmpreinte(ctx, W / 2, 1055, donnees.empreinte);
+
+    // 8. Pied de carte & appel
+    ctx.font = 'italic 25px Georgia, serif';
+    ctx.fillStyle = '#f5e6c8';
+    ctx.fillText(donnees.mode === 'entrainement'
+      ? 'Entraîne-toi avec les questions du Défi Jean.'
+      : 'Rejoins la compétition quotidienne dans le groupe WhatsApp !', W / 2, 1205, W - 120);
+
+    ctx.font = '20px Georgia, serif';
+    ctx.fillStyle = 'rgba(201, 169, 97, 0.75)';
+    ctx.fillText(donnees.mode === 'entrainement'
+      ? 'Défi Jean · Louis Segond 1910 · Entraînement'
+      : 'Défi Jean · Louis Segond 1910 · Édition quotidienne', W / 2, 1248, W - 120);
+  }
+
+  function genererCarteVisuelle(donnees) {
+    try {
+      dessinerCarteScore(donnees);
+      if (!els.canvasCarteScore) return;
+
+      const slugPseudo = (donnees.pseudo || 'joueur').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      carteScoreNomFichier = 'defi-jean-score-' + (slugPseudo || 'score') + '-' + (donnees.date || cleJour(new Date())) + '.png';
+
+      carteScoreDataUrl = els.canvasCarteScore.toDataURL('image/png');
+      if (els.apercuCarteImg) {
+        els.apercuCarteImg.src = carteScoreDataUrl;
+        els.apercuCarteImg.alt = 'Carte de score de ' + (donnees.pseudo || 'Participant') + ' : ' + donnees.score + ' sur ' + donnees.total + ', ' + (donnees.mode === 'entrainement' ? 'entraînement' : 'défi quotidien') + '.';
+        els.apercuCarteImg.classList.remove('hidden');
+      }
+
+      els.canvasCarteScore.toBlob(function (blob) {
+        carteScoreBlob = blob;
+      }, 'image/png');
+    } catch (e) {
+      if (els.apercuCarteImg) {
+        els.apercuCarteImg.removeAttribute('src');
+        els.apercuCarteImg.classList.add('hidden');
+      }
+      afficherFeedbackCarte('⚠️ La carte image n’a pas pu être générée. Tu peux toujours partager le score en texte.');
+    }
+  }
+
+  function afficherFeedbackCarte(message, duree) {
+    if (!els.feedbackCarte) return;
+    els.feedbackCarte.textContent = message;
+    els.feedbackCarte.classList.remove('hidden');
+    clearTimeout(els.feedbackCarte._timer);
+    els.feedbackCarte._timer = setTimeout(function () {
+      els.feedbackCarte.classList.add('hidden');
+    }, duree || 3200);
+  }
+
+  function telechargerImageScore() {
+    if (!carteScoreDataUrl && els.canvasCarteScore) {
+      carteScoreDataUrl = els.canvasCarteScore.toDataURL('image/png');
+    }
+    if (!carteScoreDataUrl) {
+      afficherFeedbackCarte('⚠️ Impossible de générer l’image pour le moment.');
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = carteScoreDataUrl;
+    a.download = carteScoreNomFichier || 'defi-jean-score.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    afficherFeedbackCarte('✅ Image téléchargée ! Tu peux l’envoyer dans WhatsApp ou Instagram.');
+  }
+
+  async function copierImageScore() {
+    if (!carteScoreBlob) {
+      if (els.canvasCarteScore) {
+        els.canvasCarteScore.toBlob(async function (blob) {
+          carteScoreBlob = blob;
+          await procederCopieImage();
+        }, 'image/png');
+        return;
+      }
+      afficherFeedbackCarte('⚠️ Image non disponible.');
+      return;
+    }
+    await procederCopieImage();
+  }
+
+  async function procederCopieImage() {
+    if (navigator.clipboard && window.ClipboardItem && carteScoreBlob) {
+      try {
+        const item = new ClipboardItem({ 'image/png': carteScoreBlob });
+        await navigator.clipboard.write([item]);
+        afficherFeedbackCarte('✅ Image copiée dans le presse-papier !');
+        return;
+      } catch (err) {
+        // Fallback téléchargement direct si la copie presse-papier est refusée
+      }
+    }
+    telechargerImageScore();
+  }
+
+  async function partagerImageScore() {
+    const titre = 'Mon score Défi Jean';
+    const texte = textePartage();
+
+    if (!carteScoreBlob && els.canvasCarteScore) {
+      els.canvasCarteScore.toBlob(async function (blob) {
+        carteScoreBlob = blob;
+        await procederPartageImage(titre, texte);
+      }, 'image/png');
+      return;
+    }
+    await procederPartageImage(titre, texte);
+  }
+
+  async function procederPartageImage(titre, texte) {
+    if (carteScoreBlob && navigator.canShare) {
+      try {
+        const fichier = new File([carteScoreBlob], carteScoreNomFichier || 'defi-jean-score.png', { type: 'image/png' });
+        if (navigator.canShare({ files: [fichier] })) {
+          await navigator.share({
+            files: [fichier],
+            title: titre,
+            text: texte
+          });
+          afficherFeedbackCarte('✅ Partage initié !');
+          return;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return; // Annulation volontaire
+      }
+    }
+    telechargerImageScore();
+  }
+
   /* ---------------- Accueil / verrou du jour ---------------- */
 
   function ajouterBouton(parent, texte, classe, action) {
@@ -705,7 +1111,17 @@
     els.messageRejouer.textContent = 'Partie du jour enregistrée : tu peux revoir le corrigé ci-dessous.';
     els.btnRejouer.classList.add('hidden');
     afficherCorrige();
-    $('bloc-corrige').open = true;
+    genererCarteVisuelle({
+      pseudo: pseudo,
+      score: score,
+      total: total,
+      mention: els.mention.textContent,
+      empreinte: els.empreinte.textContent,
+      sorties: sortiesEcran,
+      date: datePartie,
+      mode: mode
+    });
+    $('bloc-corrige').open = false;
     afficherEcran(els.fin);
     els.titreFin.focus();
   }
@@ -751,7 +1167,8 @@
     texte.textContent = 'Tu as déjà joué le défi d’aujourd’hui : ' + pseudoSauve + ' — ' + partie.score + '/' + partie.total + ' · empreinte ' + (partie.empreinte || 'indisponible');
     els.rappel.appendChild(texte);
 
-    ajouterBouton(els.rappel, '📤 Partager mon score du jour', 'btn-whatsapp', function () { partager(partie); });
+    ajouterBouton(els.rappel, '📸 Voir ma carte de score & partager', 'btn-principal', function () { afficherResultatEnregistre(partie); });
+    ajouterBouton(els.rappel, '📤 Partager en texte simple', 'btn-whatsapp', function () { partager(partie); });
     if (Array.isArray(partie.reponses) && partie.reponses.length) {
       ajouterBouton(els.rappel, '📚 Revoir mon corrigé', 'btn-secondaire', function () { afficherResultatEnregistre(partie); });
     }
@@ -834,6 +1251,15 @@
     els.btnCopier.addEventListener('click', function () { copier(els.btnCopier); });
     els.btnRejouer.addEventListener('click', function () { location.reload(); });
 
+    if (els.btnPartagerImage) {
+      els.btnPartagerImage.addEventListener('click', function () { partagerImageScore(); });
+    }
+    if (els.btnTelechargerImage) {
+      els.btnTelechargerImage.addEventListener('click', function () { telechargerImageScore(); });
+    }
+    if (els.btnCopierImage) {
+      els.btnCopierImage.addEventListener('click', function () { copierImageScore(); });
+    }
     if (stockage) {
       try {
         const ancien = stockage.getItem(BASE_STOCKAGE + '.pseudo');
