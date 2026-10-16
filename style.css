@@ -1,0 +1,402 @@
+/* Défi Jean – Louis Segond 1910
+   Thème « parchemin » : bleu profond + doré, typographie serif.
+   Mobile d'abord : le contenu se replie et défile sur les petits écrans. */
+
+:root {
+  --bleu: #1e3a5f;
+  --brun: #2c1810;
+  --or: #c9a961;
+  --or-clair: #e8c86a;
+  --creme: #f5e6c8;
+  --creme-sombre: #d8c39a;
+  --option: #3a2818;
+  --option-survol: #5a3f25;
+  --vert: #15803d;
+  --vert-clair: #22c55e;
+  --rouge: #991b1b;
+  --rouge-clair: #ef4444;
+  --ambre: #f59e0b;
+  --whatsapp: #25d366;
+  --rayon: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 14px;
+  padding: max(14px, env(safe-area-inset-top, 0px))
+    max(14px, env(safe-area-inset-right, 0px))
+    max(14px, env(safe-area-inset-bottom, 0px))
+    max(14px, env(safe-area-inset-left, 0px));
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.5;
+  color: var(--creme);
+  background: linear-gradient(160deg, var(--bleu) 0%, #3a2418 55%, var(--brun) 100%);
+  background-attachment: fixed;
+  -webkit-text-size-adjust: 100%;
+}
+
+.carte {
+  width: 100%;
+  min-width: 0;
+  max-width: 560px;
+  padding: 22px 20px 24px;
+  background: rgba(26, 17, 11, 0.94);
+  border: 2px solid var(--or);
+  border-radius: var(--rayon);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.6);
+  overflow-wrap: anywhere;
+}
+
+.hidden { display: none !important; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.7em;
+  text-align: center;
+  color: var(--or-clair);
+  letter-spacing: 0.5px;
+}
+
+h2 { margin: 0 0 10px; text-align: center; color: var(--or-clair); }
+
+.sous-titre {
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: 0.85em;
+  font-style: italic;
+  color: var(--or);
+}
+
+.accroche { margin: 0 0 18px; text-align: center; font-size: 0.95em; color: var(--creme-sombre); }
+
+.date-defi {
+  margin: -12px 0 16px;
+  text-align: center;
+  font-size: 0.85em;
+  color: var(--or);
+}
+
+.aide { font-size: 0.82em; font-style: italic; color: var(--or); }
+
+.pied { margin: 16px 0 0; text-align: center; font-size: 0.78em; color: var(--or); }
+
+/* ---------- Formulaires ---------- */
+
+label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 0.9em;
+  color: var(--or-clair);
+}
+
+input[type="text"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 13px 14px;
+  font-family: inherit;
+  font-size: 1.05em;
+  color: var(--creme);
+  background: var(--option);
+  border: 1px solid var(--or);
+  border-radius: 10px;
+}
+
+input[type="text"]:focus-visible,
+input[type="text"]:focus {
+  outline: 2px solid var(--or-clair);
+  outline-offset: 1px;
+}
+
+.erreur { margin: 8px 0 0; font-size: 0.88em; color: #fca5a5; }
+
+.notice-stockage {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid var(--ambre);
+  border-radius: 9px;
+  font-size: 0.88em;
+}
+
+.lien-entrainement { margin: 12px 0 0; text-align: center; font-size: 0.9em; }
+.lien-entrainement a { color: var(--or-clair); text-underline-offset: 3px; }
+.lien-entrainement a:focus-visible { outline: 2px solid var(--or-clair); outline-offset: 3px; }
+
+/* ---------- Boutons ---------- */
+
+.btn {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 1.02em;
+  font-weight: bold;
+  color: var(--creme);
+  background: var(--option);
+  border: 1px solid var(--or);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn:hover { background: var(--option-survol); }
+.btn:active { transform: scale(0.99); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-principal { background: var(--or); color: #1e293b; border-color: var(--or-clair); }
+.btn-principal:hover { background: var(--or-clair); }
+
+.btn-secondaire { font-weight: normal; font-size: 0.95em; }
+
+.btn-whatsapp { background: var(--whatsapp); color: #06281a; border-color: #1faa53; }
+.btn-whatsapp:hover { background: #1faa53; }
+
+.btn:focus-visible { outline: 2px solid var(--or-clair); outline-offset: 2px; }
+
+/* ---------- Blocs dépliables ---------- */
+
+.bloc {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: rgba(201, 169, 97, 0.08);
+  border: 1px solid rgba(201, 169, 97, 0.45);
+  border-radius: 10px;
+  font-size: 0.9em;
+}
+
+.bloc summary { cursor: pointer; color: var(--or-clair); font-weight: bold; }
+.bloc ul { margin: 10px 0 0; padding-left: 20px; }
+.bloc li { margin-bottom: 6px; }
+.bloc p { margin: 10px 0 0; }
+
+.encart {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  background: rgba(21, 128, 61, 0.16);
+  border: 1px solid var(--vert-clair);
+  border-radius: 10px;
+  font-size: 0.92em;
+}
+
+.encart strong { color: var(--or-clair); }
+
+/* ---------- Écran de jeu ---------- */
+
+.entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85em;
+  color: var(--creme-sombre);
+}
+
+.badge {
+  padding: 2px 9px;
+  font-size: 0.85em;
+  color: #1e293b;
+  background: var(--or);
+  border-radius: 20px;
+}
+
+.progress {
+  height: 6px;
+  margin: 10px 0 14px;
+  background: var(--option);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--or);
+  transition: width 0.3s ease;
+}
+
+.chrono { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+
+.chrono-cercle {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3em;
+  font-weight: bold;
+  color: #fff;
+  background: var(--vert);
+  border-radius: 50%;
+  transition: background 0.3s;
+}
+
+.chrono-barre {
+  flex: 1;
+  height: 12px;
+  background: var(--option);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Pas de transition sur la largeur : la barre est redessinée 10 fois par
+   seconde depuis le temps restant réel, et repart instantanément à 100 %
+   au chargement de la question suivante (aucune animation à l'envers). */
+.chrono-remplissage {
+  height: 100%;
+  width: 100%;
+  background: var(--vert);
+  border-radius: 6px;
+  transition: background 0.3s;
+}
+
+.chrono-cercle.orange, .chrono-remplissage.orange { background: var(--ambre); }
+.chrono-cercle.rouge, .chrono-remplissage.rouge { background: var(--rouge-clair); }
+
+.reference {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 3px 10px;
+  font-size: 0.8em;
+  font-weight: bold;
+  color: var(--bleu);
+  background: var(--or);
+  border-radius: 5px;
+}
+
+.verset {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  font-size: 0.95em;
+  font-style: italic;
+  line-height: 1.55;
+  background: rgba(201, 169, 97, 0.12);
+  border-left: 3px solid var(--or);
+  border-radius: 0 8px 8px 0;
+}
+
+.question {
+  margin: 0 0 14px;
+  color: var(--creme);
+  font-size: 1.08em;
+  text-align: left;
+}
+
+.question:focus { outline: none; }
+.question:focus-visible { outline: 2px solid var(--or-clair); outline-offset: 4px; border-radius: 2px; }
+
+.indicateur-libre {
+  margin: 0 0 12px;
+  color: var(--or-clair);
+  font-size: 0.9em;
+  text-align: center;
+}
+
+.option {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 8px 0;
+  padding: 13px 14px;
+  font-family: inherit;
+  font-size: 0.98em;
+  text-align: left;
+  color: var(--creme);
+  background: var(--option);
+  border: 1px solid var(--or);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.option:hover:not(:disabled) { background: var(--option-survol); }
+.option:disabled { cursor: not-allowed; }
+.option:focus-visible { outline: 2px solid var(--or-clair); outline-offset: 2px; }
+
+/* Une seule classe d'état à la fois : pas de conflit de priorité CSS. */
+.option.correcte { background: var(--vert); border-color: var(--vert-clair); color: #fff; }
+.option.fausse { background: var(--rouge); border-color: var(--rouge-clair); color: #fff; }
+.option.revelee { border-color: var(--ambre); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.5); }
+
+.bandeau-temps {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  font-size: 0.9em;
+  text-align: center;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid var(--ambre);
+  border-radius: 8px;
+}
+
+.barre-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 12px;
+  font-size: 0.9em;
+  border-top: 1px solid rgba(201, 169, 97, 0.5);
+}
+
+.sorties { font-size: 0.9em; color: var(--ambre); }
+
+/* ---------- Écran de fin ---------- */
+
+.score-final { margin: 0 0 6px; text-align: center; font-size: 1.15em; }
+.score-final strong { font-size: 1.5em; color: var(--or-clair); }
+
+.mention { margin: 0 0 12px; text-align: center; font-size: 1em; }
+
+.empreinte { margin: 0 0 6px; text-align: center; font-size: 0.82em; color: var(--creme-sombre); }
+.empreinte code {
+  padding: 2px 6px;
+  color: var(--or-clair);
+  background: rgba(201, 169, 97, 0.16);
+  border-radius: 4px;
+  font-family: ui-monospace, 'Courier New', monospace;
+}
+
+#corrige { margin: 10px 0 0; padding-left: 22px; font-size: 0.92em; }
+#corrige li { margin-bottom: 9px; }
+#corrige .bonne { color: #86efac; }
+#corrige .mauvaise { color: #fca5a5; }
+
+@media (max-width: 380px) {
+  .carte { padding: 18px 14px; }
+  h1 { font-size: 1.45em; }
+  .option { font-size: 0.93em; }
+}
+
+@media (min-width: 700px) {
+  .carte { padding: 28px 30px 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
