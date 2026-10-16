@@ -1,18 +1,21 @@
 # Directives du Projet — Défi Jean (Louis Segond 1910)
 
 ## Présentation
-Application web autonome de quiz biblique quotidien conçue pour des défis en groupe (notamment WhatsApp).
-- **Format** : 10 questions/jour, 15 secondes/question.
-- **Équité** : Tirage déterministe identique pour tous les joueurs le même jour (graine basée sur la date).
+Application web interactive de quiz biblique couvrant l'intégrale des écrits de l'apôtre Jean (Évangile, 1, 2, 3 Jean et Apocalypse).
+- **Format** : **10 Niveaux thématiques de progression**, **10 questions aléatoires par niveau**, **25 secondes par question**.
+- **Aléatoire & Équité** : Tirage aléatoire des questions dans le pool du niveau à chaque partie et permutation aléatoire des 4 options de réponse.
+- **Progression** : Système de déblocage (seuil de réussite : 6/10) avec attribution d'étoiles (1 à 3 ⭐) persistées dans `localStorage`.
+- **Design & Motion** : Inspiré des principes `motion-web` (toile cosmique interactive, typographie Cinzel / Plus Jakarta Sans / JetBrains Mono, glassmorphism, chrono SVG animé, son Web Audio API natif, carte PNG de score haute résolution 1080x1350).
 - **Architecture** : 100 % statique, zéro dépendance d'exécution, aucun serveur requis.
 
 ## Pile Technique
-- **Frontend** : HTML5 sémantique, CSS3 moderne (Variables CSS, Flexbox, Mobile-first, Dark/Parchemin), Vanilla JavaScript (ES6+ standard).
-- **Outils & Validation** : Node.js pour le script d'audit des questions (`verifier-questions.js`).
-- **Persistance** : `localStorage` navigateur (`defiJean.v1.*`).
+- **Frontend** : HTML5 sémantique, CSS3 moderne (Variables CSS, Glassmorphism, Responsive Mobile & Desktop, Micro-interactions), Vanilla JavaScript ES6+.
+- **Audio & Animations** : Web Audio API synthétisé (sons doux de carillon et fanfare sans dépendance externe), Canvas 2D interactif (particules célestes et confettis de victoire).
+- **Export** : Génération dynamique d'une carte image PNG de score via `<canvas>` avec empreinte de vérification antifraude FNV-1a.
+- **Validation** : Node.js pour le script d'audit automatique des questions (`verifier-questions.js`).
 
 ## Commandes Fréquentes
-- **Vérification de la banque de questions** :
+- **Vérification de la banque de questions (10 Niveaux)** :
   ```bash
   node verifier-questions.js
   ```
@@ -21,18 +24,14 @@ Application web autonome de quiz biblique quotidien conçue pour des défis en g
   python3 -m http.server 8137
   # Ouvrir http://127.0.0.1:8137/
   ```
-- **Mode entraînement (sans chrono ni verrou)** :
-  ```
-  http://127.0.0.1:8137/?entrainement=1
-  ```
 
 ## Règles & Conventions
 1. **Source biblique** : Texte rigoureusement conforme à la **Louis Segond 1910** (domaine public).
 2. **Règle d'or des questions** : La bonne réponse ne doit **jamais** apparaître dans le champ `verset` affiché (utiliser `…` ou `___`). La citation complète va dans `lecon`.
 3. **Structure des questions** (`questions.js`) :
+   - `level: 1..10` obligatoire.
    - Exactement 4 options distinctes par question.
    - `answer: 0` initialement dans la banque brute (mélangée dynamiquement au runtime).
-   - Thèmes supportés : `Évangile de Jean`, `1 Jean`, `2 et 3 Jean`, `Apocalypse`.
-4. **Qualité de code** :
+4. **Qualité de code & Sécurité** :
    - Échappement systématique des chaînes dynamiques (`echapper()`) pour prévenir toute injection XSS.
    - Respect de l'accessibilité (ARIA live regions, focus management, support `prefers-reduced-motion`).

@@ -1,125 +1,178 @@
-/* Défi Jean – logique du jeu
-   ---------------------------------------------------------------
-   Trois principes qui corrigent les défauts de la version d'origine :
-
-   1. TIRAGE QUOTIDIEN DÉTERMINISTE — la graine du pseudo-aléatoire est la
-      date du jour. Tout le monde reçoit donc les mêmes 10 questions le
-      même jour : les scores sont comparables, et le tirage change chaque
-      jour sans intervention. (?entrainement=1 pour un tirage libre.)
-
-   2. CHRONOMÈTRE À ÉCHÉANCE ABSOLUE — on mémorise l'heure limite
-      (Date.now() + 15 s) et on recalcule le temps restant à chaque tick.
-      Impossible de « mettre le chrono en pause » en quittant la page :
-      les navigateurs mobiles suspendent les minuteries en arrière-plan,
-      mais l'horloge, elle, continue.
-
-   3. REPRISE ET CORRIGÉ PERSISTANTS — la progression officielle est
-      sauvegardée au fil de la partie, puis le résultat et le corrigé restent
-      consultables dans le navigateur après rechargement.
---------------------------------------------------------------- */
+/* ══════════════════════════════════════════════════════════════════════════
+   DÉFI JEAN — LOGIQUE DU JEU (10 NIVEAUX • LOUIS SEGOND 1910)
+   - 10 Niveaux thématiques couvrant tout le corpus johannique
+   - 10 Questions aléatoires par niveau
+   - 25 Secondes par question (Chronomètre à échéance absolue)
+   - Progression persistée dans localStorage avec déblocage et étoiles
+   - Effets visuels & sonores inspirés de motion-web
+   ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
-  /* ---------------- Configuration ---------------- */
+  /* ---------------- Configuration & Constantes ---------------- */
 
-  const APP_VERSION = '1.2.0';
-  const NB_QUESTIONS = 10;          // questions par partie
-  const TEMPS_PAR_QUESTION = 15;    // secondes par question officielle
-  const INTERVALLE_CHRONO = 100;    // rafraîchissement du chrono (ms)
-  const SEL_EMPREINTE = 'defi-jean-lsg1910';
-  const BASE_STOCKAGE = 'defiJean.v1';
+  const NB_QUESTIONS_PAR_NIVEAU = 10;
+  const TEMPS_PAR_QUESTION = 25;       // 25 secondes par question
+  const SEUIL_DEBLOCAGE = 6;           // 6/10 pour valider et débloquer le niveau suivant
+  const CLE_STOCKAGE_V2 = 'defiJean.v2.progression';
+  const CIRCONFERENCE_CHRONO = 263.89; // 2 * PI * 42
 
   const $ = function (id) { return document.getElementById(id); };
 
   const els = {
-    accueil: $('ecran-accueil'),
-    quiz: $('ecran-quiz'),
-    fin: $('ecran-fin'),
-    nbBanque: $('nb-banque'),
-    tempoAccroche: $('tempo-accroche'),
-    tirageAccroche: $('tirage-accroche'),
-    aidePseudo: $('aide-pseudo'),
-    dateDefi: $('date-defi'),
-    rappel: $('rappel-partie'),
-    zonePseudo: $('zone-pseudo'),
-    avertissementStockage: $('avertissement-stockage'),
-    avertissementStockageQuiz: $('avertissement-stockage-jeu'),
-    lienEntrainement: $('lien-entrainement'),
+    // Canvas & Arrière-plan
+    bgCanvas: $('bg-canvas'),
+    canvasConfetti: $('canvas-confetti'),
+
+    // En-tête
+    etoilesTotalGlobal: $('etoiles-total-global'),
+    btnSon: $('btn-son'),
+    iconeSon: $('icone-son'),
+
+    // Écrans
+    ecranAccueil: $('ecran-accueil'),
+    ecranQuiz: $('ecran-quiz'),
+    ecranFin: $('ecran-fin'),
+
+    // Écran 1 : Hub
     pseudo: $('pseudo'),
     erreurPseudo: $('erreur-pseudo'),
-    btnJouer: $('btn-jouer'),
-    compteur: $('compteur'),
-    badgeTheme: $('badge-theme'),
-    progressBar: $('progressBar'),
-    chronoCercle: $('chronoCercle'),
-    chronoRemplissage: $('chronoRemplissage'),
-    zoneChrono: $('zone-chrono'),
-    indicateurLibre: $('indicateur-libre'),
-    annonceLecteur: $('annonce-lecteur'),
-    reference: $('reference'),
-    verset: $('verset'),
-    question: $('question'),
-    options: $('options'),
-    bandeauTemps: $('bandeau-temps'),
-    score: $('score'),
-    sorties: $('sorties'),
-    titreFin: $('titre-fin'),
-    finalScore: $('finalScore'),
-    finalTotal: $('finalTotal'),
-    mention: $('mention'),
-    empreinte: $('empreinte'),
-    btnPartager: $('btn-partager'),
-    btnCopier: $('btn-copier'),
-    corrige: $('corrige'),
-    btnRejouer: $('btn-rejouer'),
-    messageRejouer: $('message-rejouer'),
-    versionApp: $('version-app'),
-    zoneCarteVisuelle: $('zone-carte-visuelle'),
+    statNiveauxDebloques: $('stat-niveaux-debloques'),
+    statQuestionsReussies: $('stat-questions-reussies'),
+    grilleNiveaux: $('grille-niveaux'),
+    btnReinitialiser: $('btn-reinitialiser-progression'),
+
+    // Écran 2 : Quiz
+    btnQuitterQuiz: $('btn-quitter-quiz'),
+    quizBadgeIcone: $('quiz-badge-icone'),
+    quizTitreNiveau: $('quiz-titre-niveau'),
+    scoreEnCours: $('score-en-cours'),
+    quizTotalQuestions: $('quiz-total-questions'),
+    quizProgressBar: $('quiz-progress-bar'),
+    chronoAnneau: $('chrono-anneau'),
+    chronoSecondes: $('chrono-secondes'),
+    chronoCirculaireWrap: document.querySelector('.chrono-circulaire-wrap'),
+    compteurQuestionBadge: $('compteur-question-badge'),
+    referenceVerset: $('reference-verset'),
+    blocVerset: $('bloc-verset'),
+    texteVerset: $('texte-verset'),
+    enonceQuestion: $('enonce-question'),
+    grilleOptions: $('grille-options'),
+    alerteTemps: $('alerte-temps'),
+    zoneLecon: $('zone-lecon'),
+    texteLecon: $('texte-lecon'),
+    btnQuestionSuivante: $('btn-question-suivante'),
+
+    // Écran 3 : Fin
+    bilanIconeVictoire: $('bilan-icone-victoire'),
+    bilanStatutTag: $('bilan-statut-tag'),
+    bilanTitre: $('bilan-titre'),
+    bilanNomNiveau: $('bilan-nom-niveau'),
+    etoile1: $('etoile-1'),
+    etoile2: $('etoile-2'),
+    etoile3: $('etoile-3'),
+    scoreFinalChiffre: $('score-final-chiffre'),
+    mentionFelicitations: $('mention-felicitations'),
+    valeurEmpreinte: $('valeur-empreinte'),
+    btnNiveauSuivant: $('btn-niveau-suivant'),
+    btnRejouerNiveau: $('btn-rejouer-niveau'),
+    btnRetourHub: $('btn-retour-hub'),
     canvasCarteScore: $('canvas-carte-score'),
     apercuCarteImg: $('apercu-carte-img'),
-    btnPartagerImage: $('btn-partager-image'),
-    btnTelechargerImage: $('btn-telecharger-image'),
-    btnCopierImage: $('btn-copier-image'),
-    feedbackCarte: $('feedback-carte')
+    btnPartagerCarte: $('btn-partager-carte'),
+    btnTelechargerCarte: $('btn-telecharger-carte'),
+    btnCopierCarte: $('btn-copier-carte'),
+    feedbackCarte: $('feedback-carte'),
+    listeCorrige: $('liste-corrige')
   };
 
-  /* ---------------- État de la partie ---------------- */
+  /* ---------------- Synthétiseur Audio Web Audio API (Zéro dépendance) ---------------- */
 
-  let questions = [];
-  let index = 0;
-  let score = 0;
-  let reponses = [];
-  let dejaRepondu = false;
-  let echeance = 0;
-  let minuteur = null;
-  let sortiesEcran = 0;
-  let partieEnCours = false;
-  let mode = 'quotidien';          // 'quotidien' | 'entrainement'
-  let pseudo = '';
-  let datePartie = '';
-  let messageStockage = '';
+  const audioCtx = (function () {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      return AudioContext ? new AudioContext() : null;
+    } catch (e) {
+      return null;
+    }
+  })();
 
-  /* ---------------- Outils ---------------- */
+  function jouerSon(type) {
+    if (!progression.sonActif || !audioCtx) return;
+    try {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const t = audioCtx.currentTime;
 
-  // Générateur pseudo-aléatoire à graine (mulberry32) : même graine = même suite.
-  function mulberry32(graine) {
-    let a = graine >>> 0;
-    return function () {
-      a = (a + 0x6d2b79f5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+      if (type === 'bonne_reponse') {
+        // Carillon céleste ascendant (Do - Mi - Sol - Do aigu)
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t + i * 0.08);
+          gain.gain.setValueAtTime(0.14, t + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t + i * 0.08);
+          osc.stop(t + i * 0.08 + 0.35);
+        });
+      } else if (type === 'mauvaise_reponse') {
+        // Note grave feutrée avec résonance
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(220, t);
+        osc.frequency.exponentialRampToValueAtTime(140, t + 0.35);
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.35);
+      } else if (type === 'victoire') {
+        // Fanfare triomphante
+        const accord = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        accord.forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t + i * 0.1);
+          gain.gain.setValueAtTime(0.15, t + i * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.6);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t + i * 0.1);
+          osc.stop(t + i * 0.1 + 0.6);
+        });
+      } else if (type === 'alerte_chrono') {
+        // Battement subtil
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, t);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.1);
+      }
+    } catch (e) {
+      // Ignorer silencieusement si l'audio est restreint
+    }
   }
 
-  // Mélange de Fisher-Yates (contrairement à sort(() => Math.random() - 0.5),
-  // qui est biaisé) ; accepte n'importe quelle fonction aléatoire.
-  function melanger(tableau, aleatoire) {
+  /* ---------------- Fonctions Utilitaires ---------------- */
+
+  function melanger(tableau) {
     const copie = tableau.slice();
     for (let i = copie.length - 1; i > 0; i--) {
-      const j = Math.floor(aleatoire() * (i + 1));
+      const j = Math.floor(Math.random() * (i + 1));
       const tampon = copie[i];
       copie[i] = copie[j];
       copie[j] = tampon;
@@ -127,1148 +180,1059 @@
     return copie;
   }
 
-  function deuxChiffres(n) { return n < 10 ? '0' + n : String(n); }
-
-  // Clé locale du jour, ex. « 2026-10-16 » (heure de l'appareil).
-  function cleJour(d) {
-    return d.getFullYear() + '-' + deuxChiffres(d.getMonth() + 1) + '-' + deuxChiffres(d.getDate());
-  }
-
-  function dateDepuisCle(cle) {
-    const morceaux = String(cle || '').split('-').map(Number);
-    if (morceaux.length !== 3 || morceaux.some(function (n) { return !Number.isFinite(n); })) return new Date();
-    return new Date(morceaux[0], morceaux[1] - 1, morceaux[2], 12);
-  }
-
-  function graineJour(d) {
-    return Number('' + d.getFullYear() + deuxChiffres(d.getMonth() + 1) + deuxChiffres(d.getDate()));
-  }
-
-  // Date en toutes lettres, telle que le navigateur la donne en français :
-  // « vendredi 16 octobre 2026 ». On ne touche pas à la casse : le jour et le
-  // mois restent en minuscules au milieu d'une phrase (« Défi du vendredi… »).
-  function dateLongue(d) {
-    try {
-      return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    } catch (e) {
-      return cleJour(d);
-    }
-  }
-
   function echapper(texte) {
-    return String(texte).replace(/[&<>"']/g, function (c) {
+    return String(texte || '').replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
 
-  // Empreinte FNV-1a : sert de identifiant de partie, pas de preuve
-  // cryptographique (le code est public, donc reproductible).
   function empreinte(texte) {
     let h = 0x811c9dc5;
     for (let i = 0; i < texte.length; i++) {
       h ^= texte.charCodeAt(i);
       h = Math.imul(h, 0x01000193) >>> 0;
     }
-    return h.toString(36).toUpperCase().padStart(6, '0');
+    return 'DJ-' + h.toString(36).toUpperCase().padStart(6, '0');
   }
 
-  /* ---------------- Stockage local ---------------- */
+  function dateLongue(d) {
+    try {
+      return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) {
+      return d.toISOString().split('T')[0];
+    }
+  }
+
+  /* ---------------- Stockage & État Global ---------------- */
 
   const stockage = (function () {
     try {
-      const cle = '__defiJean_test__';
+      const cle = '__defiJean_v2_test__';
       window.localStorage.setItem(cle, '1');
       window.localStorage.removeItem(cle);
       return window.localStorage;
     } catch (e) {
-      return null;   // navigation privée : le jeu reste jouable, sans verrou
+      return null;
     }
   })();
 
-  function lireStockage(cle) {
-    if (!stockage) return null;
+  function chargerProgression() {
+    const parDefaut = {
+      pseudo: '',
+      sonActif: true,
+      niveaux: {
+        1: { debloque: true, scoreMax: 0, etoiles: 0, complete: false }
+      }
+    };
+    for (let lvl = 2; lvl <= 10; lvl++) {
+      parDefaut.niveaux[lvl] = { debloque: false, scoreMax: 0, etoiles: 0, complete: false };
+    }
+
+    if (!stockage) return parDefaut;
     try {
-      const brut = stockage.getItem(cle);
-      return brut ? JSON.parse(brut) : null;
-    } catch (e) { return null; }
+      const brut = stockage.getItem(CLE_STOCKAGE_V2);
+      if (!brut) return parDefaut;
+      const parsed = JSON.parse(brut);
+      // Fusionner pour garantir l'intégrité de tous les 10 niveaux
+      for (let lvl = 1; lvl <= 10; lvl++) {
+        if (!parsed.niveaux || !parsed.niveaux[lvl]) {
+          parsed.niveaux = parsed.niveaux || {};
+          parsed.niveaux[lvl] = { debloque: lvl === 1, scoreMax: 0, etoiles: 0, complete: false };
+        }
+      }
+      return parsed;
+    } catch (e) {
+      return parDefaut;
+    }
   }
 
-  function ecrireStockage(cle, valeur) {
-    if (!stockage) return false;
+  let progression = chargerProgression();
+
+  function sauvegarderProgression() {
+    if (!stockage) return;
     try {
-      stockage.setItem(cle, JSON.stringify(valeur));
-      messageStockage = '';
-      els.avertissementStockage.classList.add('hidden');
-      els.avertissementStockageQuiz.classList.add('hidden');
-      return true;
-    }
-    catch (e) {
-      signalerStockage('Le navigateur ne peut pas enregistrer la partie. Évite de fermer cette page avant la fin.');
-      return false;
+      stockage.setItem(CLE_STOCKAGE_V2, JSON.stringify(progression));
+    } catch (e) {
+      console.warn("Impossible d'enregistrer dans localStorage:", e);
     }
   }
 
-  function signalerStockage(message) {
-    messageStockage = message;
-    [els.avertissementStockage, els.avertissementStockageQuiz].forEach(function (element) {
-      if (!element) return;
-      element.textContent = message;
-      element.classList.remove('hidden');
-    });
-  }
+  /* ---------------- État de la Manche en cours ---------------- */
 
-  function clePartie(date) {
-    return BASE_STOCKAGE + '.partie.' + (date || cleJour(new Date()));
-  }
+  let niveauEnCours = 1;
+  let questionsManche = [];
+  let indexQuestion = 0;
+  let scoreManche = 0;
+  let reponsesJoueur = [];
+  let dejaRepondu = false;
+  let echeanceChrono = 0;
+  let timerInterval = null;
+  let derniereCarteBlob = null;
+  let alerteChronoJouee = false;
 
-  function enregistrerProgression(indexSauve, echeanceSauvee) {
-    if (mode !== 'quotidien' || !datePartie) return false;
-    return ecrireStockage(clePartie(datePartie), {
-      etat: 'en_cours',
-      pseudo: pseudo,
-      date: datePartie,
-      questions: questions,
-      index: typeof indexSauve === 'number' ? indexSauve : index + (dejaRepondu ? 1 : 0),
-      echeance: typeof echeanceSauvee === 'number' ? echeanceSauvee : echeance,
-      score: score,
-      reponses: reponses,
-      sorties: sortiesEcran
-    });
-  }
+  /* ---------------- Animation d'Arrière-Plan (Particules Célestes) ---------------- */
 
-  /* ---------------- Tirage des questions ---------------- */
+  function initFondCeleste() {
+    const canvas = els.bgCanvas;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-  // Tirage équilibré : chaque thème fournit un nombre de questions
-  // proportionnel à son poids dans la banque (méthode des plus grands restes).
-  // Résultat : jamais 10 questions d'Apocalypse d'affilée, jamais zéro épître.
-  function tirerQuestions(banque, nombre, aleatoire) {
-    const parTheme = {};
-    banque.forEach(function (q) {
-      if (!parTheme[q.theme]) parTheme[q.theme] = [];
-      parTheme[q.theme].push(q);
-    });
+    let width = 0;
+    let height = 0;
+    let particules = [];
+    let souris = { x: -1000, y: -1000, rayon: 140 };
 
-    const parts = Object.keys(parTheme).map(function (theme) {
-      const exact = (parTheme[theme].length / banque.length) * nombre;
-      return { theme: theme, base: Math.floor(exact), reste: exact - Math.floor(exact) };
-    });
-
-    let attribues = parts.reduce(function (somme, p) { return somme + p.base; }, 0);
-    parts.sort(function (a, b) { return b.reste - a.reste; });
-
-    let garde = 0;
-    while (attribues < nombre && garde < 1000) {
-      const p = parts[garde % parts.length];
-      if (p.base < parTheme[p.theme].length) { p.base++; attribues++; }
-      garde++;
+    function redimensionner() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      creerParticules();
     }
 
-    let selection = [];
-    parts.forEach(function (p) {
-      selection = selection.concat(melanger(parTheme[p.theme], aleatoire).slice(0, p.base));
+    function creerParticules() {
+      particules = [];
+      const nb = Math.min(width > 768 ? 65 : 35, 80);
+      for (let i = 0; i < nb; i++) {
+        particules.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.35,
+          taille: Math.random() * 2 + 0.8,
+          baseAlpha: Math.random() * 0.6 + 0.2,
+          phase: Math.random() * Math.PI * 2,
+          vitesseScintillement: 0.02 + Math.random() * 0.03
+        });
+      }
+    }
+
+    window.addEventListener('resize', redimensionner);
+    window.addEventListener('mousemove', (e) => {
+      souris.x = e.clientX;
+      souris.y = e.clientY;
+    });
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        souris.x = e.touches[0].clientX;
+        souris.y = e.touches[0].clientY;
+      }
     });
 
-    // Filet de sécurité si un thème était trop petit pour son quota.
-    if (selection.length < nombre) {
-      melanger(banque, aleatoire).forEach(function (q) {
-        if (selection.length < nombre && selection.indexOf(q) === -1) selection.push(q);
+    redimensionner();
+
+    let temps = 0;
+    function animer() {
+      temps++;
+      ctx.clearRect(0, 0, width, height);
+
+      // Fond avec dégradé radial subtil
+      const grad = ctx.createRadialGradient(width * 0.5, height * 0.2, 50, width * 0.5, height * 0.5, width * 0.8);
+      grad.addColorStop(0, '#0a1024');
+      grad.addColorStop(0.6, '#060913');
+      grad.addColorStop(1, '#03050a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      for (let i = 0; i < particules.length; i++) {
+        const p = particules[i];
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        p.phase += p.vitesseScintillement;
+        const scintillement = Math.sin(p.phase) * 0.3 + 0.7;
+        const alpha = p.baseAlpha * scintillement;
+
+        // Réactivité douce à la souris
+        const dx = souris.x - p.x;
+        const dy = souris.y - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < souris.rayon) {
+          const force = (souris.rayon - dist) / souris.rayon;
+          p.x -= (dx / dist) * force * 1.5;
+          p.y -= (dy / dist) * force * 1.5;
+        }
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.taille, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(245, 199, 98, ${alpha})`;
+        ctx.shadowColor = 'rgba(245, 199, 98, 0.4)';
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      requestAnimationFrame(animer);
+    }
+
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      requestAnimationFrame(animer);
+    }
+  }
+
+  /* ---------------- Confettis Célestes (Écran de Victoire) ---------------- */
+
+  function lancerConfettis() {
+    const canvas = els.canvasConfetti;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const confettis = [];
+    const couleurs = ['#f5c762', '#ffd700', '#ffffff', '#38bdf8', '#e2e8f0'];
+    for (let i = 0; i < 90; i++) {
+      confettis.push({
+        x: canvas.width * 0.5 + (Math.random() - 0.5) * 100,
+        y: canvas.height * 0.4,
+        vx: (Math.random() - 0.5) * 14,
+        vy: -Math.random() * 12 - 4,
+        rotation: Math.random() * 360,
+        vitesseRot: (Math.random() - 0.5) * 10,
+        taille: Math.random() * 8 + 4,
+        couleur: couleurs[Math.floor(Math.random() * couleurs.length)],
+        gravite: 0.32,
+        opacite: 1
       });
     }
 
-    return melanger(selection, aleatoire).slice(0, nombre);
+    let iterations = 0;
+    function animerConfettis() {
+      iterations++;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      let restant = 0;
+      for (let i = 0; i < confettis.length; i++) {
+        const c = confettis[i];
+        c.vy += c.gravite;
+        c.x += c.vx;
+        c.y += c.vy;
+        c.rotation += c.vitesseRot;
+        if (iterations > 60) {
+          c.opacite -= 0.015;
+        }
+
+        if (c.opacite > 0 && c.y < canvas.height + 20) {
+          restant++;
+          ctx.save();
+          ctx.translate(c.x, c.y);
+          ctx.rotate((c.rotation * Math.PI) / 180);
+          ctx.globalAlpha = Math.max(0, c.opacite);
+          ctx.fillStyle = c.couleur;
+          ctx.fillRect(-c.taille / 2, -c.taille / 2, c.taille, c.taille * 0.7);
+          ctx.restore();
+        }
+      }
+
+      if (restant > 0 && iterations < 180) {
+        requestAnimationFrame(animerConfettis);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    requestAnimationFrame(animerConfettis);
   }
 
-  // Mélange aussi les réponses, en retrouvant la bonne par sa VALEUR
-  // (et non par son index, qui devient faux après le mélange).
-  function preparerQuestions(brutes, aleatoire) {
-    return brutes.map(function (q) {
-      const bonneReponse = q.options[q.answer];
-      const options = melanger(q.options, aleatoire);
+  /* ---------------- Gestion de l'Affichage des Écrans ---------------- */
+
+  function basculerEcran(ecranCible) {
+    [els.ecranAccueil, els.ecranQuiz, els.ecranFin].forEach(ecran => {
+      if (ecran) ecran.classList.add('hidden');
+    });
+    if (ecranCible) {
+      ecranCible.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  /* ---------------- Rendu du Hub des 10 Niveaux ---------------- */
+
+  function actualiserStatsGlobales() {
+    let totalEtoiles = 0;
+    let niveauxDebloques = 0;
+    let questionsReussies = 0;
+
+    for (let lvl = 1; lvl <= 10; lvl++) {
+      const data = progression.niveaux[lvl];
+      if (data) {
+        if (data.debloque) niveauxDebloques++;
+        totalEtoiles += (data.etoiles || 0);
+        questionsReussies += (data.scoreMax || 0);
+      }
+    }
+
+    els.etoilesTotalGlobal.textContent = totalEtoiles;
+    els.statNiveauxDebloques.textContent = `${niveauxDebloques} / 10`;
+    els.statQuestionsReussies.textContent = questionsReussies;
+  }
+
+  function rendreGrilleNiveaux() {
+    if (!els.grilleNiveaux) return;
+    actualiserStatsGlobales();
+    els.grilleNiveaux.innerHTML = '';
+
+    // Trouver le niveau en cours le plus haut débloqué mais non complété
+    let idNiveauActuel = 1;
+    for (let lvl = 1; lvl <= 10; lvl++) {
+      if (progression.niveaux[lvl] && progression.niveaux[lvl].debloque) {
+        idNiveauActuel = lvl;
+      }
+    }
+
+    NIVEAUX_DEFI.forEach(niveau => {
+      const etat = progression.niveaux[niveau.id] || { debloque: niveau.id === 1, scoreMax: 0, etoiles: 0, complete: false };
+      const carte = document.createElement('div');
+      carte.className = 'carte-niveau';
+
+      if (etat.debloque) {
+        carte.classList.add('debloque');
+        if (etat.complete) {
+          carte.classList.add('complete');
+        } else if (niveau.id === idNiveauActuel) {
+          carte.classList.add('niveau-actuel');
+        }
+      } else {
+        carte.classList.add('verrouille');
+      }
+
+      // Construction du code des étoiles
+      const nbEtoiles = etat.etoiles || 0;
+      let htmlEtoiles = '';
+      for (let s = 1; s <= 3; s++) {
+        if (s <= nbEtoiles) {
+          htmlEtoiles += '<span class="etoile-obtenue">⭐</span>';
+        } else {
+          htmlEtoiles += '<span class="etoile-vide">★</span>';
+        }
+      }
+
+      carte.innerHTML = `
+        <div class="en-tete-carte-niveau">
+          <span class="badge-numero-niveau">NIVEAU ${niveau.id.toString().padStart(2, '0')}</span>
+          <span class="icone-statut-niveau">${etat.debloque ? (etat.complete ? '👑' : niveau.badge) : '🔒'}</span>
+        </div>
+        <div class="corps-carte-niveau">
+          <h3 class="titre-carte-niveau">${echapper(niveau.titre)}</h3>
+          <span class="livre-carte-niveau">${echapper(niveau.livre)}</span>
+          <p class="desc-carte-niveau">${echapper(niveau.description)}</p>
+        </div>
+        <div class="pied-carte-niveau">
+          <div class="etoiles-niveau" title="${nbEtoiles} étoile(s) remportée(s)">
+            ${htmlEtoiles}
+          </div>
+          <div class="score-max-niveau">
+            ${etat.scoreMax > 0 ? `Record : <strong>${etat.scoreMax}/10</strong>` : ''}
+          </div>
+          <button class="btn-lancer-niveau" type="button" ${!etat.debloque ? 'disabled' : ''}>
+            ${etat.debloque ? (etat.scoreMax > 0 ? 'Rejouer' : 'Jouer') : 'Verrouillé'}
+          </button>
+        </div>
+      `;
+
+      if (etat.debloque) {
+        carte.addEventListener('click', () => {
+          demarrerMancheNiveau(niveau.id);
+        });
+      }
+
+      els.grilleNiveaux.appendChild(carte);
+    });
+  }
+
+  /* ---------------- Démarrage d'une Manche de Quiz ---------------- */
+
+  function tirerQuestionsNiveau(idNiveau) {
+    const pool = BANQUE_QUESTIONS.filter(q => q.level === idNiveau);
+    if (!pool || pool.length === 0) {
+      console.error(`Aucune question trouvée pour le niveau ${idNiveau}`);
+      return [];
+    }
+
+    // Mélange aléatoire des questions de ce niveau
+    const poolMelange = melanger(pool);
+    // Prendre exactement 10 questions
+    const selection = poolMelange.slice(0, NB_QUESTIONS_PAR_NIVEAU);
+
+    // Mélanger aléatoirement les 4 options pour chaque question tirée
+    return selection.map(q => {
+      const texteBonneReponse = q.options[q.answer];
+      const optionsMelangees = melanger(q.options);
       return {
+        level: q.level,
         theme: q.theme,
         ref: q.ref,
-        verset: q.verset || '',
+        verset: q.verset,
         q: q.q,
-        lecon: q.lecon || '',
-        options: options,
-        answer: options.indexOf(bonneReponse)
+        lecon: q.lecon,
+        options: optionsMelangees,
+        answer: optionsMelangees.indexOf(texteBonneReponse)
       };
     });
   }
 
-  /* ---------------- Chronomètre ---------------- */
-
-  function lancerChrono(echeanceReprise) {
-    arreterChrono();
-    if (mode === 'entrainement') {
-      echeance = 0;
-      els.zoneChrono.classList.add('hidden');
-      els.indicateurLibre.classList.remove('hidden');
+  function demarrerMancheNiveau(idNiveau) {
+    const pseudoSaisi = (els.pseudo.value || '').trim();
+    if (!pseudoSaisi) {
+      els.erreurPseudo.classList.remove('hidden');
+      els.pseudo.focus();
       return;
     }
+    els.erreurPseudo.classList.add('hidden');
+    progression.pseudo = pseudoSaisi;
+    sauvegarderProgression();
 
-    els.zoneChrono.classList.remove('hidden');
-    els.indicateurLibre.classList.add('hidden');
-    echeance = echeanceReprise || Date.now() + TEMPS_PAR_QUESTION * 1000;
-    afficherChrono(echeance - Date.now());
-    if (echeance <= Date.now()) {
-      boucleChrono();
-      return;
-    }
-    minuteur = setInterval(boucleChrono, INTERVALLE_CHRONO);
-  }
+    niveauEnCours = idNiveau;
+    const metaNiveau = NIVEAUX_DEFI.find(n => n.id === idNiveau) || { titre: `Niveau ${idNiveau}`, badge: '📖' };
 
-  function arreterChrono() {
-    if (minuteur !== null) { clearInterval(minuteur); minuteur = null; }
-  }
-
-  function boucleChrono() {
-    if (!partieEnCours) return;
-    const restantMs = echeance - Date.now();
-    afficherChrono(restantMs);
-    if (restantMs <= 0 && !dejaRepondu) {
-      arreterChrono();
-      tempsEcoule();
-    }
-  }
-
-  function afficherChrono(restantMs) {
-    const duree = TEMPS_PAR_QUESTION * 1000;
-    const pourcent = Math.max(0, Math.min(100, (restantMs / duree) * 100));
-    els.chronoRemplissage.style.width = pourcent + '%';
-
-    const secondes = Math.max(0, Math.ceil(restantMs / 1000));
-    const texte = String(secondes);
-    if (els.chronoCercle.textContent !== texte) els.chronoCercle.textContent = texte;
-    els.zoneChrono.setAttribute('aria-label', 'Temps restant : ' + secondes + ' secondes');
-
-    let couleur = '';
-    if (secondes <= 3) couleur = 'rouge';
-    else if (secondes <= 6) couleur = 'orange';
-
-    els.chronoCercle.className = 'chrono-cercle' + (couleur ? ' ' + couleur : '');
-    els.chronoRemplissage.className = 'chrono-remplissage' + (couleur ? ' ' + couleur : '');
-  }
-
-  /* ---------------- Déroulement ---------------- */
-
-  function boutonsOptions() {
-    return Array.prototype.slice.call(els.options.querySelectorAll('.option'));
-  }
-
-  function majSorties() {
-    if (sortiesEcran > 0) {
-      els.sorties.textContent = 'ℹ️ Écran masqué ' + sortiesEcran + ' fois';
-      els.sorties.title = 'Les appels, notifications et changements d’application peuvent aussi être comptés.';
-    } else {
-      els.sorties.textContent = '';
-      els.sorties.removeAttribute('title');
-    }
-  }
-
-  function afficherEcran(ecran) {
-    [els.accueil, els.quiz, els.fin].forEach(function (e) {
-      e.classList.toggle('hidden', e !== ecran);
-    });
-  }
-
-  function demarrerPartie() {
-    const maintenant = new Date();
-    datePartie = cleJour(maintenant);
-    if (mode === 'quotidien' && !stockage) {
-      signalerStockage('Ce navigateur ne peut pas sauvegarder la tentative. Si tu fermes cette page, tu perdras ta progression.');
-    }
-    const aleatoire = mode === 'entrainement'
-      ? Math.random
-      : mulberry32(graineJour(maintenant));
-
-    questions = preparerQuestions(tirerQuestions(BANQUE_QUESTIONS, NB_QUESTIONS, aleatoire), aleatoire);
-    index = 0;
-    score = 0;
-    reponses = [];
-    sortiesEcran = 0;
+    // Initialisation de la manche
+    questionsManche = tirerQuestionsNiveau(idNiveau);
+    indexQuestion = 0;
+    scoreManche = 0;
+    reponsesJoueur = [];
     dejaRepondu = false;
-    partieEnCours = true;
 
-    els.score.textContent = '0';
-    els.finalTotal.textContent = questions.length;
-    els.titreFin.textContent = mode === 'entrainement' ? '🎉 Entraînement terminé !' : '🎉 Terminé !';
-    els.sorties.textContent = '';
-    els.progressBar.style.width = '0%';
+    // Mise à jour de l'en-tête du quiz
+    els.quizBadgeIcone.textContent = metaNiveau.badge;
+    els.quizTitreNiveau.textContent = `Niveau ${idNiveau} : ${metaNiveau.titre}`;
+    els.quizTotalQuestions.textContent = NB_QUESTIONS_PAR_NIVEAU;
+    els.scoreEnCours.textContent = '0';
 
-    afficherEcran(els.quiz);
+    basculerEcran(els.ecranQuiz);
     afficherQuestion();
   }
 
-  function reprendrePartie(partie) {
-    if (!partie || !Array.isArray(partie.questions) || !partie.questions.length) {
-      signalerStockage('La partie sauvegardée est illisible. Tu peux démarrer une nouvelle partie.');
-      return;
+  /* ---------------- Affichage d'une Question & Gestion du Chrono 25s ---------------- */
+
+  function stopperChrono() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
     }
-
-    mode = 'quotidien';
-    pseudo = partie.pseudo || '';
-    datePartie = partie.date || cleJour(new Date());
-    questions = partie.questions;
-    index = Math.max(0, Math.min(Number(partie.index) || 0, questions.length));
-    score = Number(partie.score) || 0;
-    reponses = Array.isArray(partie.reponses) ? partie.reponses : [];
-    sortiesEcran = Number(partie.sorties) || 0;
-    dejaRepondu = false;
-    partieEnCours = true;
-
-    els.score.textContent = score;
-    els.finalTotal.textContent = questions.length;
-    els.progressBar.style.width = (index / questions.length) * 100 + '%';
-    majSorties();
-    els.titreFin.textContent = '🎉 Terminé !';
-
-    if (index >= questions.length) {
-      terminerPartie();
-      return;
-    }
-
-    afficherEcran(els.quiz);
-    afficherQuestion(Number(partie.echeance) || 0);
   }
 
-  function afficherQuestion(echeanceReprise) {
-    dejaRepondu = false;
-    const q = questions[index];
+  function demarrerChrono() {
+    stopperChrono();
+    alerteChronoJouee = false;
+    echeanceChrono = Date.now() + TEMPS_PAR_QUESTION * 1000;
 
-    els.compteur.textContent = 'Question ' + (index + 1) + '/' + questions.length;
-    els.badgeTheme.textContent = q.theme;
-    els.progressBar.style.width = (index / questions.length) * 100 + '%';
-    els.reference.textContent = q.ref;
+    els.chronoCirculaireWrap.classList.remove('alerte');
+    mettreAJourChronoVisuel(TEMPS_PAR_QUESTION, 1);
+
+    timerInterval = setInterval(() => {
+      const restantMs = echeanceChrono - Date.now();
+      const restantSec = Math.max(0, Math.ceil(restantMs / 1000));
+      const ratio = Math.max(0, restantMs / (TEMPS_PAR_QUESTION * 1000));
+
+      mettreAJourChronoVisuel(restantSec, ratio);
+
+      if (restantSec <= 6) {
+        els.chronoCirculaireWrap.classList.add('alerte');
+        if (!alerteChronoJouee || restantSec <= 3) {
+          jouerSon('alerte_chrono');
+          alerteChronoJouee = true;
+        }
+      }
+
+      if (restantMs <= 0) {
+        stopperChrono();
+        tempsEcoule();
+      }
+    }, 100);
+  }
+
+  function mettreAJourChronoVisuel(secondes, ratio) {
+    els.chronoSecondes.textContent = secondes;
+    // Mise à jour du cercle SVG stroke-dashoffset
+    const offset = CIRCONFERENCE_CHRONO * (1 - ratio);
+    els.chronoAnneau.style.strokeDashoffset = offset;
+  }
+
+  function afficherQuestion() {
+    if (indexQuestion >= questionsManche.length) {
+      terminerManche();
+      return;
+    }
+
+    dejaRepondu = false;
+    stopperChrono();
+
+    const q = questionsManche[indexQuestion];
+
+    // Mise à jour de la barre de progression
+    const pourcentage = ((indexQuestion + 1) / NB_QUESTIONS_PAR_NIVEAU) * 100;
+    els.quizProgressBar.style.width = `${pourcentage}%`;
+
+    // Badges et énoncé
+    els.compteurQuestionBadge.textContent = `Question ${indexQuestion + 1} / ${NB_QUESTIONS_PAR_NIVEAU}`;
+    els.referenceVerset.textContent = q.ref || 'Jean';
 
     if (q.verset) {
-      // Le texte affiché est toujours tronqué ou troué : jamais la réponse.
-      const encadre = /^\(/.test(q.verset) ? q.verset : '« ' + q.verset + ' »';
-      els.verset.textContent = encadre;
-      els.verset.classList.remove('hidden');
+      els.texteVerset.textContent = q.verset;
+      els.blocVerset.classList.remove('hidden');
     } else {
-      els.verset.textContent = '';
-      els.verset.classList.add('hidden');
+      els.blocVerset.classList.add('hidden');
     }
 
-    els.question.textContent = q.q;
-    els.annonceLecteur.textContent = 'Question ' + (index + 1) + ' sur ' + questions.length + '.';
-    els.options.innerHTML = '';
+    els.enonceQuestion.textContent = q.q;
 
-    q.options.forEach(function (texte, i) {
-      const bouton = document.createElement('button');
-      bouton.type = 'button';
-      bouton.className = 'option';
-      bouton.textContent = String.fromCharCode(65 + i) + '. ' + texte;
-      bouton.addEventListener('click', function () { repondre(i, bouton); });
-      els.options.appendChild(bouton);
+    // Masquage des zones d'explication et alerte temps
+    els.alerteTemps.classList.add('hidden');
+    els.zoneLecon.classList.add('hidden');
+    els.btnQuestionSuivante.classList.add('hidden');
+
+    // Rendu des 4 options
+    els.grilleOptions.innerHTML = '';
+    const lettres = ['A', 'B', 'C', 'D'];
+
+    q.options.forEach((opt, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-option';
+      btn.type = 'button';
+      btn.innerHTML = `
+        <span class="lettre-option">${lettres[idx]}</span>
+        <span class="texte-option">${echapper(opt)}</span>
+      `;
+
+      btn.addEventListener('click', () => {
+        validerReponse(idx);
+      });
+
+      els.grilleOptions.appendChild(btn);
     });
 
-    els.bandeauTemps.classList.add('hidden');
-    els.question.focus();
-    lancerChrono(echeanceReprise);
-    if (!dejaRepondu) enregistrerProgression(index, echeance);
+    demarrerChrono();
   }
 
-  function repondre(choix, bouton) {
-    if (dejaRepondu || !partieEnCours) return;
+  function validerReponse(indexChoisi) {
+    if (dejaRepondu) return;
     dejaRepondu = true;
-    arreterChrono();
+    stopperChrono();
 
-    const q = questions[index];
-    const juste = choix === q.answer;
-    const boutons = boutonsOptions();
-    boutons.forEach(function (b) { b.disabled = true; });
+    const q = questionsManche[indexQuestion];
+    const estCorrect = (indexChoisi === q.answer);
+    const boutons = els.grilleOptions.querySelectorAll('.btn-option');
 
-    if (juste) {
-      score++;
-      els.score.textContent = score;
-      bouton.classList.add('correcte');
-    } else {
-      bouton.classList.add('fausse');
-      boutons[q.answer].classList.add('correcte');
-    }
-
-    reponses.push({
-      ref: q.ref, q: q.q, options: q.options, lecon: q.lecon,
-      choix: choix, bonne: q.answer, juste: juste
+    boutons.forEach((btn, idx) => {
+      btn.disabled = true;
+      if (idx === q.answer) {
+        btn.classList.add('correcte');
+      } else if (idx === indexChoisi) {
+        btn.classList.add('incorrecte');
+      }
     });
 
-    els.progressBar.style.width = ((index + 1) / questions.length) * 100 + '%';
-    const delai = juste ? 900 : 1400;
-    els.annonceLecteur.textContent = juste
-      ? 'Bonne réponse.'
-      : 'Réponse incorrecte. La bonne réponse est ' + q.options[q.answer] + '.';
-    echeance = Date.now() + delai + TEMPS_PAR_QUESTION * 1000;
-    enregistrerProgression();
-    setTimeout(questionSuivante, delai);
+    if (estCorrect) {
+      scoreManche++;
+      els.scoreEnCours.textContent = scoreManche;
+      jouerSon('bonne_reponse');
+    } else {
+      jouerSon('mauvaise_reponse');
+    }
+
+    reponsesJoueur.push({
+      question: q,
+      indexChoisi: indexChoisi,
+      estCorrect: estCorrect,
+      tempsEcoule: false
+    });
+
+    // Affichage de la leçon explicative
+    els.texteLecon.textContent = q.lecon;
+    els.zoneLecon.classList.remove('hidden');
+    els.btnQuestionSuivante.classList.remove('hidden');
+    els.btnQuestionSuivante.focus();
   }
 
   function tempsEcoule() {
+    if (dejaRepondu) return;
     dejaRepondu = true;
-    const q = questions[index];
-    const boutons = boutonsOptions();
-    boutons.forEach(function (b) { b.disabled = true; });
 
-    // La bonne réponse apparaît en vert, cerclée d'orange : deux rôles
-    // distincts, donc deux classes qui ne se contredisent pas.
-    boutons[q.answer].classList.add('correcte', 'revelee');
-    els.bandeauTemps.classList.remove('hidden');
+    const q = questionsManche[indexQuestion];
+    const boutons = els.grilleOptions.querySelectorAll('.btn-option');
 
-    reponses.push({
-      ref: q.ref, q: q.q, options: q.options, lecon: q.lecon,
-      choix: null, bonne: q.answer, juste: false
-    });
-
-    els.progressBar.style.width = ((index + 1) / questions.length) * 100 + '%';
-    els.annonceLecteur.textContent = 'Temps écoulé. La bonne réponse est ' + q.options[q.answer] + '.';
-    echeance = Date.now() + 1400 + TEMPS_PAR_QUESTION * 1000;
-    enregistrerProgression();
-    setTimeout(questionSuivante, 1400);
-  }
-
-  function questionSuivante() {
-    index++;
-    if (index >= questions.length) { terminerPartie(); return; }
-    afficherQuestion();
-  }
-
-  function terminerPartie() {
-    partieEnCours = false;
-    arreterChrono();
-    afficherEcran(els.fin);
-    els.titreFin.focus();
-
-    const total = questions.length;
-    const pourcent = total ? score / total : 0;
-
-    els.finalScore.textContent = score;
-    els.finalTotal.textContent = total;
-
-    let mention;
-    if (pourcent === 1) mention = '🏆 Sans faute sur ce défi !';
-    else if (pourcent >= 0.8) mention = '🌟 Excellent !';
-    else if (pourcent >= 0.5) mention = '👍 Bien joué, continue !';
-    else mention = '📖 Relis les références du corrigé et retente demain !';
-    els.mention.textContent = mention;
-
-    const dateCle = datePartie || cleJour(new Date());
-    const code = empreinte(SEL_EMPREINTE + '|' + pseudo + '|' + dateCle + '|' + score + '/' + total);
-    els.empreinte.textContent = (mode === 'entrainement' ? 'ENTRAINEMENT-' : '') + code;
-
-    afficherCorrige();
-    genererCarteVisuelle({
-      pseudo: pseudo,
-      score: score,
-      total: total,
-      mention: mention,
-      empreinte: els.empreinte.textContent,
-      sorties: sortiesEcran,
-      date: dateCle,
-      mode: mode
-    });
-
-    let resultatEnregistre = true;
-    if (mode === 'quotidien') {
-      resultatEnregistre = ecrireStockage(clePartie(dateCle), {
-        etat: 'terminee',
-        pseudo: pseudo,
-        score: score,
-        total: total,
-        empreinte: code,
-        sorties: sortiesEcran,
-        date: dateCle,
-        questions: questions,
-        reponses: reponses
-      });
-    }
-
-    const messages = [];
-    if (sortiesEcran > 0) {
-      messages.push('L’écran a été masqué ' + sortiesEcran + ' fois (notifications, appels ou changement d’application inclus).');
-    }
-    if (mode === 'quotidien') {
-      messages.push(resultatEnregistre
-        ? 'Partie du jour enregistrée : reviens demain pour un nouveau tirage.'
-        : 'Le résultat reste affiché, mais le navigateur n’a pas pu l’enregistrer.');
-      els.btnRejouer.classList.add('hidden');
-    } else {
-      messages.push('Partie d\'entraînement : elle ne compte pas dans la compétition.');
-      els.btnRejouer.classList.remove('hidden');
-    }
-    els.messageRejouer.textContent = messages.join(' ');
-
-    majRappelPartie();
-  }
-
-  function afficherCorrige() {
-    els.corrige.innerHTML = '';
-
-    reponses.forEach(function (r, i) {
-      const item = document.createElement('li');
-      let html = '<strong>' + (i + 1) + '. ' + echapper(r.ref) + '</strong> — ' + echapper(r.q) + '<br>';
-
-      if (r.choix === null) {
-        html += '<span class="mauvaise">⏱️ Temps écoulé — pas de réponse</span><br>';
-      } else if (r.juste) {
-        html += '<span class="bonne">✅ ' + echapper(r.options[r.choix]) + '</span><br>';
-      } else {
-        html += '<span class="mauvaise">❌ ' + echapper(r.options[r.choix]) + '</span><br>';
-        html += '<span class="bonne">✔️ ' + echapper(r.options[r.bonne]) + '</span><br>';
+    boutons.forEach((btn, idx) => {
+      btn.disabled = true;
+      if (idx === q.answer) {
+        btn.classList.add('correcte');
       }
+    });
 
-      if (r.lecon) html += '<em>' + echapper(r.lecon) + '</em>';
-      item.innerHTML = html;
-      els.corrige.appendChild(item);
+    els.alerteTemps.classList.remove('hidden');
+    jouerSon('mauvaise_reponse');
+
+    reponsesJoueur.push({
+      question: q,
+      indexChoisi: -1,
+      estCorrect: false,
+      tempsEcoule: true
+    });
+
+    els.texteLecon.textContent = q.lecon;
+    els.zoneLecon.classList.remove('hidden');
+    els.btnQuestionSuivante.classList.remove('hidden');
+    els.btnQuestionSuivante.focus();
+  }
+
+  /* ---------------- Fin de Manche & Calcul du Score ---------------- */
+
+  function calculerEtoiles(score) {
+    if (score === 10) return 3;
+    if (score >= 8) return 2;
+    if (score >= 6) return 1;
+    return 0;
+  }
+
+  function terminerManche() {
+    stopperChrono();
+
+    const metaNiveau = NIVEAUX_DEFI.find(n => n.id === niveauEnCours) || { titre: `Niveau ${niveauEnCours}` };
+    const reussi = scoreManche >= SEUIL_DEBLOCAGE;
+    const etoiles = calculerEtoiles(scoreManche);
+
+    // Mise à jour de la progression sauvegardée
+    const etatActuel = progression.niveaux[niveauEnCours] || { debloque: true, scoreMax: 0, etoiles: 0, complete: false };
+    etatActuel.scoreMax = Math.max(etatActuel.scoreMax, scoreManche);
+    etatActuel.etoiles = Math.max(etatActuel.etoiles, etoiles);
+    if (reussi) {
+      etatActuel.complete = true;
+      // Débloquer le niveau suivant s'il existe
+      if (niveauEnCours < 10) {
+        const niveauSuivant = progression.niveaux[niveauEnCours + 1];
+        if (niveauSuivant) {
+          niveauSuivant.debloque = true;
+        }
+      }
+    }
+    progression.niveaux[niveauEnCours] = etatActuel;
+    sauvegarderProgression();
+
+    // Rendu de l'écran de fin
+    els.bilanNomNiveau.textContent = `Niveau ${niveauEnCours} : ${metaNiveau.titre}`;
+    els.scoreFinalChiffre.textContent = scoreManche;
+
+    if (reussi) {
+      els.bilanIconeVictoire.textContent = scoreManche === 10 ? '👑' : '🏆';
+      els.bilanStatutTag.textContent = 'NIVEAU VALIDÉ AVEC SUCCÈS';
+      els.bilanTitre.textContent = scoreManche === 10 ? 'Triomphe Divin !' : 'Félicitations !';
+      jouerSon('victoire');
+      lancerConfettis();
+    } else {
+      els.bilanIconeVictoire.textContent = '📖';
+      els.bilanStatutTag.textContent = 'NIVEAU NON VALIDÉ (MINIMUM 6/10 REQUIS)';
+      els.bilanTitre.textContent = 'Persévérance dans la Parole';
+    }
+
+    // Mention
+    let mention = '';
+    if (scoreManche === 10) mention = '🏆 Sans faute parfait ! Gloire à Dieu !';
+    else if (scoreManche >= 8) mention = '🌟 Excellent résultat ! Grande connaissance de Jean !';
+    else if (scoreManche >= 6) mention = '👍 Bravo ! Niveau validé, le suivant est débloqué !';
+    else mention = `📖 ${scoreManche}/10 obtenu. Revois le corrigé et retente ta chance !`;
+    els.mentionFelicitations.textContent = mention;
+
+    // Révélation des étoiles
+    [els.etoile1, els.etoile2, els.etoile3].forEach((el, idx) => {
+      if (idx < etoiles) {
+        el.classList.remove('invalide');
+      } else {
+        el.classList.add('invalide');
+      }
+    });
+
+    // Empreinte antifraude
+    const codeEmpreinte = empreinte(`${progression.pseudo}|niv${niveauEnCours}|${scoreManche}/10|${Date.now()}`);
+    els.valeurEmpreinte.textContent = codeEmpreinte;
+
+    // Bouton Niveau Suivant
+    if (niveauEnCours < 10 && reussi) {
+      els.btnNiveauSuivant.classList.remove('hidden');
+      els.btnNiveauSuivant.textContent = `Passer au Niveau ${niveauEnCours + 1} 🚀`;
+    } else if (niveauEnCours === 10 && reussi) {
+      els.btnNiveauSuivant.classList.remove('hidden');
+      els.btnNiveauSuivant.textContent = `🏆 Défi Jean Entièrement Triomphé !`;
+    } else {
+      els.btnNiveauSuivant.classList.add('hidden');
+    }
+
+    // Corrigé détaillé
+    rendreCorrige();
+
+    // Génération de la carte visuelle PNG
+    genererCarteVisuelleScore({
+      pseudo: progression.pseudo,
+      niveau: niveauEnCours,
+      nomNiveau: metaNiveau.titre,
+      livre: metaNiveau.livre,
+      score: scoreManche,
+      etoiles: etoiles,
+      mention: mention,
+      empreinte: codeEmpreinte
+    });
+
+    basculerEcran(els.ecranFin);
+  }
+
+  function rendreCorrige() {
+    els.listeCorrige.innerHTML = '';
+    reponsesJoueur.forEach((rep, idx) => {
+      const li = document.createElement('li');
+      li.className = 'item-corrige';
+
+      const statut = rep.estCorrect
+        ? '✅ Correct'
+        : (rep.tempsEcoule ? '⏱️ Temps écoulé' : '❌ Erreur');
+
+      li.innerHTML = `
+        <div class="ligne-haut-corrige">
+          <strong>Question ${idx + 1} :</strong> ${echapper(rep.question.q)}
+          <span class="ref-corrige">(${echapper(rep.question.ref)})</span>
+        </div>
+        <div>
+          ${statut} • <strong>Bonne réponse :</strong> ${echapper(rep.question.options[rep.question.answer])}
+        </div>
+        <span class="lecon-corrige">« ${echapper(rep.question.lecon)} »</span>
+      `;
+
+      els.listeCorrige.appendChild(li);
     });
   }
 
-  /* ---------------- Partage ---------------- */
+  /* ---------------- Génération de la Carte Visuelle Canvas (PNG) ---------------- */
 
-  function urlDuJeu() {
-    return location.href.split('#')[0].split('?')[0];
-  }
-
-  function textePartage(donnees) {
-    const d = donnees || {
-      pseudo: pseudo,
-      score: score,
-      total: questions.length,
-      empreinte: els.empreinte.textContent,
-      sorties: sortiesEcran,
-      date: datePartie
-    };
-    const lignes = [
-      '📖 Défi Jean – Louis Segond 1910',
-      'Défi du ' + dateLongue(dateDepuisCle(d.date || datePartie || cleJour(new Date())))
-    ];
-    if (mode === 'entrainement') lignes.push('(partie d\'entraînement)');
-    lignes.push(d.pseudo + ' : ' + d.score + '/' + d.total + ' · empreinte ' + d.empreinte);
-    if (d.sorties > 0) lignes.push('ℹ️ Écran masqué ' + d.sorties + ' fois (notifications ou changement d’application inclus)');
-    lignes.push('À toi de jouer 👉 ' + urlDuJeu());
-    return lignes.join('\n');
-  }
-
-  function partager(donnees) {
-    const texte = textePartage(donnees);
-    const fenetre = window.open('https://wa.me/?text=' + encodeURIComponent(texte), '_blank');
-    if (fenetre) fenetre.opener = null;
-  }
-
-  function copier(bouton) {
-    const texte = textePartage();
-    const repli = function () {
-      const zone = document.createElement('textarea');
-      zone.value = texte;
-      zone.setAttribute('readonly', 'readonly');
-      zone.style.position = 'fixed';
-      zone.style.opacity = '0';
-      document.body.appendChild(zone);
-      zone.select();
-      let ok = false;
-      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-      document.body.removeChild(zone);
-      retourBouton(bouton, ok ? '✅ Copié !' : '⚠️ Copie impossible');
-    };
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(texte).then(function () {
-        retourBouton(bouton, '✅ Copié !');
-      }, repli);
-    } else {
-      repli();
-    }
-  }
-
-  function retourBouton(bouton, texte) {
-    if (!bouton.dataset.origine) bouton.dataset.origine = bouton.textContent;
-    bouton.textContent = texte;
-    setTimeout(function () { bouton.textContent = bouton.dataset.origine; }, 1800);
-  }
-
-  /* ---------------- Carte visuelle du score (Canvas) ---------------- */
-
-  let carteScoreBlob = null;
-  let carteScoreDataUrl = '';
-  let carteScoreNomFichier = '';
-
-  function tracerRectangleArrondi(ctx, x, y, w, h, r) {
-    if (typeof ctx.roundRect === 'function') {
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, h, r);
-      return;
-    }
-    const rayon = Math.min(r, w / 2, h / 2);
+  function dessinerCadreOr(ctx, x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(x + rayon, y);
-    ctx.lineTo(x + w - rayon, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + rayon);
-    ctx.lineTo(x + w, y + h - rayon);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - rayon, y + h);
-    ctx.lineTo(x + rayon, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - rayon);
-    ctx.lineTo(x, y + rayon);
-    ctx.quadraticCurveTo(x, y, x + rayon, y);
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
   }
 
-  function dessinerOrnementCoin(ctx, x, y, taille) {
-    ctx.save();
-    ctx.fillStyle = '#e8c86a';
-    ctx.beginPath();
-    ctx.moveTo(x, y - taille);
-    ctx.lineTo(x + taille * 0.35, y - taille * 0.35);
-    ctx.lineTo(x + taille, y);
-    ctx.lineTo(x + taille * 0.35, y + taille * 0.35);
-    ctx.lineTo(x, y + taille);
-    ctx.lineTo(x - taille * 0.35, y + taille * 0.35);
-    ctx.lineTo(x - taille, y);
-    ctx.lineTo(x - taille * 0.35, y - taille * 0.35);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function dessinerPilule(ctx, cx, cy, texte, w, h, bg, couleurTexte, taillePolice, bordureOr) {
-    ctx.save();
-    const x = cx - w / 2;
-    const y = cy - h / 2;
-    tracerRectangleArrondi(ctx, x, y, w, h, h / 2);
-    ctx.fillStyle = bg;
-    ctx.fill();
-    if (bordureOr) {
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#c9a961';
-      ctx.stroke();
-    }
-    ctx.font = '600 ' + taillePolice + 'px Georgia, serif';
-    ctx.fillStyle = couleurTexte;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(texte, cx, cy + 1, Math.max(1, w - 32));
-    ctx.restore();
-  }
-
-  function dessinerBoiteStat(ctx, x, y, w, h, label, valeur) {
-    ctx.save();
-    tracerRectangleArrondi(ctx, x, y, w, h, 14);
-    ctx.fillStyle = 'rgba(26, 17, 11, 0.85)';
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(201, 169, 97, 0.45)';
-    ctx.stroke();
-
-    ctx.textAlign = 'center';
-    ctx.font = '600 19px Georgia, serif';
-    ctx.fillStyle = '#c9a961';
-    ctx.fillText(label, x + w / 2, y + 36, w - 20);
-
-    ctx.font = 'bold 26px Georgia, serif';
-    ctx.fillStyle = '#f5e6c8';
-    ctx.fillText(valeur, x + w / 2, y + 76, w - 20);
-    ctx.restore();
-  }
-
-  function dessinerCartoucheEmpreinte(ctx, cx, cy, code) {
-    ctx.save();
-    const w = 780;
-    const h = 110;
-    const x = cx - w / 2;
-    const y = cy - h / 2;
-
-    tracerRectangleArrondi(ctx, x, y, w, h, 16);
-    ctx.fillStyle = 'rgba(16, 25, 38, 0.9)';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#c9a961';
-    ctx.stroke();
-
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 18px Georgia, serif';
-    ctx.fillStyle = '#c9a961';
-    ctx.fillText('EMPREINTE DU SCORE', cx, cy - 10);
-
-    ctx.font = 'bold 34px ui-monospace, "Courier New", monospace';
-    ctx.fillStyle = '#e8c86a';
-    ctx.shadowColor = 'rgba(232, 200, 106, 0.45)';
-    ctx.shadowBlur = 10;
-    ctx.fillText(code, cx, cy + 28);
-    ctx.shadowBlur = 0;
-    ctx.restore();
-  }
-
-  function dessinerCarteScore(donnees) {
-    if (!els.canvasCarteScore) return;
+  function genererCarteVisuelleScore(donnees) {
     const canvas = els.canvasCarteScore;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     const W = 1080;
     const H = 1350;
     canvas.width = W;
     canvas.height = H;
 
-    // 1. Fond luxueux en dégradé
-    const fond = ctx.createLinearGradient(0, 0, W, H);
-    fond.addColorStop(0, '#0c1a2c');
-    fond.addColorStop(0.3, '#192f4c');
-    fond.addColorStop(0.65, '#22150f');
-    fond.addColorStop(1, '#110b08');
-    ctx.fillStyle = fond;
+    // 1. Fond sombre cosmique avec dégradé
+    const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+    bgGrad.addColorStop(0, '#060a14');
+    bgGrad.addColorStop(0.5, '#0b1329');
+    bgGrad.addColorStop(1, '#05070d');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // Halo radial chaud au centre
-    const halo = ctx.createRadialGradient(W / 2, 590, 50, W / 2, 590, 560);
-    halo.addColorStop(0, 'rgba(201, 169, 97, 0.16)');
-    halo.addColorStop(0.5, 'rgba(201, 169, 97, 0.04)');
-    halo.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
-    ctx.fillStyle = halo;
-    ctx.fillRect(0, 0, W, H);
+    // Étoiles de fond sur la carte
+    ctx.fillStyle = 'rgba(245, 199, 98, 0.35)';
+    for (let i = 0; i < 70; i++) {
+      const rx = (i * 137.5) % W;
+      const ry = (i * 269.3) % H;
+      const r = (i % 3 === 0) ? 2.5 : 1.5;
+      ctx.beginPath();
+      ctx.arc(rx, ry, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-    // 2. Cadre orné double
-    const m1 = 36;
-    tracerRectangleArrondi(ctx, m1, m1, W - m1 * 2, H - m1 * 2, 28);
-    ctx.lineWidth = 3.5;
-    ctx.strokeStyle = '#c9a961';
+    // 2. Bordure double dorée avec ornements
+    ctx.strokeStyle = 'rgba(245, 199, 98, 0.45)';
+    ctx.lineWidth = 3;
+    dessinerCadreOr(ctx, 40, 40, W - 80, H - 80, 24);
     ctx.stroke();
 
-    const m2 = 48;
-    tracerRectangleArrondi(ctx, m2, m2, W - m2 * 2, H - m2 * 2, 20);
-    ctx.lineWidth = 1.2;
-    ctx.strokeStyle = 'rgba(232, 200, 106, 0.45)';
-    ctx.stroke();
-
-    // 4 coins avec ornement
-    dessinerOrnementCoin(ctx, m2, m2, 14);
-    dessinerOrnementCoin(ctx, W - m2, m2, 14);
-    dessinerOrnementCoin(ctx, m2, H - m2, 14);
-    dessinerOrnementCoin(ctx, W - m2, H - m2, 14);
-
-    // 3. En-tête
-    ctx.textAlign = 'center';
-
-    ctx.font = '600 22px Georgia, serif';
-    ctx.fillStyle = '#c9a961';
-    ctx.fillText(donnees.mode === 'entrainement'
-      ? '📖  ENTRAÎNEMENT BIBLIQUE  📖'
-      : '📖  DÉFI BIBLIQUE QUOTIDIEN  📖', W / 2, 115);
-
-    ctx.font = 'bold 64px Georgia, serif';
-    ctx.fillStyle = '#f5e6c8';
-    ctx.shadowColor = 'rgba(232, 200, 106, 0.4)';
-    ctx.shadowBlur = 18;
-    ctx.fillText('DÉFI JEAN', W / 2, 190);
-    ctx.shadowBlur = 0;
-
-    ctx.font = 'italic 26px Georgia, serif';
-    ctx.fillStyle = '#c9a961';
-    ctx.fillText('Version Louis Segond 1910', W / 2, 235);
-
-    // Date
-    const dateFormatee = dateLongue(dateDepuisCle(donnees.date || cleJour(new Date())));
-    dessinerPilule(ctx, W / 2, 288, '📅 ' + dateFormatee.toUpperCase(), 480, 44, 'rgba(201, 169, 97, 0.15)', '#e8c86a', 18, true);
-
-    // 4. Joueur / Pseudo
-    const pseudoAffiche = (donnees.pseudo || 'Participant').trim();
-    dessinerPilule(ctx, W / 2, 375, '👤  ' + pseudoAffiche, 540, 64, 'rgba(26, 17, 11, 0.9)', '#f5e6c8', 30, true);
-
-    // 5. Grand Cercle de Score Central
-    const centreX = W / 2;
-    const centreY = 585;
-    const rayon = 150;
-
-    const anneau = ctx.createLinearGradient(centreX - rayon, centreY - rayon, centreX + rayon, centreY + rayon);
-    anneau.addColorStop(0, '#fde68a');
-    anneau.addColorStop(0.5, '#c9a961');
-    anneau.addColorStop(1, '#8c6d32');
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(centreX, centreY, rayon + 10, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(201, 169, 97, 0.08)';
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(centreX, centreY, rayon, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(16, 25, 38, 0.96)';
-    ctx.fill();
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = anneau;
-    ctx.shadowColor = 'rgba(232, 200, 106, 0.5)';
-    ctx.shadowBlur = 24;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.beginPath();
-    ctx.arc(centreX, centreY, rayon - 14, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(245, 199, 98, 0.85)';
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(201, 169, 97, 0.45)';
+    dessinerCadreOr(ctx, 52, 52, W - 104, H - 104, 18);
     ctx.stroke();
 
-    // Chiffres du score
-    ctx.font = 'bold 112px Georgia, serif';
-    ctx.fillStyle = '#e8c86a';
-    ctx.textAlign = 'right';
-    ctx.fillText(String(donnees.score), centreX + 15, centreY + 28);
-
-    ctx.font = 'bold 50px Georgia, serif';
-    ctx.fillStyle = 'rgba(245, 230, 200, 0.85)';
-    ctx.textAlign = 'left';
-    ctx.fillText('/ ' + donnees.total, centreX + 25, centreY + 28);
-
-    // % réussite
+    // 3. En-tête de la carte
     ctx.textAlign = 'center';
-    const pourcent = donnees.total > 0 ? Math.round((donnees.score / donnees.total) * 100) : 0;
-    ctx.font = '600 23px Georgia, serif';
-    ctx.fillStyle = '#c9a961';
-    ctx.fillText(pourcent + '% DE RÉUSSITE', centreX, centreY + 95);
 
-    // Mention honorifique sous le cercle
-    ctx.font = 'bold 36px Georgia, serif';
-    ctx.fillStyle = donnees.score >= 8 ? '#86efac' : (donnees.score >= 5 ? '#fde68a' : '#f5e6c8');
-    ctx.fillText(donnees.mention || 'Résultat du défi', centreX, 798, W - 120);
+    // Pilule Défi Jean
+    ctx.font = '700 24px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#f5c762';
+    ctx.fillText('📖 CONCOURS BIBLIQUE • DÉFI JEAN', W / 2, 120);
 
-    // 6. Blocs de Statistiques
-    const yStats = 865;
-    const largeurStat = 280;
-    const ecartStat = 25;
-    const debutX = (W - (3 * largeurStat + 2 * ecartStat)) / 2;
+    ctx.font = '800 64px "Cinzel", Georgia, serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('CARTE DE SCORE', W / 2, 200);
 
-    dessinerBoiteStat(ctx, debutX, yStats, largeurStat, 100, '⏱️ CHRONO', donnees.mode === 'entrainement' ? 'Sans chrono' : '15 s / question');
-    const sortiesTexte = (donnees.sorties || 0) === 0 ? '0 sortie' : donnees.sorties + ' sortie' + (donnees.sorties > 1 ? 's' : '');
-    dessinerBoiteStat(ctx, debutX + largeurStat + ecartStat, yStats, largeurStat, 100, '👁️ SORTIES', sortiesTexte);
-    dessinerBoiteStat(ctx, debutX + 2 * (largeurStat + ecartStat), yStats, largeurStat, 100, '🎯 ÉPREUVE', donnees.mode === 'entrainement' ? 'Entraînement' : 'Officielle');
+    // Sous-titre
+    ctx.font = '400 28px "Plus Jakarta Sans", sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Version Louis Segond 1910', W / 2, 246);
 
-    // 7. Cartouche Empreinte
-    dessinerCartoucheEmpreinte(ctx, W / 2, 1055, donnees.empreinte);
+    // Ligne dorée
+    const gradLigne = ctx.createLinearGradient(160, 280, W - 160, 280);
+    gradLigne.addColorStop(0, 'transparent');
+    gradLigne.addColorStop(0.5, '#f5c762');
+    gradLigne.addColorStop(1, 'transparent');
+    ctx.strokeStyle = gradLigne;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(160, 280);
+    ctx.lineTo(W - 160, 280);
+    ctx.stroke();
 
-    // 8. Pied de carte & appel
-    ctx.font = 'italic 25px Georgia, serif';
-    ctx.fillStyle = '#f5e6c8';
-    ctx.fillText(donnees.mode === 'entrainement'
-      ? 'Entraîne-toi avec les questions du Défi Jean.'
-      : 'Rejoins la compétition quotidienne dans le groupe WhatsApp !', W / 2, 1205, W - 120);
+    // 4. Cartouche Joueur & Niveau
+    ctx.fillStyle = 'rgba(13, 20, 36, 0.85)';
+    dessinerCadreOr(ctx, 120, 320, W - 240, 150, 16);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(245, 199, 98, 0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-    ctx.font = '20px Georgia, serif';
-    ctx.fillStyle = 'rgba(201, 169, 97, 0.75)';
-    ctx.fillText(donnees.mode === 'entrainement'
-      ? 'Défi Jean · Louis Segond 1910 · Entraînement'
-      : 'Défi Jean · Louis Segond 1910 · Édition quotidienne', W / 2, 1248, W - 120);
+    ctx.font = '700 22px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText(`NIVEAU ${donnees.niveau.toString().padStart(2, '0')} • ${donnees.livre.toUpperCase()}`, W / 2, 365);
+
+    ctx.font = '800 40px "Cinzel", Georgia, serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(donnees.nomNiveau, W / 2, 420);
+
+    // 5. Cercle Central du Score
+    const cx = W / 2;
+    const cy = 680;
+    const rayonCercle = 170;
+
+    // Lueur circulaire
+    const lueurCercle = ctx.createRadialGradient(cx, cy, 50, cx, cy, rayonCercle + 40);
+    lueurCercle.addColorStop(0, 'rgba(245, 199, 98, 0.25)');
+    lueurCercle.addColorStop(1, 'transparent');
+    ctx.fillStyle = lueurCercle;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rayonCercle + 40, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Disque intérieur
+    ctx.fillStyle = '#0a1020';
+    ctx.beginPath();
+    ctx.arc(cx, cy, rayonCercle, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Anneau d'or
+    ctx.strokeStyle = '#f5c762';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    // Score Chiffres
+    ctx.font = '800 120px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#fef0cd';
+    ctx.fillText(`${donnees.score}`, cx, cy + 25);
+
+    ctx.font = '700 32px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('/ 10', cx, cy + 85);
+
+    // Étoiles sous le cercle
+    let strEtoiles = '';
+    for (let s = 0; s < donnees.etoiles; s++) strEtoiles += '⭐ ';
+    if (strEtoiles) {
+      ctx.font = '50px sans-serif';
+      ctx.fillText(strEtoiles.trim(), cx, 915);
+    }
+
+    // Mention
+    ctx.font = '700 32px "Plus Jakarta Sans", sans-serif';
+    ctx.fillStyle = '#f5c762';
+    ctx.fillText(donnees.mention, cx, 980);
+
+    // 6. Pied de la Carte : Pseudo, Date & Empreinte
+    ctx.fillStyle = 'rgba(13, 20, 36, 0.75)';
+    dessinerCadreOr(ctx, 100, 1040, W - 200, 180, 18);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.stroke();
+
+    ctx.font = '700 30px "Plus Jakarta Sans", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`Joueur : ${donnees.pseudo || 'Disciple anonyme'}`, W / 2, 1095);
+
+    ctx.font = '400 24px "Plus Jakarta Sans", sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(dateLongue(new Date()), W / 2, 1140);
+
+    ctx.font = '700 24px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText(`Validation Antifraude : ${donnees.empreinte}`, W / 2, 1185);
+
+    // Convertir en Blob et Image Preview
+    canvas.toBlob(function (blob) {
+      if (!blob) return;
+      derniereCarteBlob = blob;
+      const url = URL.createObjectURL(blob);
+      els.apercuCarteImg.src = url;
+      els.apercuCarteImg.classList.remove('hidden');
+    }, 'image/png');
   }
 
-  function genererCarteVisuelle(donnees) {
-    try {
-      dessinerCarteScore(donnees);
-      if (!els.canvasCarteScore) return;
+  /* ---------------- Actions de Partage de la Carte ---------------- */
 
-      const slugPseudo = (donnees.pseudo || 'joueur').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      carteScoreNomFichier = 'defi-jean-score-' + (slugPseudo || 'score') + '-' + (donnees.date || cleJour(new Date())) + '.png';
+  function partagerCarteWhatsApp() {
+    if (!derniereCarteBlob) return;
+    const fichierImage = new File([derniereCarteBlob], `defi-jean-niveau-${niveauEnCours}.png`, { type: 'image/png' });
 
-      carteScoreDataUrl = els.canvasCarteScore.toDataURL('image/png');
-      if (els.apercuCarteImg) {
-        els.apercuCarteImg.src = carteScoreDataUrl;
-        els.apercuCarteImg.alt = 'Carte de score de ' + (donnees.pseudo || 'Participant') + ' : ' + donnees.score + ' sur ' + donnees.total + ', ' + (donnees.mode === 'entrainement' ? 'entraînement' : 'défi quotidien') + '.';
-        els.apercuCarteImg.classList.remove('hidden');
-      }
+    const textePartage = `📖 Mon score au Défi Jean (Louis Segond 1910)\n🎯 Niveau ${niveauEnCours} : ${scoreManche}/10\n🔒 Empreinte : ${els.valeurEmpreinte.textContent}\nRejoins le défi !`;
 
-      els.canvasCarteScore.toBlob(function (blob) {
-        carteScoreBlob = blob;
-      }, 'image/png');
-    } catch (e) {
-      if (els.apercuCarteImg) {
-        els.apercuCarteImg.removeAttribute('src');
-        els.apercuCarteImg.classList.add('hidden');
-      }
-      afficherFeedbackCarte('⚠️ La carte image n’a pas pu être générée. Tu peux toujours partager le score en texte.');
+    if (navigator.canShare && navigator.canShare({ files: [fichierImage] })) {
+      navigator.share({
+        title: 'Défi Jean — Score',
+        text: textePartage,
+        files: [fichierImage]
+      }).catch(err => {
+        if (err.name !== 'AbortError') telechargerCarte();
+      });
+    } else {
+      telechargerCarte();
+      afficherFeedback('Image téléchargée ! Tu peux maintenant la joindre sur WhatsApp.');
     }
   }
 
-  function afficherFeedbackCarte(message, duree) {
-    if (!els.feedbackCarte) return;
-    els.feedbackCarte.textContent = message;
-    els.feedbackCarte.classList.remove('hidden');
-    clearTimeout(els.feedbackCarte._timer);
-    els.feedbackCarte._timer = setTimeout(function () {
-      els.feedbackCarte.classList.add('hidden');
-    }, duree || 3200);
-  }
-
-  function telechargerImageScore() {
-    if (!carteScoreDataUrl && els.canvasCarteScore) {
-      carteScoreDataUrl = els.canvasCarteScore.toDataURL('image/png');
-    }
-    if (!carteScoreDataUrl) {
-      afficherFeedbackCarte('⚠️ Impossible de générer l’image pour le moment.');
-      return;
-    }
+  function telechargerCarte() {
+    if (!derniereCarteBlob) return;
+    const url = URL.createObjectURL(derniereCarteBlob);
     const a = document.createElement('a');
-    a.href = carteScoreDataUrl;
-    a.download = carteScoreNomFichier || 'defi-jean-score.png';
+    a.href = url;
+    a.download = `defi-jean-niveau-${niveauEnCours}-score-${scoreManche}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    afficherFeedbackCarte('✅ Image téléchargée ! Tu peux l’envoyer dans WhatsApp ou Instagram.');
+    URL.revokeObjectURL(url);
+    afficherFeedback('Image téléchargée avec succès !');
   }
 
-  async function copierImageScore() {
-    if (!carteScoreBlob) {
-      if (els.canvasCarteScore) {
-        els.canvasCarteScore.toBlob(async function (blob) {
-          carteScoreBlob = blob;
-          await procederCopieImage();
-        }, 'image/png');
-        return;
-      }
-      afficherFeedbackCarte('⚠️ Image non disponible.');
+  function copierCartePressePapier() {
+    if (!derniereCarteBlob || !navigator.clipboard || !window.ClipboardItem) {
+      telechargerCarte();
       return;
     }
-    await procederCopieImage();
-  }
-
-  async function procederCopieImage() {
-    if (navigator.clipboard && window.ClipboardItem && carteScoreBlob) {
-      try {
-        const item = new ClipboardItem({ 'image/png': carteScoreBlob });
-        await navigator.clipboard.write([item]);
-        afficherFeedbackCarte('✅ Image copiée dans le presse-papier !');
-        return;
-      } catch (err) {
-        // Fallback téléchargement direct si la copie presse-papier est refusée
-      }
+    try {
+      const item = new ClipboardItem({ 'image/png': derniereCarteBlob });
+      navigator.clipboard.write([item]).then(() => {
+        afficherFeedback('Image copiée dans le presse-papier !');
+      }).catch(() => {
+        telechargerCarte();
+      });
+    } catch (e) {
+      telechargerCarte();
     }
-    telechargerImageScore();
   }
 
-  async function partagerImageScore() {
-    const titre = 'Mon score Défi Jean';
-    const texte = textePartage();
-
-    if (!carteScoreBlob && els.canvasCarteScore) {
-      els.canvasCarteScore.toBlob(async function (blob) {
-        carteScoreBlob = blob;
-        await procederPartageImage(titre, texte);
-      }, 'image/png');
-      return;
-    }
-    await procederPartageImage(titre, texte);
+  function afficherFeedback(msg) {
+    els.feedbackCarte.textContent = msg;
+    els.feedbackCarte.classList.remove('hidden');
+    setTimeout(() => {
+      els.feedbackCarte.classList.add('hidden');
+    }, 3500);
   }
 
-  async function procederPartageImage(titre, texte) {
-    if (carteScoreBlob && navigator.canShare) {
-      try {
-        const fichier = new File([carteScoreBlob], carteScoreNomFichier || 'defi-jean-score.png', { type: 'image/png' });
-        if (navigator.canShare({ files: [fichier] })) {
-          await navigator.share({
-            files: [fichier],
-            title: titre,
-            text: texte
-          });
-          afficherFeedbackCarte('✅ Partage initié !');
-          return;
-        }
-      } catch (err) {
-        if (err.name === 'AbortError') return; // Annulation volontaire
-      }
-    }
-    telechargerImageScore();
-  }
+  /* ---------------- Écouteurs d'Événements ---------------- */
 
-  /* ---------------- Accueil / verrou du jour ---------------- */
-
-  function ajouterBouton(parent, texte, classe, action) {
-    const bouton = document.createElement('button');
-    bouton.type = 'button';
-    bouton.className = 'btn ' + classe;
-    bouton.textContent = texte;
-    bouton.addEventListener('click', action);
-    parent.appendChild(bouton);
-    return bouton;
-  }
-
-  function afficherResultatEnregistre(partie) {
-    mode = 'quotidien';
-    pseudo = partie.pseudo || '';
-    datePartie = partie.date || cleJour(new Date());
-    score = Number(partie.score) || 0;
-    const total = Number(partie.total) || 0;
-    questions = Array.isArray(partie.questions)
-      ? partie.questions
-      : Array.from({ length: total }, function () { return null; });
-    reponses = Array.isArray(partie.reponses) ? partie.reponses : [];
-    sortiesEcran = Number(partie.sorties) || 0;
-
-    els.titreFin.textContent = '📖 Résultat du défi';
-    els.finalScore.textContent = score;
-    els.finalTotal.textContent = total;
-    const pourcent = total ? score / total : 0;
-    if (pourcent === 1) els.mention.textContent = '🏆 Parfait !';
-    else if (pourcent >= 0.8) els.mention.textContent = '🌟 Excellent !';
-    else if (pourcent >= 0.5) els.mention.textContent = '👍 Bien joué, continue !';
-    else els.mention.textContent = '📖 Relis les références et retente demain !';
-    els.empreinte.textContent = partie.empreinte || empreinte(SEL_EMPREINTE + '|' + pseudo + '|' + datePartie + '|' + score + '/' + total);
-    els.messageRejouer.textContent = 'Partie du jour enregistrée : tu peux revoir le corrigé ci-dessous.';
-    els.btnRejouer.classList.add('hidden');
-    afficherCorrige();
-    genererCarteVisuelle({
-      pseudo: pseudo,
-      score: score,
-      total: total,
-      mention: els.mention.textContent,
-      empreinte: els.empreinte.textContent,
-      sorties: sortiesEcran,
-      date: datePartie,
-      mode: mode
+  function initialiserEvenements() {
+    // Bouton Son
+    els.btnSon.addEventListener('click', () => {
+      progression.sonActif = !progression.sonActif;
+      els.iconeSon.textContent = progression.sonActif ? '🔊' : '🔇';
+      sauvegarderProgression();
+      if (progression.sonActif) jouerSon('bonne_reponse');
     });
-    $('bloc-corrige').open = false;
-    afficherEcran(els.fin);
-    els.titreFin.focus();
+
+    // Saisie Pseudo
+    if (progression.pseudo) {
+      els.pseudo.value = progression.pseudo;
+    }
+    els.pseudo.addEventListener('input', () => {
+      progression.pseudo = (els.pseudo.value || '').trim();
+      sauvegarderProgression();
+      els.erreurPseudo.classList.add('hidden');
+    });
+
+    // Réinitialiser Progression
+    els.btnReinitialiser.addEventListener('click', () => {
+      if (confirm('Es-tu certain de vouloir réinitialiser ta progression des 10 niveaux ?')) {
+        progression = {
+          pseudo: progression.pseudo,
+          sonActif: progression.sonActif,
+          niveaux: { 1: { debloque: true, scoreMax: 0, etoiles: 0, complete: false } }
+        };
+        for (let lvl = 2; lvl <= 10; lvl++) {
+          progression.niveaux[lvl] = { debloque: false, scoreMax: 0, etoiles: 0, complete: false };
+        }
+        sauvegarderProgression();
+        rendreGrilleNiveaux();
+      }
+    });
+
+    // Quitter le quiz
+    els.btnQuitterQuiz.addEventListener('click', () => {
+      if (confirm('Voulez-vous quitter ce niveau ? Votre progression sur cette manche sera réinitialisée.')) {
+        stopperChrono();
+        rendreGrilleNiveaux();
+        basculerEcran(els.ecranAccueil);
+      }
+    });
+
+    // Question Suivante
+    els.btnQuestionSuivante.addEventListener('click', () => {
+      indexQuestion++;
+      afficherQuestion();
+    });
+
+    // Boutons Écran Fin
+    els.btnNiveauSuivant.addEventListener('click', () => {
+      if (niveauEnCours < 10) {
+        demarrerMancheNiveau(niveauEnCours + 1);
+      } else {
+        rendreGrilleNiveaux();
+        basculerEcran(els.ecranAccueil);
+      }
+    });
+
+    els.btnRejouerNiveau.addEventListener('click', () => {
+      demarrerMancheNiveau(niveauEnCours);
+    });
+
+    els.btnRetourHub.addEventListener('click', () => {
+      rendreGrilleNiveaux();
+      basculerEcran(els.ecranAccueil);
+    });
+
+    // Partage Image
+    els.btnPartagerCarte.addEventListener('click', partagerCarteWhatsApp);
+    els.btnTelechargerCarte.addEventListener('click', telechargerCarte);
+    els.btnCopierCarte.addEventListener('click', copierCartePressePapier);
   }
 
-  function majRappelPartie() {
-    const dateCle = cleJour(new Date());
-    const partie = mode === 'quotidien' ? lireStockage(clePartie(dateCle)) : null;
-
-    els.rappel.innerHTML = '';
-    els.avertissementStockage.classList.add('hidden');
-
-    if (mode === 'quotidien' && !stockage) {
-      signalerStockage('Ce navigateur ne peut pas conserver ta tentative quotidienne. Le jeu reste jouable, mais la reprise et le verrou du jour ne fonctionneront pas.');
-    } else if (mode === 'quotidien' && messageStockage) {
-      signalerStockage(messageStockage);
-    }
-
-    if (!partie) {
-      els.rappel.classList.add('hidden');
-      els.zonePseudo.classList.remove('hidden');
-      return;
-    }
-
-    const texte = document.createElement('p');
-    const pseudoSauve = partie.pseudo || 'Joueur';
-    if (partie.etat === 'en_cours') {
-      if (!Array.isArray(partie.questions) || !partie.questions.length) {
-        signalerStockage('La sauvegarde de la partie est illisible. Tu peux démarrer une nouvelle partie.');
-        els.rappel.classList.add('hidden');
-        els.zonePseudo.classList.remove('hidden');
-        return;
-      }
-      const total = partie.questions.length;
-      const numero = Math.min((Number(partie.index) || 0) + 1, total);
-      texte.textContent = 'Tu as une partie en cours, ' + pseudoSauve + ' — question ' + numero + '/' + total + '.';
-      els.rappel.appendChild(texte);
-      ajouterBouton(els.rappel, '▶️ Reprendre ma partie', 'btn-principal', function () { reprendrePartie(partie); });
-      els.rappel.classList.remove('hidden');
-      els.zonePseudo.classList.add('hidden');
-      return;
-    }
-
-    texte.textContent = 'Tu as déjà joué le défi d’aujourd’hui : ' + pseudoSauve + ' — ' + partie.score + '/' + partie.total + ' · empreinte ' + (partie.empreinte || 'indisponible');
-    els.rappel.appendChild(texte);
-
-    ajouterBouton(els.rappel, '📸 Voir ma carte de score & partager', 'btn-principal', function () { afficherResultatEnregistre(partie); });
-    ajouterBouton(els.rappel, '📤 Partager en texte simple', 'btn-whatsapp', function () { partager(partie); });
-    if (Array.isArray(partie.reponses) && partie.reponses.length) {
-      ajouterBouton(els.rappel, '📚 Revoir mon corrigé', 'btn-secondaire', function () { afficherResultatEnregistre(partie); });
-    }
-
-    els.rappel.classList.remove('hidden');
-    els.zonePseudo.classList.add('hidden');
-  }
-
-  /* ---------------- Écouteurs ---------------- */
-
-  // Les changements d'application peuvent aussi masquer la page. On les compte
-  // uniquement pour la partie officielle et le chrono continue à son échéance.
-  document.addEventListener('visibilitychange', function () {
-    if (document.hidden) {
-      if (partieEnCours && mode === 'quotidien') {
-        sortiesEcran++;
-        majSorties();
-        enregistrerProgression();
-      }
-    } else if (partieEnCours && mode === 'quotidien') {
-      boucleChrono();
-    }
-  });
-
-  // Raccourcis clavier : 1-4 ou A-D.
-  document.addEventListener('keydown', function (evt) {
-    if (!partieEnCours || dejaRepondu) return;
-    if (evt.ctrlKey || evt.metaKey || evt.altKey) return;
-    const touche = evt.key.toLowerCase();
-    let position = '1234'.indexOf(touche);
-    if (position === -1) position = 'abcd'.indexOf(touche);
-    if (position === -1) return;
-    const bouton = boutonsOptions()[position];
-    if (bouton) { evt.preventDefault(); bouton.click(); }
-  });
-
-  /* ---------------- Démarrage ---------------- */
+  /* ---------------- Initialisation Globale ---------------- */
 
   function init() {
-    const parametres = new URLSearchParams(location.search);
-    if (parametres.has('entrainement') || parametres.has('libre')) mode = 'entrainement';
-
-    const lienMode = els.lienEntrainement.querySelector('a');
-    if (mode === 'entrainement') {
-      lienMode.href = location.pathname;
-      lienMode.textContent = 'Revenir au défi officiel du jour';
-      els.tempoAccroche.textContent = 'sans chrono';
-      els.tirageAccroche.textContent = 'Questions tirées au hasard pour l’entraînement.';
-      els.aidePseudo.textContent = '(pseudo affiché dans ton corrigé uniquement)';
-      els.btnJouer.textContent = 'Commencer l’entraînement 🎯';
-      $('bloc-regles').classList.add('hidden');
-    }
-
-    els.versionApp.textContent = APP_VERSION;
-    els.nbBanque.textContent = BANQUE_QUESTIONS.length;
-    els.chronoCercle.textContent = TEMPS_PAR_QUESTION;
-    if (els.dateDefi) {
-      els.dateDefi.textContent = 'Défi du ' + dateLongue(new Date()) +
-        (mode === 'entrainement' ? ' — entraînement sans chrono' : '');
-    }
-
-    els.btnJouer.addEventListener('click', function () {
-      const valeur = els.pseudo.value.trim();
-      if (valeur.length < 2) {
-        els.erreurPseudo.classList.remove('hidden');
-        els.pseudo.focus();
-        return;
-      }
-      els.erreurPseudo.classList.add('hidden');
-      pseudo = valeur;
-      if (stockage) { try { stockage.setItem(BASE_STOCKAGE + '.pseudo', valeur); } catch (e) {} }
-      demarrerPartie();
-    });
-
-    els.pseudo.addEventListener('keydown', function (evt) {
-      if (evt.key === 'Enter') { evt.preventDefault(); els.btnJouer.click(); }
-    });
-
-    els.btnPartager.addEventListener('click', function () { partager(); });
-    els.btnCopier.addEventListener('click', function () { copier(els.btnCopier); });
-    els.btnRejouer.addEventListener('click', function () { location.reload(); });
-
-    if (els.btnPartagerImage) {
-      els.btnPartagerImage.addEventListener('click', function () { partagerImageScore(); });
-    }
-    if (els.btnTelechargerImage) {
-      els.btnTelechargerImage.addEventListener('click', function () { telechargerImageScore(); });
-    }
-    if (els.btnCopierImage) {
-      els.btnCopierImage.addEventListener('click', function () { copierImageScore(); });
-    }
-    if (stockage) {
-      try {
-        const ancien = stockage.getItem(BASE_STOCKAGE + '.pseudo');
-        if (ancien) els.pseudo.value = ancien;
-      } catch (e) {}
-    }
-
-    majRappelPartie();
+    initFondCeleste();
+    els.iconeSon.textContent = progression.sonActif ? '🔊' : '🔇';
+    rendreGrilleNiveaux();
+    initialiserEvenements();
   }
 
+  // Démarrage dès le chargement du DOM
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
+
 })();

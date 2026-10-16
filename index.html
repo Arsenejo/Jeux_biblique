@@ -3,155 +3,300 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#1e3a5f">
-<title>Défi Jean – Louis Segond 1910</title>
-<meta name="description" content="Quiz biblique quotidien sur l'Évangile de Jean, ses épîtres et l'Apocalypse, texte Louis Segond 1910. 10 questions, 15 secondes par question, entraînement sans chrono et carte de score à partager.">
+<meta name="theme-color" content="#060913">
+<meta name="color-scheme" content="dark">
+<title>Défi Jean – 10 Niveaux Bibliques (Louis Segond 1910)</title>
+<meta name="description" content="Jeu de quiz biblique d'exception sur les écrits de l'apôtre Jean (Évangile, Épîtres, Apocalypse). 10 Niveaux, 10 questions aléatoires par niveau, 25 secondes par question, texte Louis Segond 1910.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E">
+
+<!-- Google Fonts de prestige -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main class="carte">
 
-  <!-- ============ ÉCRAN D'ACCUEIL ============ -->
-  <section id="ecran-accueil">
-    <h1>📖 Défi Jean</h1>
-    <p class="sous-titre">Version Louis Segond 1910</p>
-    <p class="date-defi" id="date-defi"></p>
+  <!-- Toile de particules célestes interactive (motion-web) -->
+  <canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
 
-    <p class="accroche">
-      <strong>10 questions</strong> tirées au sort dans une banque de
-      <strong id="nb-banque">60</strong>, <strong id="tempo-accroche">15 secondes par question</strong>.<br>
-      <span id="tirage-accroche">Le même tirage pour tout le monde, chaque jour.</span>
-    </p>
+  <div class="app-layout">
 
-    <p id="avertissement-stockage" class="notice-stockage hidden" role="status"></p>
-
-    <div id="rappel-partie" class="encart hidden"></div>
-
-    <div id="zone-pseudo">
-      <label for="pseudo">Ton pseudo <span id="aide-pseudo" class="aide">(à afficher avec ton score dans le groupe)</span></label>
-      <input id="pseudo" type="text" maxlength="20" autocomplete="nickname"
-             placeholder="ex. Marie-Ève" spellcheck="false">
-      <p id="erreur-pseudo" class="erreur hidden" role="alert">Écris un pseudo avant de commencer.</p>
-      <button id="btn-jouer" class="btn btn-principal" type="button">Commencer 🚀</button>
-    </div>
-
-    <p id="lien-entrainement" class="lien-entrainement">
-      <a href="?entrainement=1">Essayer le mode entraînement sans chrono</a>
-    </p>
-
-    <details id="bloc-regles" class="bloc regles">
-      <summary>📋 Règles du défi</summary>
-      <ul>
-        <li>Une seule partie officielle par jour dans ce navigateur ; tu peux la reprendre si tu fermes la page.</li>
-        <li>10 questions, 15 secondes chacune. Le temps continue si tu quittes la page ou changes d'application.</li>
-        <li>Le passage à une notification ou à un appel peut être compté comme une sortie d'écran.</li>
-        <li>1 point par bonne réponse. Pas de point négatif.</li>
-        <li>À la fin, partage la carte PNG ou envoie une capture d'écran avec ton score et ton empreinte dans le groupe WhatsApp.</li>
-      </ul>
-    </details>
-
-    <details class="bloc">
-      <summary>ℹ️ À propos du texte</summary>
-      <p>
-        Toutes les citations sont conformes à la <strong>Louis Segond 1910</strong>,
-        version tombée dans le domaine public : les versets peuvent être cités librement.
-        Le jeu porte sur l'Évangile selon Jean, les trois épîtres de Jean et l'Apocalypse.
-      </p>
-    </details>
-
-    <p class="pied">Version de l'app : <span id="version-app">1.2.0</span></p>
-  </section>
-
-  <!-- ============ ÉCRAN DE JEU ============ -->
-  <section id="ecran-quiz" class="hidden">
-    <p id="annonce-lecteur" class="sr-only" aria-live="polite" aria-atomic="true"></p>
-    <div class="entete">
-      <span id="compteur">Question 1/10</span>
-      <span id="badge-theme" class="badge"></span>
-    </div>
-
-    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
-
-    <div class="chrono" id="zone-chrono" role="timer" aria-live="off" aria-label="Compte à rebours">
-      <div class="chrono-cercle" id="chronoCercle">15</div>
-      <div class="chrono-barre"><div class="chrono-remplissage" id="chronoRemplissage"></div></div>
-    </div>
-    <p id="indicateur-libre" class="indicateur-libre hidden">Mode entraînement : prends le temps qu'il te faut.</p>
-
-    <div class="reference" id="reference"></div>
-    <p class="verset hidden" id="verset"></p>
-    <h2 class="question" id="question" tabindex="-1"></h2>
-
-    <div id="options"></div>
-    <p id="bandeau-temps" class="bandeau-temps hidden" role="status">⏱️ Temps écoulé !</p>
-    <p id="avertissement-stockage-jeu" class="notice-stockage hidden" role="status"></p>
-
-    <div class="barre-score">
-      <span>Score : <strong id="score">0</strong></span>
-      <span id="sorties" class="sorties"></span>
-    </div>
-  </section>
-
-  <!-- ============ ÉCRAN DE FIN ============ -->
-  <section id="ecran-fin" class="hidden">
-    <h2 id="titre-fin" tabindex="-1">🎉 Terminé !</h2>
-    <p class="score-final">
-      Ton score : <strong><span id="finalScore">0</span></strong> / <span id="finalTotal">10</span>
-    </p>
-    <p id="mention" class="mention"></p>
-    <p class="empreinte">
-      Empreinte : <code id="empreinte">—</code>
-      <span class="aide">(à recopier avec ta capture d'écran)</span>
-    </p>
-
-    <!-- ============ CARTE VISUELLE DU SCORE (CANVAS & EXPORT) ============ -->
-    <div id="zone-carte-visuelle" class="zone-carte-visuelle">
-      <div class="carte-visuelle-en-tete">
-        <span class="badge-carte">📸 Carte de score</span>
-        <p class="aide-carte">Format portrait à partager depuis le menu de ton téléphone ou à télécharger pour l'envoyer.</p>
-      </div>
-
-      <div class="apercu-carte-conteneur">
-        <canvas id="canvas-carte-score" width="1080" height="1350" class="sr-only"></canvas>
-        <img id="apercu-carte-img" alt="Carte de score du Défi Jean" class="apercu-carte-img hidden" />
-      </div>
-
-      <div class="actions-carte">
-        <button id="btn-partager-image" class="btn btn-whatsapp" type="button">
-          📲 Partager la carte
-        </button>
-        <div class="grille-actions-secondaires">
-          <button id="btn-telecharger-image" class="btn btn-secondaire" type="button">
-            💾 Télécharger l'image
-          </button>
-          <button id="btn-copier-image" class="btn btn-secondaire" type="button">
-            📋 Copier l'image
-          </button>
+    <!-- En-tête Navigation Supérieure -->
+    <header class="app-header">
+      <div class="header-marque">
+        <span class="embleme">📖</span>
+        <div class="titres-marque">
+          <span class="nom-jeu">DÉFI JEAN</span>
+          <span class="version-jeu">10 Niveaux • Louis Segond 1910</span>
         </div>
       </div>
-      <p id="feedback-carte" class="feedback-carte hidden" role="status"></p>
-    </div>
+      <div class="header-actions">
+        <div class="badge-etoiles-global" title="Total d'étoiles remportées">
+          <span>⭐</span>
+          <strong id="etoiles-total-global">0</strong><span class="total-max">/30</span>
+        </div>
+        <button id="btn-son" class="btn-son" type="button" aria-label="Activer ou désactiver le son" title="Son du jeu">
+          <span id="icone-son">🔊</span>
+        </button>
+      </div>
+    </header>
 
-    <!-- ============ PARTAGE TEXTE ============ -->
-    <details class="bloc bloc-partage-texte" id="bloc-partage-texte">
-      <summary>💬 Partager sous forme de texte simple</summary>
-      <button id="btn-partager" class="btn btn-whatsapp" type="button">📤 Partager le texte sur WhatsApp</button>
-      <button id="btn-copier" class="btn btn-secondaire" type="button">📋 Copier le texte du score</button>
-    </details>
+    <main class="app-main">
 
-    <details class="bloc" id="bloc-corrige">
-      <summary>📚 Voir le corrigé</summary>
-      <ol id="corrige"></ol>
-    </details>
+      <!-- =========================================================================
+           ÉCRAN 1 : LE HUB DES 10 NIVEAUX (ACCUEIL)
+           ========================================================================= -->
+      <section id="ecran-accueil" class="ecran">
 
-    <button id="btn-rejouer" class="btn btn-secondaire hidden" type="button">🔄 Rejouer</button>
-    <p id="message-rejouer" class="pied"></p>
-  </section>
+        <div class="hero-banniere">
+          <div class="auréole-divine" aria-hidden="true"></div>
+          <span class="pilule-sur-titre">CONCOURS & MÉDITATION BIBLIQUE</span>
+          <h1 class="titre-hero">Le Défi des Écrits de Jean</h1>
+          <p class="desc-hero">
+            Parcourez les <strong>10 Niveaux</strong> à travers l'Évangile selon Jean, ses trois épîtres et l'Apocalypse.
+            <strong>10 questions aléatoires</strong> par niveau, <strong>25 secondes</strong> pour répondre.
+          </p>
+        </div>
 
-</main>
+        <!-- Carte Profil Joueur & Progression -->
+        <div class="panneau-profil">
+          <div class="profil-saisie">
+            <label for="pseudo" class="label-champ">Ton Nom ou Pseudo <span class="aide-pseudo">(affiché sur ta carte de score)</span></label>
+            <div class="champ-avec-icone">
+              <span class="icone-champ">✍️</span>
+              <input id="pseudo" type="text" maxlength="20" autocomplete="nickname" placeholder="ex. Élie, Esther, David..." spellcheck="false">
+            </div>
+            <p id="erreur-pseudo" class="erreur hidden" role="alert">Veuillez renseigner un pseudo pour commencer le défi.</p>
+          </div>
+          <div class="profil-statistiques">
+            <div class="stat-item">
+              <span class="stat-chiffre" id="stat-niveaux-debloques">1 / 10</span>
+              <span class="stat-libelle">Niveaux débloqués</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-chiffre" id="stat-questions-reussies">0</span>
+              <span class="stat-libelle">Bonnes réponses</span>
+            </div>
+          </div>
+        </div>
 
-<script src="questions.js"></script>
-<script src="app.js"></script>
+        <!-- Sélecteur des 10 Niveaux -->
+        <div class="section-titre-niveaux">
+          <div class="titre-avec-ligne">
+            <span class="ligne-deco"></span>
+            <h2>Choisis ton Niveau</h2>
+            <span class="ligne-deco"></span>
+          </div>
+          <p class="sous-titre-section">Obtiens au moins <strong>6/10</strong> pour débloquer le niveau suivant et remporter des étoiles.</p>
+        </div>
+
+        <div id="grille-niveaux" class="grille-niveaux">
+          <!-- Généré dynamiquement par JavaScript avec 10 cartes de niveaux -->
+        </div>
+
+        <!-- Modalités & Règles du Défi -->
+        <details class="bloc-regles">
+          <summary>📋 Règles du Défi & Fonctionnement des 10 Niveaux</summary>
+          <div class="contenu-regles">
+            <ul>
+              <li><strong>10 Niveaux Thématiques</strong> : Du premier verset de Jean (« Au commencement était la Parole ») jusqu'au dernier verset de l'Apocalypse (« Amen ! Viens, Seigneur Jésus ! »).</li>
+              <li><strong>Tirage 100 % Aléatoire</strong> : À chaque tentative, 10 questions sont tirées au sort dans le réservoir du niveau, et l'ordre des 4 options de réponse est mélangé.</li>
+              <li><strong>Chronomètre 25 secondes</strong> : Tu disposes de 25 secondes par question pour choisir ta réponse.</li>
+              <li><strong>Barème des Étoiles</strong> :
+                <ul>
+                  <li>⭐ <strong>1 étoile</strong> : 6 ou 7 sur 10 (Niveau validé)</li>
+                  <li>⭐⭐ <strong>2 étoiles</strong> : 8 ou 9 sur 10 (Excellent)</li>
+                  <li>⭐⭐⭐ <strong>3 étoiles</strong> : 10 sur 10 (Sans faute parfait !)</li>
+                </ul>
+              </li>
+              <li><strong>Texte Sacré</strong> : Strictement conforme à la version <strong>Louis Segond 1910</strong> (domaine public).</li>
+            </ul>
+          </div>
+        </details>
+
+        <footer class="pied-page-accueil">
+          <button id="btn-reinitialiser-progression" class="btn-lien-discret" type="button">Réinitialiser ma progression</button>
+          <p class="mention-lsg">Textes bibliques conformes à la version Louis Segond 1910</p>
+        </footer>
+
+      </section>
+
+      <!-- =========================================================================
+           ÉCRAN 2 : LE QUIZ INTERACTIF (JEU)
+           ========================================================================= -->
+      <section id="ecran-quiz" class="ecran hidden">
+
+        <!-- Barre d'état supérieure du Quiz -->
+        <div class="barre-quiz-top">
+          <button id="btn-quitter-quiz" class="btn-retour-niveaux" type="button" title="Retour aux niveaux">
+            ← Niveaux
+          </button>
+          <div class="info-quiz-niveau">
+            <span id="quiz-badge-icone" class="quiz-badge-icone">🕊️</span>
+            <span id="quiz-titre-niveau" class="quiz-titre-niveau">Niveau 1</span>
+          </div>
+          <div class="quiz-score-direct">
+            Score : <strong id="score-en-cours">0</strong>/<span id="quiz-total-questions">10</span>
+          </div>
+        </div>
+
+        <!-- Barre de progression continue -->
+        <div class="quiz-progress-track">
+          <div id="quiz-progress-bar" class="quiz-progress-bar" style="width: 10%;"></div>
+        </div>
+
+        <!-- Section Chronomètre 25s Circulaire SVG (motion-web) -->
+        <div class="chrono-centree">
+          <div class="chrono-circulaire-wrap" role="timer" aria-live="off" aria-label="Temps restant">
+            <svg class="chrono-svg" viewBox="0 0 100 100">
+              <circle class="chrono-piste" cx="50" cy="50" r="42" />
+              <circle id="chrono-anneau" class="chrono-anneau" cx="50" cy="50" r="42" />
+            </svg>
+            <div class="chrono-contenu">
+              <span id="chrono-secondes" class="chrono-secondes">25</span>
+              <span class="chrono-unite">sec</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Boîte de Question & Verset -->
+        <div class="carte-question-conteneur">
+          <div class="en-tete-question">
+            <span id="compteur-question-badge" class="badge-numero-q">Question 1 / 10</span>
+            <span id="reference-verset" class="badge-reference">Jean 1:1</span>
+          </div>
+
+          <!-- Verset biblique tronqué / troué -->
+          <div id="bloc-verset" class="bloc-verset hidden">
+            <span class="guillemet-ouvrante">«</span>
+            <p id="texte-verset" class="texte-verset"></p>
+            <span class="guillemet-fermante">»</span>
+          </div>
+
+          <h2 id="enonce-question" class="enonce-question" tabindex="-1"></h2>
+
+          <!-- Grille des 4 options de réponse -->
+          <div id="grille-options" class="grille-options">
+            <!-- 4 boutons d'options injectés dynamiquement -->
+          </div>
+
+          <!-- Alerte Temps Écoulé -->
+          <p id="alerte-temps" class="alerte-temps hidden" role="status">⏱️ Temps de 25 secondes écoulé !</p>
+
+          <!-- Zone Explicative & Leçon Biblique (après réponse) -->
+          <div id="zone-lecon" class="zone-lecon hidden">
+            <div class="lecon-titre">
+              <span class="icone-lecon">📖</span>
+              <strong>Parole & Enseignement biblique :</strong>
+            </div>
+            <p id="texte-lecon" class="texte-lecon"></p>
+          </div>
+
+          <!-- Bouton Question Suivante -->
+          <div class="action-question-suivante">
+            <button id="btn-question-suivante" class="btn btn-suivant hidden" type="button">
+              Question suivante →
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- =========================================================================
+           ÉCRAN 3 : BILAN, ÉTOILES & EXPORT VISUEL (FIN DU NIVEAU)
+           ========================================================================= -->
+      <section id="ecran-fin" class="ecran hidden">
+
+        <!-- Canvas d'animation de confettis pour la victoire -->
+        <canvas id="canvas-confetti" class="canvas-confetti" aria-hidden="true"></canvas>
+
+        <div class="bilan-en-tete">
+          <div id="bilan-icone-victoire" class="bilan-icone-victoire">🏆</div>
+          <span id="bilan-statut-tag" class="pilule-sur-titre">NIVEAU VALIDÉ</span>
+          <h2 id="bilan-titre" class="titre-bilan">Félicitations !</h2>
+          <p id="bilan-nom-niveau" class="bilan-nom-niveau">Niveau 1 : Le Verbe & Les Premiers Témoins</p>
+        </div>
+
+        <!-- Révélation des Étoiles -->
+        <div class="etoiles-fin-conteneur" id="etoiles-fin-conteneur">
+          <span class="etoile-fin" id="etoile-1">⭐</span>
+          <span class="etoile-fin" id="etoile-2">⭐</span>
+          <span class="etoile-fin" id="etoile-3">⭐</span>
+        </div>
+
+        <!-- Score & Pourcentage -->
+        <div class="score-boite">
+          <div class="score-principal">
+            <span class="score-grand" id="score-final-chiffre">0</span>
+            <span class="score-sur">/ 10</span>
+          </div>
+          <p id="mention-felicitations" class="mention-felicitations">Parfait ! Sans faute !</p>
+        </div>
+
+        <!-- Empreinte Anti-Triche -->
+        <div class="empreinte-boite">
+          <span class="label-empreinte">Empreinte de validation :</span>
+          <code id="valeur-empreinte" class="valeur-empreinte">DJ-000000</code>
+        </div>
+
+        <!-- Boutons d'Action Rapides -->
+        <div class="boutons-actions-fin">
+          <button id="btn-niveau-suivant" class="btn btn-principal btn-large" type="button">
+            Niveau Suivant 🚀
+          </button>
+          <div class="grille-actions-retours">
+            <button id="btn-rejouer-niveau" class="btn btn-secondaire" type="button">
+              🔄 Rejouer ce niveau
+            </button>
+            <button id="btn-retour-hub" class="btn btn-secondaire" type="button">
+              🗺️ Choix des Niveaux
+            </button>
+          </div>
+        </div>
+
+        <!-- ============ EXPORT CARTE VISUELLE (CANVAS PNG) ============ -->
+        <div class="carte-visuelle-export-section">
+          <div class="en-tete-carte-export">
+            <span class="badge-carte">📸 Carte de Score Officielle</span>
+            <p class="desc-carte-export">Partage ta réussite directement sur WhatsApp, Instagram ou télécharge ton image souvenir.</p>
+          </div>
+
+          <div class="apercu-carte-conteneur">
+            <canvas id="canvas-carte-score" width="1080" height="1350" class="sr-only"></canvas>
+            <img id="apercu-carte-img" alt="Carte de score Défi Jean" class="apercu-carte-img hidden" />
+          </div>
+
+          <div class="actions-carte-partage">
+            <button id="btn-partager-carte" class="btn btn-whatsapp" type="button">
+              📲 Partager la carte sur WhatsApp
+            </button>
+            <div class="grille-actions-secondaires">
+              <button id="btn-telecharger-carte" class="btn btn-secondaire" type="button">
+                💾 Télécharger l'image PNG
+              </button>
+              <button id="btn-copier-carte" class="btn btn-secondaire" type="button">
+                📋 Copier l'image
+              </button>
+            </div>
+          </div>
+          <p id="feedback-carte" class="feedback-carte hidden" role="status"></p>
+        </div>
+
+        <!-- Corrigé Détaillé du Niveau -->
+        <details class="bloc-corrige-niveau" id="bloc-corrige">
+          <summary>📚 Consulter le corrigé détaillé de la manche</summary>
+          <ol id="liste-corrige" class="liste-corrige"></ol>
+        </details>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
