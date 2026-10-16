@@ -5,7 +5,8 @@ Quiz web autonome, prévu pour une compétition organisée dans un groupe **What
 tout le monde le même jour, une partie officielle par navigateur et par jour, reprenable
 après une interruption. Un mode d'entraînement aléatoire sans chrono est aussi disponible.
 
-Aucune dépendance, aucun compte, aucun serveur : quatre fichiers statiques.
+Le jeu n'a besoin ni de backend ni de dépendance à installer. Vercel sert directement les fichiers du site.
+À la fin d'une partie, une carte PNG du score peut être partagée depuis le téléphone ou téléchargée.
 
 ## Fichiers
 
@@ -14,7 +15,8 @@ Aucune dépendance, aucun compte, aucun serveur : quatre fichiers statiques.
 | [index.html](index.html) | Structure : écran d'accueil, écran de jeu, écran de fin |
 | [style.css](style.css) | Thème « parchemin » (bleu et doré), mobile d'abord |
 | [questions.js](questions.js) | **La banque de 73 questions vérifiées** (LSG 1910) |
-| [app.js](app.js) | Tirage quotidien, chrono, score, verrou du jour, partage |
+| [app.js](app.js) | Tirage quotidien, chrono, score, verrou du jour et création de la carte PNG |
+| [vercel.json](vercel.json) | Configure le dossier racine comme sortie statique Vercel |
 | [verifier-questions.js](verifier-questions.js) | Contrôle automatique de la banque (`node verifier-questions.js`) |
 
 ## Tester en local
@@ -34,21 +36,19 @@ Pour tester sans consommer la partie du jour : **`http://127.0.0.1:8137/?entrain
 Pour débloquer une partie déjà jouée : dans la console du navigateur,
 `localStorage.clear()`, ou utiliser le mode entraînement.
 
-## Publier le jeu (gratuit)
+## Publier sur Vercel avec GitHub
 
-Le site est purement statique : n'importe quel hébergeur de fichiers convient.
+Le dépôt fourni pour ce jeu est [`Arsenejo/Jeux_biblique`](https://github.com/Arsenejo/Jeux_biblique). Place les fichiers du site à la racine du dépôt, puis :
 
-**Netlify Drop — le plus rapide**
-1. Aller sur <https://app.netlify.com/drop>.
-2. Glisser le dossier complet (les 4 fichiers, `verifier-questions.js` peut rester dehors).
-3. Noter l'adresse obtenue, par exemple `https://defi-jean.netlify.app`.
+1. Dans Vercel, choisis **Add New → Project**, puis importe `Arsenejo/Jeux_biblique` depuis GitHub.
+2. Garde le dossier racine comme **Root Directory** et choisis **Other** comme framework.
+3. Laisse **Build Command** vide. `vercel.json` indique que les fichiers à servir se trouvent à la racine (`.`) ; aucun `npm install` ni `npm run build` n'est nécessaire.
+4. Clique sur **Deploy**. Une fois le dépôt connecté, Vercel crée un nouveau déploiement quand tu pousses un commit sur la branche suivie.
+5. Ouvre l'adresse HTTPS sur un téléphone, essaie `/?entrainement=1`, termine une partie et vérifie l'aperçu puis le téléchargement de la carte.
 
-**GitHub Pages**
-1. Créer un dépôt public, y déposer les fichiers à la racine.
-2. *Settings → Pages → Source : Deploy from a branch → main / (root)*.
-3. L'adresse devient `https://‹compte›.github.io/‹dépôt›/`.
+Le bouton de partage envoie l'image au menu de partage natif quand le navigateur le prend en charge. Sinon, il télécharge le PNG pour l'envoi manuel. La copie d'image dépend aussi des capacités du navigateur.
 
-Testez le lien depuis un téléphone avant de l'envoyer au groupe.
+Le site reste portable vers d'autres hébergeurs statiques, par exemple Netlify ou GitHub Pages.
 
 ## Organiser la compétition dans WhatsApp
 
@@ -60,13 +60,13 @@ Modèle de message d'annonce :
 > 👉 Jouer : [votre lien]
 > ⏳ Fin de la compétition : [date]
 > 🏆 Prix : [à définir]
-> Envoyez votre capture d'écran **avec l'empreinte affichée** sous le score.
+> Partagez votre carte de score PNG ou une capture **avec l'empreinte affichée**.
 
 Points d'organisation qui font la différence :
 
 - **Une tentative par jour dans le même navigateur** : la progression reprend après fermeture
   de la page et le corrigé reste consultable. Cela dépend du stockage local du navigateur.
-- **Capture + empreinte** : l'empreinte lie pseudo, date et score. Exiger les deux
+- **Carte + empreinte** : l'empreinte lie pseudo, date et score. Exiger les deux
   décourage les captures retouchées ou empruntées.
 - **Annonce du classement** chaque soir dans le groupe : c'est ce qui fait revenir les joueurs.
 - **Le score du jour** se retrouve sur l'écran d'accueil après la partie, avec un bouton
@@ -107,7 +107,7 @@ En tête de [app.js](app.js) :
 ```js
 const NB_QUESTIONS = 10;          // questions par partie
 const TEMPS_PAR_QUESTION = 15;    // secondes par question officielle
-const APP_VERSION = '1.1.0';      // affichée en bas de l'accueil
+const APP_VERSION = '1.2.0';      // affichée en bas de l'accueil
 ```
 
 Dans [index.html](index.html), le compteur « banque de N » se met à jour tout seul.
@@ -145,3 +145,4 @@ les versets peuvent être cités et reproduits librement. Les révisions plus r�
 (Segond 21, Nouvelle Segond) sont, elles, protégées par le droit d'auteur.
 
 Textes vérifiés sur la transcription Wikisource *Bible Segond 1910* et sur BibleGateway (LSG).
+# Jeux_biblique
