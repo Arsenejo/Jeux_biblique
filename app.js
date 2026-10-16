@@ -969,6 +969,7 @@
     els.zoneLecon.classList.remove('hidden');
     els.btnQuestionSuivante.classList.remove('hidden');
     els.btnQuestionSuivante.focus();
+    els.btnQuestionSuivante.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function tempsEcoule() {
@@ -1001,6 +1002,7 @@
     els.zoneLecon.classList.remove('hidden');
     els.btnQuestionSuivante.classList.remove('hidden');
     els.btnQuestionSuivante.focus();
+    els.btnQuestionSuivante.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   /* ---------------- Fin de Manche & Calcul du Score ---------------- */
