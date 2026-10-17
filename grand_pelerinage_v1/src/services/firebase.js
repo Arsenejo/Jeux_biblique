@@ -37,8 +37,7 @@ export const firebaseConfig = {
   projectId: "defi-jean",
   storageBucket: "defi-jean.firebasestorage.app",
   messagingSenderId: "23332908996",
-  appId: "1:23332908996:web:7ac92b21d43c01b23a7e91",
-  measurementId: "G-JDRRPPV15D"
+  appId: "1:23332908996:web:7ac92b21d43c01b23a7e91"
 };
 
 /**
@@ -84,9 +83,10 @@ export function getFirebaseServices() {
     app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
     auth = getAuth(app);
 
-    // Initialisation moderne du cache persistant Firestore pour Firebase 11
+    // Initialisation moderne du cache persistant Firestore avec détection de long-polling pour compatibilité Brave/Adblock
     try {
       db = initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true,
         localCache: persistentLocalCache({
           tabManager: persistentMultipleTabManager()
         })
