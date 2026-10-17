@@ -1,5 +1,16 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile
+} from "firebase/auth";
 import {
   initializeFirestore,
   getFirestore,
@@ -15,8 +26,9 @@ import {
   limit,
   serverTimestamp
 } from "firebase/firestore";
-import { reconcilePelerinData, reconcilePrayers } from "./dataReconciliation";
-import { getReportedPrayerIds, reportPrayerLocally } from "./moderation";
+import { reconcilePelerinData, reconcilePrayers } from "./dataReconciliation.js";
+import { getReportedPrayerIds, reportPrayerLocally } from "./moderation.js";
+import { sendWelcomeEmail } from "./brevoMailer.js";
 
 // Configuration Firebase réelle du projet defi-jean
 export const firebaseConfig = {
@@ -102,6 +114,171 @@ export async function initPelerinAuth(onUserReady) {
   } catch (e) {
     onUserReady(null, "local");
     return () => {};
+  }
+}
+
+/**
+ * Traduit les erreurs courantes de Firebase Authentication en français clair
+ */
+export function translateAuthError(err) {
+  if (!err) return "Une erreur inattendue est survenue.";
+  const code = err.code || "";
+  switch (code) {
+    case "auth/invalid-email":
+      return "L'adresse e-mail renseignée n'est pas valide.";
+    case "auth/user-not-found":
+      return "Aucun compte pèlerin n'est associé à cette adresse e-mail.";
+    case "auth/wrong-password":
+      return "Le mot de passe saisi est incorrect.";
+    case "auth/invalid-credential":
+      return "Identifiants incorrects. Veuillez vérifier votre adresse e-mail et votre mot de passe.";
+    case "auth/email-already-in-use":
+      return "Cette adresse e-mail est déjà utilisée par un autre pèlerin.";
+    case "auth/weak-password":
+      return "Le mot de passe doit comporter au moins 6 caractères.";
+    case "auth/popup-closed-by-user":
+      return "La fenêtre de connexion Google a été fermée avant la finalisation.";
+    case "auth/popup-blocked":
+      return "La fenêtre de connexion a été bloquée par votre navigateur. Veuillez autoriser les popups pour ce site.";
+    case "auth/operation-not-allowed":
+      return "Ce mode de connexion n'est pas encore activé dans la console Firebase.";
+    case "auth/network-request-failed":
+      return "Impossible de joindre le serveur. Vérifiez votre connexion Internet.";
+    case "auth/too-many-requests":
+      return "Trop de tentatives infructueuses. Veuillez patienter un court instant avant de réessayer.";
+    default:
+      return err.message || "Erreur lors de l'authentification.";
+  }
+}
+
+/**
+ * Connexion avec un compte Google (One-Click)
+ */
+export async function loginWithGoogle() {
+  const { auth } = getFirebaseServices();
+  if (!auth) throw new Error("Le service d'authentification n'est pas disponible.");
+
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+
+    // Charger et réconcilier les données avec le compte Google
+    const existingCloud = await loadPelerinProfile(user.uid);
+    if (!existingCloud || !existingCloud.profileName) {
+      await syncPelerinProfile(user.uid, {
+        profileName: user.displayName || "Pèlerin Google",
+        email: user.email,
+        authProvider: "google"
+      });
+    }
+
+    // Bienvenue Brevo si première visite
+    if (user.email && (!existingCloud || !existingCloud.welcomeSent)) {
+      sendWelcomeEmail(user.email, user.displayName || "Pèlerin").catch(() => {});
+      await syncPelerinProfile(user.uid, { welcomeSent: true });
+    }
+
+    return { success: true, user };
+  } catch (err) {
+    console.error("Échec connexion Google :", err);
+    throw new Error(translateAuthError(err));
+  }
+}
+
+/**
+ * Création de compte pèlerin par Email et Mot de passe
+ */
+export async function registerWithEmailPassword(email, password, displayName) {
+  const { auth } = getFirebaseServices();
+  if (!auth) throw new Error("Le service d'authentification n'est pas disponible.");
+
+  if (!email || !email.includes("@")) {
+    throw new Error("Veuillez renseigner une adresse e-mail valide.");
+  }
+  if (!password || password.length < 6) {
+    throw new Error("Le mot de passe doit comporter au moins 6 caractères pour protéger votre carnet.");
+  }
+
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    const user = cred.user;
+    const name = displayName?.trim() || email.split("@")[0] || "Pèlerin";
+
+    try {
+      await updateProfile(user, { displayName: name });
+    } catch {}
+
+    // Sauvegarde initiale dans Firestore avec réconciliation de l'historique de jeu
+    await syncPelerinProfile(user.uid, {
+      profileName: name,
+      email: user.email,
+      authProvider: "password",
+      welcomeSent: true
+    });
+
+    // Envoi de l'e-mail d'accueil via Brevo
+    sendWelcomeEmail(user.email, name).catch(() => {});
+
+    return { success: true, user };
+  } catch (err) {
+    console.error("Échec inscription email :", err);
+    throw new Error(translateAuthError(err));
+  }
+}
+
+/**
+ * Connexion avec Email et Mot de passe
+ */
+export async function loginWithEmailPassword(email, password) {
+  const { auth } = getFirebaseServices();
+  if (!auth) throw new Error("Le service d'authentification n'est pas disponible.");
+
+  if (!email || !password) {
+    throw new Error("Veuillez remplir votre e-mail et votre mot de passe.");
+  }
+
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+    return { success: true, user: cred.user };
+  } catch (err) {
+    console.error("Échec connexion email :", err);
+    throw new Error(translateAuthError(err));
+  }
+}
+
+/**
+ * Déconnexion propre du compte pèlerin
+ */
+export async function logoutPelerin() {
+  const { auth } = getFirebaseServices();
+  if (!auth) return;
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error("Erreur lors de la déconnexion :", err);
+  }
+}
+
+/**
+ * Réinitialisation du mot de passe par courriel
+ */
+export async function sendPelerinPasswordReset(email) {
+  const { auth } = getFirebaseServices();
+  if (!auth) throw new Error("Le service d'authentification n'est pas disponible.");
+
+  if (!email || !email.includes("@")) {
+    throw new Error("Veuillez saisir l'adresse e-mail de votre compte pèlerin.");
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, email.trim());
+    return { success: true };
+  } catch (err) {
+    console.error("Échec réinitialisation mot de passe :", err);
+    throw new Error(translateAuthError(err));
   }
 }
 

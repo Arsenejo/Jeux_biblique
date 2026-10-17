@@ -2119,4 +2119,81 @@ body.night-mode .leitner-revisit-btn {
   }
 }
 
+/* AUTH MODAL & GOOGLE BUTTON */
+.auth-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 50px rgba(10, 24, 39, 0.28);
+  animation: pop 0.28s ease-out;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+body.night-mode .auth-modal-card {
+  background: #0d2137;
+  border-color: #1e3f65;
+}
+.google-auth-button:hover:not(:disabled) {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+.google-auth-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* AUTH BADGE IN TOP BAR & PROFIL */
+.user-auth-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f1f7f3;
+  border: 1px solid #cbe8d5;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #145932;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.user-auth-badge:hover {
+  background: #e2f2e7;
+  transform: translateY(-1px);
+}
+.user-auth-badge.guest {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+.user-auth-badge.guest:hover {
+  background: #dbeafe;
+}
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  flex-shrink: 0;
+}
+.sync-dot.offline {
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
+.sync-dot.guest {
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+}
+
+
 

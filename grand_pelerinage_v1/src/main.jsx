@@ -4,11 +4,13 @@ import {
   BookOpen, Compass, Home, UserRound, Flame, Gem, Trophy, Star, LockKeyhole,
   Check, ChevronRight, Sparkles, Volume2, VolumeX, Heart, Share2, RotateCcw,
   Lightbulb, Users, Leaf, MapPinned, BookMarked, Send, MessageCircleHeart,
-  Award, ShieldCheck, Smile, Moon, Sun, Search, Flag
+  Award, ShieldCheck, Smile, Moon, Sun, Search, Flag, LogIn, LogOut, Globe,
+  AlertCircle, MailCheck, RefreshCw
 } from "lucide-react";
 
 import "./styles.css";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
+import { AuthModal } from "./components/AuthModal";
 import {
   initPelerinAuth,
   syncPelerinProfile,
@@ -19,8 +21,10 @@ import {
   fetchCommunityPrayers,
   addCommunityPrayer,
   supportCommunityPrayer,
-  flagCommunityPrayer
+  flagCommunityPrayer,
+  logoutPelerin
 } from "./services/firebase";
+import { sendProgressSummaryEmail, isBrevoConfigured } from "./services/brevoMailer";
 import { validatePrayerContent } from "./services/moderation";
 import {
   BIBLE_BOOKS,
@@ -100,6 +104,10 @@ function App() {
   const [dragOverBank, setDragOverBank] = useState(false);
   const [touchGhost, setTouchGhost] = useState(null);
   const touchStateRef = useRef({ item: null });
+
+  // Authentification multi-appareils (Modal & Compte)
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [sendingBrevoEmail, setSendingBrevoEmail] = useState(false);
 
   // Bible et Carnet
   const [selectedBookId, setSelectedBookId] = useState("gen");
@@ -217,6 +225,55 @@ function App() {
       syncPelerinProfile(user.uid, profilePayload);
     }
   }, [profileName, saved, xp, pearls, streak, user]);
+
+  // Gestion de l'authentification et du compte
+  const handleAuthSuccess = async (authenticatedUser) => {
+    setUser(authenticatedUser);
+    setFirebaseStatus("cloud");
+    if (authenticatedUser) {
+      const cloudData = await loadPelerinProfile(authenticatedUser.uid);
+      if (cloudData) {
+        if (cloudData.profileName) setProfileName(cloudData.profileName);
+        if (cloudData.saved) setSaved((prev) => ({ ...prev, ...cloudData.saved }));
+      }
+      const notes = getLocalCarnetNotes(authenticatedUser.uid);
+      setCarnetNotes(notes);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logoutPelerin();
+    setUser(null);
+    setFirebaseStatus("local");
+    notify("Tu es déconnecté·e. Ta progression reste en sécurité sur ton compte 🌿");
+  };
+
+  const handleSendProgressByEmail = async () => {
+    if (!user || !user.email) {
+      setAuthModalOpen(true);
+      return;
+    }
+    setSendingBrevoEmail(true);
+    try {
+      const res = await sendProgressSummaryEmail(user.email, profileName, {
+        xp,
+        pearls,
+        stagesCount: completedStages.length,
+        versesCount: leitnerCards.length
+      });
+      if (res.simulated) {
+        notify("Bilan simulé avec succès ! (Renseigne VITE_BREVO_API_KEY dans .env pour l'envoi réel) ✉️");
+      } else if (res.success) {
+        notify("Ton bilan spirituel a été envoyé avec succès par e-mail via Brevo 🕊️");
+      } else {
+        notify("Échec de l'envoi Brevo : " + (res.error || "erreur"));
+      }
+    } catch (e) {
+      notify("Erreur courriel : " + e.message);
+    } finally {
+      setSendingBrevoEmail(false);
+    }
+  };
 
   // Gestion de l'audio
   const handleToggleAudio = (text) => {
@@ -783,6 +840,28 @@ function App() {
             >
               <Sparkles size={18} />
             </button>
+
+            {user && !user.isAnonymous ? (
+              <button
+                type="button"
+                className="user-auth-badge"
+                onClick={() => setTab("Profil")}
+                title={`Connecté : ${user.email || profileName} (Synchronisé sur tous vos appareils)`}
+              >
+                <span className="sync-dot" />
+                <span>{user.displayName || profileName}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="user-auth-badge guest"
+                onClick={() => setAuthModalOpen(true)}
+                title="Connecte-toi pour sauvegarder ton pèlerinage sur tous tes appareils"
+              >
+                <LogIn size={15} />
+                <span>Connexion</span>
+              </button>
+            )}
 
             <button className="profile-chip" onClick={() => setTab("Profil")}>
               <span className="avatar">🌿</span>
@@ -1796,12 +1875,60 @@ function App() {
                   placeholder="Ton prénom ou pseudo"
                 />
 
-                <div style={{ margin: "12px 0" }}>
-                  <span className="pill" style={{ background: "#e8f7ed", color: "#159447" }}>
-                    <ShieldCheck size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
-                    {firebaseStatus === "cloud" ? "Voyage synchronisé sur le Cloud" : "Sauvegardé sur cet appareil"}
-                  </span>
-                </div>
+                {/* BLOC D'AUTHENTIFICATION & SYNCHRONISATION MULTI-APPAREILS */}
+                {user && !user.isAnonymous ? (
+                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "14px", margin: "14px 0", textAlign: "left" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                      <b style={{ fontSize: "13px", color: "var(--text)" }}>Compte Pèlerin Synchronisé</b>
+                      <span className="pill" style={{ background: "#e8f7ed", color: "#159447", fontSize: "11px", padding: "2px 8px" }}>
+                        <Globe size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: "3px" }} /> Multi-appareils
+                      </span>
+                    </div>
+                    <p style={{ margin: "0 0 10px", fontSize: "12px", color: "var(--muted)" }}>
+                      {user.email ? `E-mail : ${user.email}` : "Connecté avec Google"}
+                    </p>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        style={{ padding: "8px 12px", fontSize: "12px" }}
+                        onClick={handleSendProgressByEmail}
+                        disabled={sendingBrevoEmail}
+                      >
+                        {sendingBrevoEmail ? <RefreshCw size={13} className="spin-icon" /> : <MailCheck size={13} />}
+                        <span>Recevoir mon bilan par e-mail (Brevo)</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        style={{ padding: "8px 12px", fontSize: "12px", color: "#b91c1c", borderColor: "#fecaca" }}
+                        onClick={handleLogout}
+                      >
+                        <LogOut size={13} />
+                        <span>Déconnexion</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "14px", padding: "16px", margin: "16px 0", textAlign: "left" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                      <AlertCircle size={16} color="#2563eb" />
+                      <b style={{ fontSize: "13px", color: "#1e40af" }}>Ne perds jamais ta progression</b>
+                    </div>
+                    <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#3b82f6", lineHeight: 1.5 }}>
+                      Connecte-toi avec <b>Google</b> ou par <b>e-mail</b> pour retrouver ton voyage et ton carnet spirituel sur n'importe quel ordinateur, smartphone ou tablette.
+                    </p>
+                    <button
+                      type="button"
+                      className="primary-button full"
+                      style={{ padding: "10px", fontSize: "13px" }}
+                      onClick={() => setAuthModalOpen(true)}
+                    >
+                      <LogIn size={15} />
+                      <span>Créer mon compte / Me connecter</span>
+                    </button>
+                  </div>
+                )}
 
                 <div className="profile-metrics" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
                   <div>
@@ -1824,9 +1951,15 @@ function App() {
 
                 <button
                   className="secondary-button full"
-                  onClick={() => notify("Ton voyage est déjà automatiquement et silencieusement sauvegardé 💚")}
+                  onClick={() => {
+                    if (user && !user.isAnonymous) {
+                      notify("Ton compte est parfaitement synchronisé sur le Cloud 🌐");
+                    } else {
+                      setAuthModalOpen(true);
+                    }
+                  }}
                 >
-                  Vérifier ma synchronisation
+                  {user && !user.isAnonymous ? "Vérifier la synchronisation Cloud" : "Activer la synchronisation Cloud"}
                 </button>
               </div>
 
@@ -2028,6 +2161,14 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* MODAL D'AUTHENTIFICATION MULTI-APPAREILS */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        notify={notify}
+      />
 
       {/* TOAST DE NOTIFICATION BIENVEILLANT */}
       {toast && (
