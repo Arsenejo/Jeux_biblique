@@ -205,3 +205,100 @@ export async function sendProgressSummaryEmail(toEmail, pilgrimName, stats = {})
     htmlContent
   });
 }
+
+/**
+ * Envoie une invitation fraternelle avec partage du score et lien du pèlerinage
+ */
+export async function sendInviteEmail({
+  toEmail,
+  friendName = "Mon ami(e)",
+  inviterName = "Un ami pèlerin",
+  inviterStats = {},
+  customMessage = "",
+  inviteUrl = ""
+}) {
+  const { xp = 0, pearls = 0, stagesCount = 0, versesCount = 0 } = inviterStats;
+  const subject = `${inviterName} t'invite à marcher dans Le Grand Pèlerinage de la Bible 🌿`;
+
+  const fallbackUrl = inviteUrl || (typeof window !== "undefined" ? window.location.href : "https://legrandpelerinage.fr");
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f8fc; color: #17324d; padding: 24px; margin: 0; }
+        .card { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 18px; border: 1px solid #e2ebf3; overflow: hidden; box-shadow: 0 10px 30px rgba(7, 55, 99, 0.08); }
+        .header { background: linear-gradient(135deg, #073763, #159447); color: #ffffff; padding: 36px 24px; text-align: center; }
+        .header h1 { margin: 8px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+        .badge { display: inline-block; background: rgba(255, 255, 255, 0.22); color: #fff; padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .content { padding: 32px 28px; line-height: 1.6; }
+        .inviter-box { display: flex; align-items: center; gap: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin: 20px 0; }
+        .score-pill { background: #eaf5ff; border: 1px solid #bfdbfe; color: #0756a5; font-weight: 700; padding: 3px 10px; border-radius: 12px; font-size: 12px; margin-right: 6px; display: inline-block; }
+        .quote { background: #fff8e8; border-left: 4px solid #f4b942; padding: 14px 18px; margin: 20px 0; border-radius: 0 10px 10px 0; font-style: italic; color: #855305; font-size: 13px; }
+        .cta-container { text-align: center; margin: 30px 0 10px; }
+        .cta-btn { display: inline-block; background: #159447; color: #ffffff !important; text-decoration: none; font-weight: 800; font-size: 15px; padding: 14px 28px; border-radius: 14px; box-shadow: 0 4px 14px rgba(21, 148, 71, 0.35); }
+        .personal-msg { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 14px; margin: 18px 0; font-style: italic; color: #475569; font-size: 13px; }
+        .footer { background: #f8fafc; padding: 22px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #edf2f7; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="header">
+          <span class="badge">INVITATION FRATERNELLE</span>
+          <h1>${inviterName} t'invite à marcher avec lui</h1>
+          <p style="margin: 6px 0 0; opacity: 0.9; font-size: 14px;">Une aventure biblique vivante, bienveillante et profonde</p>
+        </div>
+        <div class="content">
+          <p>Bonjour <strong>${friendName}</strong>,</p>
+          <p><strong>${inviterName}</strong> a commencé son voyage dans <strong>Le Grand Pèlerinage de la Bible</strong> et souhaite partager ce chemin de foi et d'édification avec toi !</p>
+
+          <div class="inviter-box">
+            <span style="font-size: 32px;">🎒</span>
+            <div>
+              <b style="color: #14532d; font-size: 14px;">La marche de ${inviterName} :</b><br>
+              <div style="margin-top: 5px;">
+                <span class="score-pill">✨ ${xp} XP</span>
+                <span class="score-pill">💎 ${pearls} perles</span>
+                <span class="score-pill">🌿 ${stagesCount} étapes franchies</span>
+              </div>
+            </div>
+          </div>
+
+          ${customMessage ? `
+            <div class="personal-msg">
+              <strong>Mot personnel de ${inviterName} :</strong><br>
+              « ${customMessage} »
+            </div>
+          ` : ""}
+
+          <div class="quote">
+            « Venez, et montons à la montagne de l'Éternel... afin qu'il nous enseigne ses voies, et que nous marchions dans ses sentiers. »<br>
+            <small style="font-weight: 700; font-style: normal;">— Ésaïe 2:3 (Louis Segond 1910)</small>
+          </div>
+
+          <div class="cta-container">
+            <a href="${fallbackUrl}" class="cta-btn" target="_blank" rel="noopener noreferrer">
+              Rejoindre le pèlerinage maintenant →
+            </a>
+          </div>
+          <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 10px;">
+            Accessible instantanément, sans inscription obligatoire, sur mobile, tablette ou ordinateur.
+          </p>
+        </div>
+        <div class="footer">
+          Le Grand Pèlerinage de la Bible • Un voyage au cœur de la Parole, à ton rythme.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendBrevoEmail({
+    toEmail,
+    toName: friendName,
+    subject,
+    htmlContent
+  });
+}

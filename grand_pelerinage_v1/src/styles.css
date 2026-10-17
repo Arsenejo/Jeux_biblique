@@ -2195,5 +2195,437 @@ body.night-mode .auth-modal-card {
   box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
 }
 
+/* ============================================================
+   LAMPES DE FOI & VIGILANCE (SYSTEME DE VIES)
+   ============================================================ */
+.lampes-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fff8e6;
+  border: 1px solid #f6d286;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #8b5502;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.lampes-badge:hover {
+  background: #fff2cc;
+  transform: translateY(-1px);
+}
+.lampes-badge.alert {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+  animation: pulse-lamp 1.5s infinite;
+}
+@keyframes pulse-lamp {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+}
+.lampes-icon {
+  font-size: 15px;
+}
+.lampes-count {
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================================
+   BOUTON INVITER UN AMI DANS LA TOPBAR
+   ============================================================ */
+.invite-badge-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #0756a5 0%, #06477b 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(7, 86, 165, 0.25);
+  transition: all 0.2s ease;
+}
+.invite-badge-btn:hover {
+  background: linear-gradient(135deg, #0968c7 0%, #0756a5 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(7, 86, 165, 0.35);
+}
+
+/* BANDEAU D'INVITATION SUR L'ACCUEIL */
+.invited-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #eef7ee 0%, #e0f2e3 100%);
+  border: 1px solid #b7dfbf;
+  border-radius: 14px;
+  color: #1e5a2d;
+  font-size: 14px;
+  margin-bottom: 20px;
+  animation: fadeIn 0.4s ease-out;
+}
+.close-banner-btn {
+  background: transparent;
+  border: none;
+  color: #1e5a2d;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+.close-banner-btn:hover {
+  background: rgba(30, 90, 45, 0.1);
+}
+
+/* ============================================================
+   PILLS DE DIFFICULTÉ ET MÉTADONNÉES D'ÉTAPES
+   ============================================================ */
+.stage-meta-pills, .exercise-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.diff-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.diff-debutant {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.diff-intermediaire {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+.diff-avance {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.diff-expert {
+  background: #faf5ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+.diff-pill.subtile {
+  background: #fdf4ff;
+  color: #86198f;
+  border: 1px solid #f5d0fe;
+}
+.diff-pill.chrono {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+.diff-pill.cout-vie {
+  background: #fff1f2;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+}
+
+/* MICRO-BADGES SUR LES NŒUDS DU SENTIER */
+.node-attributes-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.attr-pill {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.attr-pill.subtile {
+  background: #fdf4ff;
+  color: #86198f;
+  border: 1px solid #f0abfc;
+}
+.attr-pill.timer {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+.attr-pill.lampe {
+  background: #fff1f2;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+}
+.path-node.subtile-node .node-circle {
+  border-color: #c084fc;
+}
+
+/* ============================================================
+   CHRONOMÈTRE DYNAMIQUE D'ATELIER
+   ============================================================ */
+.stage-timer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 20px;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 700;
+}
+.stage-timer-badge .timer-val {
+  font-family: 'Manrope', monospace;
+  font-size: 15px;
+  letter-spacing: 1px;
+}
+.stage-timer-badge.urgent {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+  animation: timer-urgent-pulse 0.8s infinite alternate;
+}
+@keyframes timer-urgent-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.04); }
+}
+.stage-timer-badge.contemplative {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+.contemplative-toggle-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.contemplative-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================
+   RECOMMANDATIONS ET CONSEILS DE RECHERCHE BIBLIQUE
+   ============================================================ */
+.study-hint-section {
+  margin: 14px 0 18px;
+}
+.study-hint-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #fbf8eb;
+  border: 1px dashed #d97706;
+  border-radius: 12px;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.study-hint-toggle:hover {
+  background: #fef3c7;
+  transform: translateY(-1px);
+}
+.subtile-badge-inline {
+  background: #9333ea;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.study-hint-card {
+  margin-top: 10px;
+  padding: 14px 16px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+  border-radius: 12px;
+  animation: slideDown 0.25s ease-out;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.study-hint-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #92400e;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.study-hint-card p {
+  margin: 0;
+  color: #78350f;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   MODAL DE HALTE BIENVEILLANTE AU PUITS DE JACOB
+   ============================================================ */
+.spiritual-halt-card {
+  max-width: 520px;
+  text-align: center;
+  padding: 32px 28px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%);
+  border-radius: 24px;
+  box-shadow: 0 25px 50px -12px rgba(7, 55, 99, 0.25);
+  border: 1px solid #d0e5f7;
+}
+.halt-icon-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.halt-icon {
+  font-size: 48px;
+  filter: drop-shadow(0 4px 12px rgba(245, 158, 11, 0.4));
+}
+.halt-sparkles {
+  color: #d97706;
+  font-size: 14px;
+  letter-spacing: 4px;
+}
+.spiritual-halt-card h2 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 24px;
+  color: #073763;
+  margin: 0 0 8px;
+}
+.halt-sub {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+.halt-verse-box {
+  background: #f0f7fc;
+  border: 1px solid #c2def4;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.halt-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #0369a1;
+  margin-bottom: 8px;
+}
+.halt-verse-box blockquote {
+  margin: 0 0 8px;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #0c4a6e;
+}
+.halt-verse-box cite {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0284c7;
+  font-style: normal;
+}
+.halt-advice {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+.modal-actions-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ============================================================
+   NIGHT MODE OVERRIDES POUR LES NOUVEAUX COMPOSANTS
+   ============================================================ */
+body.night-mode .lampes-badge {
+  background: #231d10;
+  border-color: #594314;
+  color: #fbd38d;
+}
+body.night-mode .invited-banner {
+  background: #0d2818;
+  border-color: #1b4d2e;
+  color: #a7f3d0;
+}
+body.night-mode .close-banner-btn {
+  color: #a7f3d0;
+}
+body.night-mode .stage-timer-badge {
+  background: #0d2516;
+  border-color: #1b5e32;
+  color: #86efac;
+}
+body.night-mode .stage-timer-badge.contemplative {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+body.night-mode .study-hint-toggle {
+  background: #251c09;
+  border-color: #78350f;
+  color: #fde68a;
+}
+body.night-mode .study-hint-card {
+  background: #1f1807;
+  border-color: #78350f;
+  border-left-color: #f59e0b;
+}
+body.night-mode .study-hint-card p {
+  color: #fef3c7;
+}
+body.night-mode .spiritual-halt-card {
+  background: linear-gradient(180deg, #0d2137 0%, #071728 100%);
+  border-color: #1e3f65;
+}
+body.night-mode .spiritual-halt-card h2 {
+  color: #e2e8f0;
+}
+body.night-mode .halt-verse-box {
+  background: #081a2e;
+  border-color: #1b3d63;
+}
+body.night-mode .halt-verse-box blockquote {
+  color: #bae6fd;
+}
+
+
 
 

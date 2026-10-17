@@ -5,12 +5,13 @@ import {
   Check, ChevronRight, Sparkles, Volume2, VolumeX, Heart, Share2, RotateCcw,
   Lightbulb, Users, Leaf, MapPinned, BookMarked, Send, MessageCircleHeart,
   Award, ShieldCheck, Smile, Moon, Sun, Search, Flag, LogIn, LogOut, Globe,
-  AlertCircle, MailCheck, RefreshCw
+  AlertCircle, MailCheck, RefreshCw, Timer, Clock, UserPlus, Info, AlertTriangle
 } from "lucide-react";
 
 import "./styles.css";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { AuthModal } from "./components/AuthModal";
+import InviteShareModal from "./components/InviteShareModal";
 import {
   initPelerinAuth,
   syncPelerinProfile,
@@ -105,6 +106,22 @@ function App() {
   const [touchGhost, setTouchGhost] = useState(null);
   const touchStateRef = useRef({ item: null });
 
+  // Lampes de foi (Vies : max 5, perte sur erreurs en étapes défi, halte bienveillante à 0)
+  const [lampes, setLampes] = useState(() => (typeof saved.lampes === "number" ? saved.lampes : 5));
+  const [spiritualHaltModal, setSpiritualHaltModal] = useState(false);
+
+  // Chronomètre Dynamique Décroissant
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [contemplativeMode, setContemplativeMode] = useState(false);
+
+  // Recommandation & Conseil de recherche biblique
+  const [showStudyHint, setShowStudyHint] = useState(false);
+
+  // Modal d'invitation et partage de score
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [invitedByBanner, setInvitedByBanner] = useState(null);
+
   // Authentification multi-appareils (Modal & Compte)
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [sendingBrevoEmail, setSendingBrevoEmail] = useState(false);
@@ -171,6 +188,27 @@ function App() {
     }
   }, []);
 
+  // Détection d'invitation dans l'URL (?invite=...&by=...)
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && window.location?.search) {
+        const searchParams = new URLSearchParams(window.location.search);
+        const invitedBy = searchParams.get("by") || searchParams.get("invite");
+        if (invitedBy) {
+          setInvitedByBanner(decodeURIComponent(invitedBy));
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Synchronisation des lampes de foi dans la sauvegarde locale et cloud
+  useEffect(() => {
+    setSaved((prev) => {
+      if (prev.lampes === lampes) return prev;
+      return { ...prev, lampes };
+    });
+  }, [lampes]);
+
   // Initialisation Authentification transparente Firebase & Chargement
   useEffect(() => {
     let unsubAuth;
@@ -182,7 +220,12 @@ function App() {
         const cloudData = await loadPelerinProfile(currentUser.uid);
         if (cloudData) {
           if (cloudData.profileName) setProfileName(cloudData.profileName);
-          if (cloudData.saved) setSaved((prev) => ({ ...prev, ...cloudData.saved }));
+          if (cloudData.saved) {
+            setSaved((prev) => ({ ...prev, ...cloudData.saved }));
+            if (typeof cloudData.saved.lampes === "number") {
+              setLampes(cloudData.saved.lampes);
+            }
+          }
         }
         const notes = getLocalCarnetNotes(currentUser.uid);
         setCarnetNotes(notes);
@@ -205,6 +248,36 @@ function App() {
       stopSpeech();
     };
   }, []);
+
+  // Gestion du chronomètre dégressif d'atelier
+  const currentStageForTimer = currentStages.find((s) => s.id === activeStageId) || currentStages[0];
+
+  useEffect(() => {
+    if (!timerRunning || timeLeft === null || tab !== "Exercice" || contemplativeMode) return;
+
+    if (timeLeft <= 0) {
+      setTimerRunning(false);
+      triggerHaptic([50, 50]);
+      if (currentStageForTimer.coutVie) {
+        setLampes((prev) => {
+          const nextLampes = Math.max(0, prev - 1);
+          if (nextLampes === 0) setSpiritualHaltModal(true);
+          return nextLampes;
+        });
+        notify("⏱️ Temps écoulé ! Une lampe s'éteint. Consulte l'indice pour t'orienter 🪔");
+      } else {
+        notify("⏱️ Temps écoulé ! Prends tout ton temps pour méditer dans les Écritures 🌿");
+      }
+      setExerciseFeedback("Temps écoulé ! Prends ton temps pour relire le texte et t'appuyer sur le conseil de recherche 📖");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerRunning, timeLeft, tab, contemplativeMode, currentStageForTimer]);
 
   // Sauvegarde automatique du profil lors des changements
   useEffect(() => {
@@ -421,6 +494,7 @@ function App() {
     }
 
     if (isSuccess) {
+      setTimerRunning(false);
       playDivineChime();
       triggerHaptic([20, 60, 20]);
       setConfettiActive(true);
@@ -459,7 +533,18 @@ function App() {
       });
     } else {
       triggerHaptic([40, 20]);
-      setExerciseFeedback("Presque ! Prends un instant pour relire avec calme 🌿");
+      if (currentStage.coutVie) {
+        setLampes((prev) => {
+          const nextLampes = Math.max(0, prev - 1);
+          if (nextLampes === 0) {
+            setSpiritualHaltModal(true);
+          }
+          return nextLampes;
+        });
+        setExerciseFeedback("Presque ! Une de tes lampes s'est éteinte 🪔. Prends un temps de calme pour consulter l'indice biblique 🌿");
+      } else {
+        setExerciseFeedback("Presque ! Prends un instant pour relire avec calme 🌿");
+      }
     }
   };
 
@@ -468,6 +553,7 @@ function App() {
     setSelectedQcmIndex(null);
     setSelectedCloze("");
     setExerciseFeedback("");
+    setShowStudyHint(false);
     setDraggedItem(null);
     setDragOverSlotIndex(null);
     setDragOverBank(false);
@@ -653,8 +739,22 @@ function App() {
   };
 
   const startStage = (stageId) => {
+    if (lampes === 0) {
+      setSpiritualHaltModal(true);
+      return;
+    }
     setActiveStageId(stageId);
     resetStageExercise();
+
+    const stageObj = currentStages.find((s) => s.id === stageId) || currentStages[0];
+    if (stageObj?.tempsLimite && !contemplativeMode) {
+      setTimeLeft(stageObj.tempsLimite);
+      setTimerRunning(true);
+    } else {
+      setTimeLeft(null);
+      setTimerRunning(false);
+    }
+
     setTab("Exercice");
   };
 
@@ -662,8 +762,18 @@ function App() {
     resetStageExercise();
     const curIdx = currentStages.findIndex((s) => s.id === activeStageId);
     if (curIdx >= 0 && curIdx < currentStages.length - 1) {
-      setActiveStageId(currentStages[curIdx + 1].id);
+      const nextStageObj = currentStages[curIdx + 1];
+      setActiveStageId(nextStageObj.id);
+      if (nextStageObj?.tempsLimite && !contemplativeMode) {
+        setTimeLeft(nextStageObj.tempsLimite);
+        setTimerRunning(true);
+      } else {
+        setTimeLeft(null);
+        setTimerRunning(false);
+      }
     } else {
+      setTimeLeft(null);
+      setTimerRunning(false);
       setTab("Parcours");
       notify("Toutes les étapes de cette époque sont accomplies ! Gloire à Dieu 🌟");
     }
@@ -841,6 +951,34 @@ function App() {
               <Sparkles size={18} />
             </button>
 
+            {/* BOUTON INVITER UN AMI & PARTAGER */}
+            <button
+              type="button"
+              className="invite-badge-btn"
+              onClick={() => setInviteModalOpen(true)}
+              title="Inviter un ami ou partager ton score"
+            >
+              <UserPlus size={15} />
+              <span className="hide-mobile">Inviter</span>
+            </button>
+
+            {/* LAMPES DE FOI (VIES / VIGILANCE) */}
+            <button
+              type="button"
+              className={`lampes-badge ${lampes <= 1 ? "alert" : ""}`}
+              onClick={() => {
+                if (lampes < 5) {
+                  setSpiritualHaltModal(true);
+                } else {
+                  notify("Tes 5 lampes de foi brillent d'une belle lumière ! 🪔✨");
+                }
+              }}
+              title={`Lampes de foi : ${lampes}/5 - Clique pour une halte au puits de Jacob`}
+            >
+              <span className="lampes-icon">🪔</span>
+              <span className="lampes-count">{lampes}/5</span>
+            </button>
+
             {user && !user.isAnonymous ? (
               <button
                 type="button"
@@ -877,6 +1015,14 @@ function App() {
         {/* 1. ONGLET ACCUEIL */}
         {tab === "Accueil" && (
           <section className="page">
+            {invitedByBanner && (
+              <div className="invited-banner">
+                <Sparkles size={18} />
+                <span>🌿 Bienvenue ! Tu as été invité·e par <b>{invitedByBanner}</b> à cheminer sur Le Grand Pèlerinage de la Bible.</span>
+                <button type="button" className="close-banner-btn" onClick={() => setInvitedByBanner(null)} aria-label="Fermer le bandeau">✕</button>
+              </div>
+            )}
+
             <div className="hero">
               <div className="hero-copy">
                 <span className="eyebrow">
@@ -1122,44 +1268,64 @@ function App() {
               <div className="path-cloud cloud-b" />
 
               <svg className="winding-path" viewBox="0 0 1000 450" preserveAspectRatio="none" aria-hidden="true">
-                <path
-                  d="M 110 390 C 160 340, 180 270, 290 290 S 390 390, 490 320 S 590 220, 640 230 S 740 250, 790 160 S 870 100, 920 50"
-                  fill="none"
-                  stroke="#fff8dc"
-                  strokeWidth="24"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M 110 390 C 160 340, 180 270, 290 290 S 390 390, 490 320 S 590 220, 640 230 S 740 250, 790 160 S 870 100, 920 50"
-                  fill="none"
-                  stroke="#d6bd79"
-                  strokeWidth="4"
-                  strokeDasharray="4 12"
-                  strokeLinecap="round"
-                />
+                {currentStages.map((stage, idx) => {
+                  if (idx === 0) return null;
+                  const prev = currentStages[idx - 1];
+                  const x1 = prev.x * 10;
+                  const y1 = prev.y * 4.5;
+                  const x2 = stage.x * 10;
+                  const y2 = stage.y * 4.5;
+                  return (
+                    <g key={`path-${stage.id}`}>
+                      <line
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke="#fff8dc"
+                        strokeWidth="18"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke="#d6bd79"
+                        strokeWidth="3.5"
+                        strokeDasharray="5 9"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  );
+                })}
               </svg>
 
               {currentStages.map((node) => {
                 const isDone = completedStages.includes(node.id);
                 const isCurrent = !isDone;
-                const isLocked = false; // Accessible avec joie
 
                 return (
                   <button
                     key={node.id}
-                    className={`path-node ${isDone ? "done" : ""} ${node.id === currentStage.id ? "current" : ""}`}
+                    className={`path-node ${isDone ? "done" : ""} ${node.id === currentStage.id ? "current" : ""} ${node.subtile ? "subtile-node" : ""}`}
                     style={{ left: `${node.x}%`, top: `${node.y}%` }}
                     onClick={() => startStage(node.id)}
                     aria-label={`${node.titre}`}
                   >
                     <span className="node-circle">
-                      {isDone ? <Check size={22} /> : <span>{node.id}</span>}
+                      {isDone ? <Check size={20} /> : <span>{node.id}</span>}
                     </span>
                     <span className="node-label">
                       <b>{node.titre}</b>
                       <small>{node.ref}</small>
+                      <div className="node-attributes-row">
+                        {node.subtile && <span className="attr-pill subtile">🔍 Subtile</span>}
+                        {node.tempsLimite && <span className="attr-pill timer">⏱️ {node.tempsLimite}s</span>}
+                        {node.coutVie && <span className="attr-pill lampe">🪔 Défi</span>}
+                      </div>
                       {isDone && <span className="node-stars">★ ★ ★</span>}
-                      {node.id === currentStage.id && !isDone && <em>À découvrir</em>}
+                      {node.id === currentStage.id && !isDone && <em>Étape en cours</em>}
                     </span>
                   </button>
                 );
@@ -1175,12 +1341,20 @@ function App() {
               <div className="feature-card next-step">
                 <div className="round-icon"><BookOpen size={20} /></div>
                 <div>
+                  <div className="stage-meta-pills">
+                    <span className={`diff-pill diff-${currentStage.difficulte || "debutant"}`}>
+                      {currentStage.difficulte === "expert" ? "Expert & Subtil" : currentStage.difficulte === "avance" ? "Avancé" : currentStage.difficulte === "intermediaire" ? "Intermédiaire" : "Débutant"}
+                    </span>
+                    {currentStage.subtile && <span className="diff-pill subtile">🔍 Recherche biblique approfondie</span>}
+                    {currentStage.tempsLimite && <span className="diff-pill chrono">⏱️ Défi : {currentStage.tempsLimite}s</span>}
+                    {currentStage.coutVie && <span className="diff-pill cout-vie">🪔 Risque d'extinction de lampe</span>}
+                  </div>
                   <span className="eyebrow">ÉTAPE SÉLECTIONNÉE</span>
                   <h3>{currentStage.titre}</h3>
                   <p>{currentStage.ref} · {currentStage.consigne}</p>
                 </div>
                 <button className="primary-button" onClick={() => startStage(currentStage.id)}>
-                  Jouer <ChevronRight size={17} />
+                  Commencer l'étape <ChevronRight size={17} />
                 </button>
               </div>
 
@@ -1216,6 +1390,85 @@ function App() {
                 <span className="eyebrow">ATELIER DU CŒUR</span>
                 <h1>{currentStage.titre}</h1>
                 <p>{currentStage.consigne}</p>
+
+                {/* BADGES DE DIFFICULTÉ, CHRONO DYNAMIQUE ET DÉFI DE VIE */}
+                <div className="exercise-meta-bar">
+                  <span className={`diff-pill diff-${currentStage.difficulte || "debutant"}`}>
+                    {currentStage.difficulte === "expert" ? "Expert & Subtil" : currentStage.difficulte === "avance" ? "Avancé" : currentStage.difficulte === "intermediaire" ? "Intermédiaire" : "Débutant"}
+                  </span>
+
+                  {currentStage.tempsLimite && !contemplativeMode && (
+                    <div className={`stage-timer-badge ${timeLeft !== null && timeLeft <= 5 ? "urgent" : ""}`}>
+                      <Timer size={15} />
+                      <span className="timer-val">
+                        {timeLeft !== null ? `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, "0")}` : "--:--"}
+                      </span>
+                      <button
+                        type="button"
+                        className="contemplative-toggle-btn"
+                        onClick={() => {
+                          setContemplativeMode(true);
+                          setTimeLeft(null);
+                          setTimerRunning(false);
+                          notify("Mode contemplatif activé : avance à ton rythme sans chronomètre 🕊️");
+                        }}
+                        title="Désactiver le chronomètre et jouer en paix"
+                      >
+                        Mode calme
+                      </button>
+                    </div>
+                  )}
+
+                  {currentStage.tempsLimite && contemplativeMode && (
+                    <div className="stage-timer-badge contemplative">
+                      <Clock size={15} />
+                      <span>Mode contemplatif</span>
+                      <button
+                        type="button"
+                        className="contemplative-toggle-btn"
+                        onClick={() => {
+                          setContemplativeMode(false);
+                          setTimeLeft(currentStage.tempsLimite);
+                          setTimerRunning(true);
+                          notify("Chronomètre de défi réactivé ! ⏱️");
+                        }}
+                        title="Réactiver le chronomètre de défi"
+                      >
+                        Chrono
+                      </button>
+                    </div>
+                  )}
+
+                  {currentStage.coutVie && (
+                    <span className="diff-pill cout-vie" title="Une lampe s'éteint en cas de mauvaise réponse">
+                      🪔 Défi de foi (Lampe en jeu)
+                    </span>
+                  )}
+                </div>
+
+                {/* RECOMMANDATIONS ET CONSEIL DE RECHERCHE BIBLIQUE */}
+                {currentStage.conseilRecherche && (
+                  <div className="study-hint-section">
+                    <button
+                      type="button"
+                      className={`study-hint-toggle ${showStudyHint ? "open" : ""}`}
+                      onClick={() => setShowStudyHint((prev) => !prev)}
+                    >
+                      <Lightbulb size={16} />
+                      <span>{showStudyHint ? "Masquer le conseil de recherche" : "💡 Conseil de recherche biblique"}</span>
+                      {currentStage.subtile && <span className="subtile-badge-inline">Recommandé</span>}
+                    </button>
+                    {showStudyHint && (
+                      <div className="study-hint-card">
+                        <div className="study-hint-header">
+                          <BookOpen size={14} />
+                          <b>Orientation dans les Écritures (Louis Segond 1910)</b>
+                        </div>
+                        <p>{currentStage.conseilRecherche}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* FORMAT 1 : ORDONNANCEMENT (GLISSER-DÉPOSER & TAP-TO-PLACE) */}
                 {currentStage.type === "order" && (
@@ -2161,6 +2414,77 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE HALTE BIENVEILLANTE AU PUITS DE JACOB (RESTAURATION DES LAMPES) */}
+      {spiritualHaltModal && (
+        <div className="modal-backdrop" onClick={() => { if (lampes > 0) setSpiritualHaltModal(false); }}>
+          <div className="modal-card spiritual-halt-card" onClick={(e) => e.stopPropagation()}>
+            <div className="halt-icon-header">
+              <span className="halt-icon">🪔</span>
+              <span className="halt-sparkles">✦ ✧ ✦</span>
+            </div>
+            <h2>Halte au Puits de Jacob</h2>
+            <p className="halt-sub">
+              {lampes === 0
+                ? "Toutes tes lampes se sont éteintes. Dans la marche spirituelle, la fatigue et les hésitations font partie du chemin."
+                : "Prends un instant pour faire silence et renouveler tes forces dans la présence de Dieu."}
+            </p>
+
+            <div className="halt-verse-box">
+              <span className="halt-tag">EAU VIVE & MÉDITATION</span>
+              <blockquote>
+                « Mais celui qui boira de l'eau que je lui donnerai n'aura jamais soif, et l'eau que je lui donnerai deviendra en lui une source d'eau qui jaillira jusque dans la vie éternelle. »
+              </blockquote>
+              <cite>— Jean 4:14 (Louis Segond 1910)</cite>
+            </div>
+
+            <p className="halt-advice">
+              Au puits de Jacob, Jésus accueille la fatigue de chaque pèlerin avec tendresse. Bois à la source de la grâce pour rallumer tes 5 lampes de foi.
+            </p>
+
+            <div className="modal-actions-column">
+              <button
+                type="button"
+                className="primary-button full"
+                onClick={() => {
+                  setLampes(5);
+                  setSpiritualHaltModal(false);
+                  playDivineChime();
+                  triggerHaptic([30, 60, 30]);
+                  notify("Tes 5 lampes de foi brillent à nouveau d'une vive clarté ! 🪔🕊️");
+                }}
+              >
+                ✨ Boire à la source et rallumer mes 5 lampes
+              </button>
+              {lampes > 0 && (
+                <button
+                  type="button"
+                  className="secondary-button full"
+                  onClick={() => setSpiritualHaltModal(false)}
+                >
+                  Poursuivre ma marche ({lampes} lampes allumées)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL D'INVITATION ET DE PARTAGE DE SCORE */}
+      <InviteShareModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        user={user}
+        profileName={profileName}
+        stats={{
+          xp,
+          pearls,
+          streak,
+          stagesCount: completedStages.length,
+          versesCount: leitnerCards.length
+        }}
+        notify={notify}
+      />
 
       {/* MODAL D'AUTHENTIFICATION MULTI-APPAREILS */}
       <AuthModal
