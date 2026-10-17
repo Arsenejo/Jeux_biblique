@@ -128,4 +128,30 @@ Voici les axes d'analyse et de recommandation attendus de la part de ChatGPT pou
 
 ---
 
+## 6. Jalons Opérationnels Majeurs Réalisés (Octobre 2026)
+
+Le moteur **Le Grand Pèlerinage de la Bible (v1)** est désormais pleinement fonctionnel et validé par **24 tests automatisés rigoureux** :
+
+1. **Glisser / Déposer tactile & souris (Atelier du Cœur)** :
+   - Manipulation directe des mots de versets vers n'importe quelle case cible (y compris cases isolées ou désordonnées).
+   - Permutation fluide entre cases remplies (swap automatique) et retrait vers la banque de mots par glissement.
+   - Support tactile avec fantôme visuel flottant (`.touch-drag-ghost`) et retours haptiques sur smartphones et tablettes.
+   - Mode hybride conservé : le clic/tap simple fonctionne toujours pour une accessibilité maximale.
+
+2. **Authentification Multi-Appareils (Google & Email/Password)** :
+   - Connexion en 1 clic avec **Google** (`signInWithPopup`).
+   - Inscription et connexion par **Email et Mot de passe** (`createUserWithEmailAndPassword`, `signInWithEmailAndPassword`) avec traduction des erreurs en français limpide.
+   - Réinitialisation de mot de passe par courriel (`sendPasswordResetEmail`).
+   - Reprise transparente de parcours : lorsqu'un joueur se connecte sur un autre appareil ou navigateur, son profil Firestore (`pelerins/{uid}`) est restauré sans perte de points d'XP, d'étapes ni de versets mémorisés.
+   - Fusion intelligente (`reconcilePelerinData`) : si le joueur a débuté en invité avant de se connecter, sa progression locale est fusionnée mathématiquement avec son compte Cloud.
+
+3. **Intégration du Service Transactionnel Brevo (ex-Sendinblue)** :
+   - Module `src/services/brevoMailer.js` connecté à l'API v3 SMTP Brevo.
+   - Envoi de la lettre d'accueil du pèlerin (`sendWelcomeEmail`) avec versets fortifiants.
+   - Envoi du bilan spirituel de progression (`sendProgressSummaryEmail`) sur demande.
+   - Mode simulation gracieuse en local si la clé `VITE_BREVO_API_KEY` n'est pas encore renseignée dans le fichier `.env`.
+
+---
+
 *Ce document synthétise l'ensemble des acquis et des ambitions du projet pour servir de socle à une analyse stratégique approfondie.*
+
