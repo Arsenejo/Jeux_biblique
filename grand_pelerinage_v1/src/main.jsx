@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
   BookOpen, Compass, Home, UserRound, Flame, Gem, Trophy, Star, LockKeyhole,
@@ -93,6 +93,13 @@ function App() {
   const [selectedQcmIndex, setSelectedQcmIndex] = useState(null);
   const [selectedCloze, setSelectedCloze] = useState("");
   const [exerciseFeedback, setExerciseFeedback] = useState("");
+
+  // Glisser / Déposer (Drag & Drop tactile & souris)
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverSlotIndex, setDragOverSlotIndex] = useState(null);
+  const [dragOverBank, setDragOverBank] = useState(false);
+  const [touchGhost, setTouchGhost] = useState(null);
+  const touchStateRef = useRef({ item: null });
 
   // Bible et Carnet
   const [selectedBookId, setSelectedBookId] = useState("gen");
@@ -336,11 +343,12 @@ function App() {
     let isSuccess = false;
 
     if (currentStage.type === "order") {
-      if (placedWords.length !== currentStage.motsCorrects.length) {
+      const filledCount = placedWords.filter(Boolean).length;
+      if (filledCount !== currentStage.motsCorrects.length) {
         setExerciseFeedback("Il reste encore des mots à placer. Prends ton temps 🌿");
         return;
       }
-      isSuccess = placedWords.every((word, index) => word === currentStage.motsCorrects[index]);
+      isSuccess = currentStage.motsCorrects.every((word, index) => placedWords[index] === word);
     } else if (currentStage.type === "qcm") {
       if (selectedQcmIndex === null) {
         setExerciseFeedback("Sélectionne une réponse pour continuer 🌿");
@@ -403,6 +411,188 @@ function App() {
     setSelectedQcmIndex(null);
     setSelectedCloze("");
     setExerciseFeedback("");
+    setDraggedItem(null);
+    setDragOverSlotIndex(null);
+    setDragOverBank(false);
+    setTouchGhost(null);
+    touchStateRef.current = { item: null };
+  };
+
+  // --- GESTIONNAIRES DU GLISSER / DÉPOSER (DRAG & DROP TACTILE & SOURIS) ---
+  const handlePlaceWordInSlot = (word, targetIndex) => {
+    if (!word || exerciseFeedback) return;
+    setPlacedWords((prev) => {
+      const next = [...prev];
+      // Si le mot est déjà présent dans une case, on libère son ancien emplacement
+      const existingIdx = next.findIndex((w) => w === word);
+      if (existingIdx !== -1) {
+        next[existingIdx] = null;
+      }
+
+      if (typeof targetIndex === "number" && targetIndex >= 0) {
+        next[targetIndex] = word;
+      } else {
+        // Recherche du premier emplacement libre de gauche à droite
+        const total = currentStage.motsCorrects ? currentStage.motsCorrects.length : 4;
+        let freeIdx = -1;
+        for (let i = 0; i < total; i++) {
+          if (!next[i]) {
+            freeIdx = i;
+            break;
+          }
+        }
+        if (freeIdx !== -1) {
+          next[freeIdx] = word;
+        } else {
+          next.push(word);
+        }
+      }
+      return next;
+    });
+    triggerHaptic(15);
+  };
+
+  const handleMoveOrSwapSlot = (sourceIndex, targetIndex) => {
+    if (sourceIndex === targetIndex || exerciseFeedback) return;
+    setPlacedWords((prev) => {
+      const next = [...prev];
+      const sourceWord = next[sourceIndex];
+      const targetWord = next[targetIndex];
+      next[targetIndex] = sourceWord;
+      next[sourceIndex] = targetWord || null;
+      return next;
+    });
+    triggerHaptic([20, 20]);
+  };
+
+  const handleRemoveWordFromSlot = (index) => {
+    if (exerciseFeedback) return;
+    setPlacedWords((prev) => {
+      const next = [...prev];
+      next[index] = null;
+      return next;
+    });
+    triggerHaptic(10);
+  };
+
+  // Handlers HTML5 Drag & Drop (Souris & Trackpad)
+  const handleDragStartFromBank = (e, word) => {
+    if (exerciseFeedback) return;
+    setDraggedItem({ type: "bank", word });
+    if (e.dataTransfer) {
+      e.dataTransfer.setData("text/plain", word);
+      e.dataTransfer.effectAllowed = "move";
+    }
+    triggerHaptic(10);
+  };
+
+  const handleDragStartFromSlot = (e, word, index) => {
+    if (exerciseFeedback || !word) return;
+    setDraggedItem({ type: "slot", word, index });
+    if (e.dataTransfer) {
+      e.dataTransfer.setData("text/plain", word);
+      e.dataTransfer.effectAllowed = "move";
+    }
+    triggerHaptic(10);
+  };
+
+  const handleDragOverSlot = (e, index) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    if (dragOverSlotIndex !== index) {
+      setDragOverSlotIndex(index);
+    }
+  };
+
+  const handleDropOnSlot = (e, targetIndex) => {
+    e.preventDefault();
+    setDragOverSlotIndex(null);
+    if (!draggedItem || exerciseFeedback) return;
+
+    if (draggedItem.type === "bank") {
+      handlePlaceWordInSlot(draggedItem.word, targetIndex);
+    } else if (draggedItem.type === "slot") {
+      handleMoveOrSwapSlot(draggedItem.index, targetIndex);
+    }
+    setDraggedItem(null);
+  };
+
+  const handleDropOnBank = (e) => {
+    e.preventDefault();
+    setDragOverBank(false);
+    if (!draggedItem || exerciseFeedback) return;
+
+    if (draggedItem.type === "slot") {
+      handleRemoveWordFromSlot(draggedItem.index);
+    }
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverSlotIndex(null);
+    setDragOverBank(false);
+  };
+
+  // Handlers Tactiles (Mobiles, tablettes & touchscreens)
+  const handleTouchStart = (e, item) => {
+    if (exerciseFeedback) return;
+    const touch = e.touches[0];
+    touchStateRef.current = { item };
+    setDraggedItem(item);
+    setTouchGhost({
+      word: item.word,
+      x: touch.clientX,
+      y: touch.clientY
+    });
+    triggerHaptic(15);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchStateRef.current.item) return;
+    const touch = e.touches[0];
+    setTouchGhost((prev) => (prev ? { ...prev, x: touch.clientX, y: touch.clientY } : null));
+
+    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+    const slotEl = targetElement?.closest("[data-slot-index]");
+    if (slotEl) {
+      const idx = parseInt(slotEl.getAttribute("data-slot-index"), 10);
+      setDragOverSlotIndex(idx);
+      setDragOverBank(false);
+    } else {
+      setDragOverSlotIndex(null);
+      const bankEl = targetElement?.closest(".word-bank");
+      setDragOverBank(!!bankEl);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    const item = touchStateRef.current.item;
+    touchStateRef.current = { item: null };
+    const ghost = touchGhost;
+    setTouchGhost(null);
+    setDraggedItem(null);
+    setDragOverSlotIndex(null);
+    setDragOverBank(false);
+
+    if (!item || !ghost || exerciseFeedback) return;
+
+    const targetElement = document.elementFromPoint(ghost.x, ghost.y);
+    const slotEl = targetElement?.closest("[data-slot-index]");
+    if (slotEl) {
+      const targetIndex = parseInt(slotEl.getAttribute("data-slot-index"), 10);
+      if (item.type === "bank") {
+        handlePlaceWordInSlot(item.word, targetIndex);
+      } else if (item.type === "slot") {
+        handleMoveOrSwapSlot(item.index, targetIndex);
+      }
+      return;
+    }
+
+    const bankEl = targetElement?.closest(".word-bank");
+    if (bankEl && item.type === "slot") {
+      handleRemoveWordFromSlot(item.index);
+    }
   };
 
   const startStage = (stageId) => {
@@ -948,40 +1138,103 @@ function App() {
                 <h1>{currentStage.titre}</h1>
                 <p>{currentStage.consigne}</p>
 
-                {/* FORMAT 1 : ORDONNANCEMENT (TAP-TO-PLACE) */}
+                {/* FORMAT 1 : ORDONNANCEMENT (GLISSER-DÉPOSER & TAP-TO-PLACE) */}
                 {currentStage.type === "order" && (
                   <>
-                    <div className="word-slots">
-                      {currentStage.motsCorrects.map((_, i) => (
-                        <button
-                          key={i}
-                          className={`word-slot ${placedWords[i] ? "filled" : ""}`}
-                          onClick={() => {
-                            if (!exerciseFeedback) {
-                              setPlacedWords((pw) => pw.filter((_, idx) => idx !== i));
-                            }
-                          }}
-                        >
-                          {placedWords[i] || <span>{i + 1}</span>}
-                        </button>
-                      ))}
+                    <div className="drag-hint">
+                      <span>✨</span>
+                      <span>Glisse les mots dans les cases ou clique simplement dessus pour les placer</span>
                     </div>
 
-                    <div className="word-bank">
-                      {currentStage.motsBanque.map((word, idx) => (
-                        <button
-                          key={idx}
-                          disabled={placedWords.includes(word) || !!exerciseFeedback}
-                          className={`word-tile ${placedWords.includes(word) ? "used" : ""}`}
-                          onClick={() => {
-                            if (placedWords.includes(word) || exerciseFeedback) return;
-                            setPlacedWords([...placedWords, word]);
-                          }}
-                        >
-                          {word}
-                        </button>
-                      ))}
+                    <div className="word-slots">
+                      {currentStage.motsCorrects.map((_, i) => {
+                        const wordInSlot = placedWords[i];
+                        const isSlotOver = dragOverSlotIndex === i;
+                        const isBeingDragged = draggedItem?.type === "slot" && draggedItem?.index === i;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            data-slot-index={i}
+                            draggable={!!wordInSlot && !exerciseFeedback}
+                            className={`word-slot ${wordInSlot ? "filled" : ""} ${isSlotOver ? "drag-over" : ""} ${isBeingDragged ? "is-dragging" : ""}`}
+                            onDragStart={(e) => handleDragStartFromSlot(e, wordInSlot, i)}
+                            onDragOver={(e) => handleDragOverSlot(e, i)}
+                            onDragLeave={() => setDragOverSlotIndex((cur) => (cur === i ? null : cur))}
+                            onDrop={(e) => handleDropOnSlot(e, i)}
+                            onDragEnd={handleDragEnd}
+                            onTouchStart={(e) => {
+                              if (wordInSlot) {
+                                handleTouchStart(e, { type: "slot", word: wordInSlot, index: i });
+                              }
+                            }}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            onClick={() => {
+                              if (!exerciseFeedback && wordInSlot) {
+                                handleRemoveWordFromSlot(i);
+                              }
+                            }}
+                            title={wordInSlot ? "Clique ou glisse pour retirer ce mot" : `Case n° ${i + 1}`}
+                          >
+                            {wordInSlot || <span>{i + 1}</span>}
+                          </button>
+                        );
+                      })}
                     </div>
+
+                    <div
+                      className={`word-bank ${dragOverBank ? "drag-over" : ""}`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggedItem?.type === "slot") setDragOverBank(true);
+                      }}
+                      onDragLeave={() => setDragOverBank(false)}
+                      onDrop={handleDropOnBank}
+                    >
+                      {currentStage.motsBanque.map((word, idx) => {
+                        const isUsed = placedWords.includes(word);
+                        const isTileDragging = draggedItem?.type === "bank" && draggedItem?.word === word;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            disabled={isUsed || !!exerciseFeedback}
+                            draggable={!isUsed && !exerciseFeedback}
+                            className={`word-tile ${isUsed ? "used" : ""} ${isTileDragging ? "is-dragging" : ""}`}
+                            onDragStart={(e) => handleDragStartFromBank(e, word)}
+                            onDragEnd={handleDragEnd}
+                            onTouchStart={(e) => {
+                              if (!isUsed) {
+                                handleTouchStart(e, { type: "bank", word });
+                              }
+                            }}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            onClick={() => {
+                              if (isUsed || exerciseFeedback) return;
+                              handlePlaceWordInSlot(word);
+                            }}
+                            title={isUsed ? "Déjà placé" : "Clique ou glisse vers une case"}
+                          >
+                            {word}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Fantôme visuel flottant lors du glisser tactile sur mobile */}
+                    {touchGhost && (
+                      <div
+                        className="touch-drag-ghost"
+                        style={{
+                          left: `${touchGhost.x}px`,
+                          top: `${touchGhost.y}px`
+                        }}
+                      >
+                        {touchGhost.word}
+                      </div>
+                    )}
                   </>
                 )}
 

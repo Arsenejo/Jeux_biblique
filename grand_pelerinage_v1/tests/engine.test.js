@@ -222,3 +222,70 @@ test("Pilier 2: Intégrité structurelle de tous les ateliers et étapes", () =>
     }
   }
 });
+
+// =========================================================================
+// ATELIER DU CŒUR : GLISSER / DÉPOSER & GESTION FLUIDE DES CASES (SLOTS)
+// =========================================================================
+test("Atelier du Cœur: Mécanisme de glisser/déposer, placement direct, permutation et retrait", () => {
+  const stageAbraham = {
+    id: 3,
+    titre: "La Promesse à Abraham",
+    motsCorrects: ["Je te bénirai,", "et tu seras", "une source", "de bénédiction."],
+    motsBanque: ["et tu seras", "Je te bénirai,", "de bénédiction.", "une source"]
+  };
+
+  // 1. Simulation : glisser un mot dans une case spécifique (ex: case 3 en premier)
+  let placed = [];
+  const placeWord = (word, targetIdx) => {
+    const next = [...placed];
+    const existing = next.indexOf(word);
+    if (existing !== -1) next[existing] = null;
+    next[targetIdx] = word;
+    return next;
+  };
+
+  placed = placeWord("de bénédiction.", 3);
+  assert.equal(placed[3], "de bénédiction.");
+  assert.equal(placed.filter(Boolean).length, 1);
+
+  // 2. Glisser le premier mot dans la case 0
+  placed = placeWord("Je te bénirai,", 0);
+  assert.equal(placed[0], "Je te bénirai,");
+  assert.equal(placed[3], "de bénédiction.");
+  assert.equal(placed.filter(Boolean).length, 2);
+
+  // Incomplet : ne doit pas valider
+  assert.equal(placed.filter(Boolean).length === stageAbraham.motsCorrects.length, false);
+
+  // 3. Glisser les deux autres mots de façon inversée dans les cases 1 et 2
+  placed = placeWord("une source", 1);
+  placed = placeWord("et tu seras", 2);
+  assert.equal(placed.filter(Boolean).length, 4);
+
+  // Mauvais ordre pour l'instant
+  let isSuccess = stageAbraham.motsCorrects.every((word, idx) => placed[idx] === word);
+  assert.equal(isSuccess, false, "L'ordre inversé ne doit pas être validé");
+
+  // 4. Glisser/déposer entre deux cases remplies pour permuter (swap case 1 et case 2)
+  const swapSlots = (arr, src, dst) => {
+    const next = [...arr];
+    const temp = next[src];
+    next[src] = next[dst];
+    next[dst] = temp;
+    return next;
+  };
+
+  placed = swapSlots(placed, 1, 2);
+  assert.equal(placed[1], "et tu seras");
+  assert.equal(placed[2], "une source");
+
+  // 5. Validation finale de la promesse reconstituée
+  isSuccess = stageAbraham.motsCorrects.every((word, idx) => placed[idx] === word);
+  assert.equal(isSuccess, true, "L'ordre rétabli par glisser/déposer doit être validé avec succès");
+
+  // 6. Glisser vers la banque pour retirer
+  placed[3] = null;
+  assert.equal(placed.filter(Boolean).length, 3);
+  assert.equal(placed.includes("de bénédiction."), false);
+});
+

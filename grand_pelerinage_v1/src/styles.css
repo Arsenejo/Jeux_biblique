@@ -815,7 +815,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   margin: 0 0 24px;
 }
 
-/* WORD SLOTS & BANK */
+/* WORD SLOTS & BANK - GLISSER / DÉPOSER FLUIDE */
 .word-slots {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -824,7 +824,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 .word-slot {
   min-height: 54px;
-  border: 1.5px dashed #bdd4e7;
+  border: 2px dashed #bdd4e7;
   border-radius: 12px;
   background: #fafdff;
   color: #15527c;
@@ -833,15 +833,35 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   padding: 10px;
   display: grid;
   place-items: center;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
 }
 .word-slot span { color: #b3c2ce; font-size: 11px; }
+
 .word-slot.filled {
   border: 1.5px solid #bde8cd;
   background: #eaf8ef;
   color: #16713e;
+  cursor: grab;
+  box-shadow: 0 2px 6px rgba(22, 113, 62, 0.08);
   animation: pop 0.25s ease-out;
 }
+.word-slot.filled:active {
+  cursor: grabbing;
+}
+
+.word-slot.drag-over {
+  border-color: #16713e !important;
+  border-style: solid !important;
+  background: #e1f7e9 !important;
+  transform: scale(1.05);
+  box-shadow: 0 6px 18px rgba(22, 113, 62, 0.2);
+  z-index: 2;
+}
+
 .word-bank {
   display: flex;
   flex-wrap: wrap;
@@ -849,8 +869,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   justify-content: center;
   padding: 22px;
   background: #f5f9fc;
+  border: 2px dashed transparent;
   border-radius: 16px;
+  transition: all 0.2s ease;
 }
+
+.word-bank.drag-over {
+  border-color: #3b82f6;
+  background: #eef6ff;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.12);
+}
+
 .word-tile {
   border: 1px solid #d6e8f6;
   border-radius: 12px;
@@ -861,9 +890,60 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   font-weight: 700;
   box-shadow: 0 3px 0 #d1e6f6;
   transition: all 0.16s ease;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.word-tile:hover:not(:disabled) { transform: translateY(-3px); background: #d7edff; }
-.word-tile.used { opacity: 0.25; box-shadow: none; }
+.word-tile:hover:not(:disabled) {
+  transform: translateY(-3px);
+  background: #d7edff;
+}
+.word-tile:active:not(:disabled) {
+  cursor: grabbing;
+}
+.word-tile.is-dragging {
+  opacity: 0.35;
+  transform: scale(0.95);
+  box-shadow: 0 8px 20px rgba(7, 86, 165, 0.25);
+}
+.word-tile.used {
+  opacity: 0.22;
+  box-shadow: none;
+  cursor: default;
+  pointer-events: none;
+}
+
+.drag-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #5c758a;
+  margin-bottom: 16px;
+  font-weight: 600;
+  background: rgba(232, 245, 255, 0.6);
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid #d8ebfa;
+}
+
+/* Fantôme visuel tactile pour le glisser/déposer sur écran tactile */
+.touch-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 99999;
+  border-radius: 12px;
+  background: #0756a5;
+  color: #ffffff;
+  padding: 12px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 12px 28px rgba(7, 86, 165, 0.4);
+  transform: translate(-50%, -50%) scale(1.08) rotate(-2deg);
+  white-space: nowrap;
+}
 
 /* QCM OPTIONS */
 .qcm-grid {
