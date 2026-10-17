@@ -41,6 +41,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   flex-direction: column;
   z-index: 30;
   box-shadow: 4px 0 24px rgba(7, 55, 99, 0.12);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
 }
 .brand {
   display: flex;
@@ -1673,6 +1676,12 @@ body.night-mode .meditation-note-card {
    MODE NUIT PAISIBLE (MÉDITATION DU SOIR)
    ========================================================================= */
 body.night-mode {
+  --text: #f0f6fc;
+  --muted: #94a9c0;
+  --line: #1c3652;
+  --blue-light: #0d2745;
+  --green-light: #0d2d1e;
+  --gold-light: #2d2410;
   background: #09131e;
   color: #e2eaf4;
 }
@@ -1680,15 +1689,18 @@ body.night-mode .topbar {
   background: rgba(10, 24, 39, 0.92);
   border-bottom-color: #1c3652;
 }
-body.night-mode .breadcrumb span { color: #7f99b3; }
-body.night-mode .breadcrumb b { color: #e2edfa; }
+body.night-mode .breadcrumb span { color: #94a9c0; }
+body.night-mode .breadcrumb b { color: #f0f6fc; }
 body.night-mode .icon-button {
   background: #0f2742;
   border-color: #1f3f61;
   color: #8bc2f8;
 }
 body.night-mode .profile-chip { color: #dbe7f5; }
+body.night-mode .profile-chip small { color: #94a9c0; }
 body.night-mode .profile-chip:hover { background: #132d4b; }
+
+/* CARTES PRINCIPALES EN MODE SOMBRE */
 body.night-mode .feature-card,
 body.night-mode .stat-card,
 body.night-mode .journey-summary,
@@ -1700,19 +1712,104 @@ body.night-mode .blessing-card,
 body.night-mode .prayer-composer,
 body.night-mode .prayer-card,
 body.night-mode .theme-verse-card,
-body.night-mode .epoch-card {
+body.night-mode .epoch-card,
+body.night-mode .treasure-card {
   background: #0d2138;
   border-color: #1a395b;
   color: #dbe7f5;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
+
+/* CARTE COFFRE DES PERLES (RÉSOLUTION VISIBILITÉ MODE NUIT) */
+body.night-mode .treasure-card b {
+  color: #facc15;
+}
+body.night-mode .treasure-card p {
+  color: #cbd5e1;
+}
+body.night-mode .treasure-card svg {
+  color: #f59e0b;
+}
+
+/* TITRES ET LABELS IMPORTANTS */
 body.night-mode .stat-card b,
 body.night-mode .section-heading h2,
 body.night-mode .feature-card h3,
+body.night-mode .next-step h3,
+body.night-mode .journey-summary b,
+body.night-mode .exercise-content h1,
+body.night-mode .exercise-top,
 body.night-mode .epoch-name,
-body.night-mode .page-intro h1 {
+body.night-mode .page-intro h1,
+body.night-mode .prayer-author,
+body.night-mode .podium-name {
   color: #ffffff;
 }
+
+/* SOURCILS, SOUS-TITRES ET ACCENTS LUMINEUX */
+body.night-mode .eyebrow {
+  color: #4ade80;
+}
+body.night-mode .next-step p,
+body.night-mode .feature-card p,
+body.night-mode .page-intro p,
+body.night-mode .exercise-content > p,
+body.night-mode .journey-summary small,
+body.night-mode .stat-card small,
+body.night-mode .progress-label,
+body.night-mode .epoch-books,
+body.night-mode .prayer-date,
+body.night-mode .podium-points,
+body.night-mode .profile-metrics small {
+  color: #94a9c0;
+}
+
+/* BADGES DE DIFFICULTÉ & DÉFIS EN MODE NUIT */
+body.night-mode .diff-debutant {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+body.night-mode .diff-intermediaire {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+body.night-mode .diff-avance {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+body.night-mode .diff-expert {
+  background: rgba(168, 85, 247, 0.16);
+  color: #d8b4fe;
+  border-color: rgba(168, 85, 247, 0.35);
+}
+body.night-mode .diff-pill.subtile {
+  background: rgba(217, 70, 239, 0.16);
+  color: #f0abfc;
+  border-color: rgba(217, 70, 239, 0.35);
+}
+body.night-mode .diff-pill.chrono {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+body.night-mode .diff-pill.cout-vie {
+  background: rgba(244, 63, 94, 0.16);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.35);
+}
+
+/* BANNIÈRE BAS DE SENTIER */
+body.night-mode .path-caption {
+  background: rgba(10, 24, 39, 0.94);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+/* LECTEUR BIBLIQUE EN MODE NUIT */
 body.night-mode .reader-top {
   background: #091a2e;
   border-bottom-color: #1a395b;
@@ -1759,6 +1856,8 @@ body.night-mode .theme-chip.active {
   background: #0756a5;
   color: #fff;
 }
+
+/* ATELIER ET QUIZ EN MODE NUIT */
 body.night-mode .qcm-option {
   background: #0d2138;
   border-color: #1b3857;
@@ -1768,10 +1867,23 @@ body.night-mode .qcm-option.selected {
   background: #133256;
   border-color: #559be6;
 }
+body.night-mode .qcm-bullet {
+  background: #10263f;
+  color: #7dd3fc;
+}
+body.night-mode .qcm-option.selected .qcm-bullet {
+  background: #0284c7;
+  color: #ffffff;
+}
 body.night-mode .word-slot {
   background: #0a1b2d;
   border-color: #21436a;
   color: #8cc4f7;
+}
+body.night-mode .word-slot.filled {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #6ee7b7;
 }
 body.night-mode .word-bank {
   background: #081728;
@@ -1780,6 +1892,107 @@ body.night-mode .word-tile {
   background: #0f2d4f;
   border-color: #1e4573;
   color: #8ec3f7;
+}
+body.night-mode .drag-hint {
+  background: rgba(15, 39, 66, 0.8);
+  border-color: #1e456f;
+  color: #93c5fd;
+}
+body.night-mode .cloze-box {
+  background: #0a1b2d;
+  border-color: #1c3652;
+  color: #e2eaf4;
+}
+body.night-mode .cloze-blank {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+}
+body.night-mode .feedback.success {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+body.night-mode .feedback.try-again {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fde68a;
+}
+
+/* BÉNÉDICTIONS ET VERSETS EN MODE NUIT */
+body.night-mode .blessing-card blockquote {
+  background: rgba(16, 185, 129, 0.12);
+  border-left-color: #34d399;
+  color: #a7f3d0;
+}
+body.night-mode .theme-verse-card p {
+  color: #a7f3d0;
+}
+body.night-mode .theme-verse-card small {
+  color: #6ee7b7;
+}
+
+/* FRATERNITÉ EN MODE NUIT */
+body.night-mode .prayer-text {
+  color: #dbe7f5;
+}
+body.night-mode .prayer-avatar {
+  background: #112d46;
+}
+body.night-mode .pray-support-btn {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+body.night-mode .pray-support-btn:hover {
+  background: rgba(16, 185, 129, 0.25);
+}
+
+/* PROFIL EN MODE NUIT */
+body.night-mode .profile-metrics b {
+  color: #38bdf8;
+}
+body.night-mode .profile-metrics small {
+  color: #94a9c0;
+}
+body.night-mode .profile-metrics > div {
+  border-right-color: #1c3652;
+}
+
+/* HALTE SPIRITUELLE EN MODE NUIT */
+body.night-mode .halt-sub {
+  color: #cbd5e1;
+}
+body.night-mode .halt-advice {
+  color: #94a9c0;
+}
+body.night-mode .halt-tag {
+  color: #38bdf8;
+}
+body.night-mode .halt-verse-box cite {
+  color: #7dd3fc;
+}
+
+/* CHRONOMÈTRE D'ATELIER EN MODE NUIT */
+body.night-mode .stage-timer-badge {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+body.night-mode .stage-timer-badge.urgent {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+body.night-mode .stage-timer-badge.contemplative {
+  background: rgba(148, 163, 184, 0.15);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+}
+
+/* PIED DE PAGE EN MODE NUIT */
+body.night-mode .footer {
+  color: #94a9c0;
+  border-top-color: #1c3652;
 }
 
 /* =========================================================================
@@ -4022,22 +4235,22 @@ body.night-mode .church-info-landing small {
   gap: 10px;
   margin-top: 14px;
   padding: 10px 12px;
-  background: rgba(7, 55, 99, 0.05);
-  border: 1px solid rgba(7, 55, 99, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 12px;
   text-align: left;
 }
 
 body.night-mode .sidebar-church-ownership {
-  background: rgba(56, 189, 248, 0.06);
-  border-color: rgba(56, 189, 248, 0.15);
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.22);
 }
 
 .church-cross-micro {
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: #073763;
+  background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -4055,21 +4268,21 @@ body.night-mode .church-cross-micro {
 .sidebar-church-ownership small {
   display: block;
   font-size: 10px;
-  color: var(--muted);
-  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.15;
 }
 
 .sidebar-church-ownership b {
   display: block;
   font-size: 11.5px;
-  color: var(--text);
+  color: #ffffff;
   line-height: 1.25;
 }
 
 .sidebar-church-ownership span {
   display: block;
   font-size: 10.5px;
-  color: #0284c7;
+  color: #7dd3fc;
   font-weight: 700;
 }
 

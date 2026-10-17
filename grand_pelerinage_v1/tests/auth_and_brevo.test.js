@@ -221,3 +221,27 @@ test("Modale Auth: Responsivité absolue et confinement dans l'écran sans dépa
   // Media query pour écrans courts (laptops, claviers virtuels, devtools ouverts)
   assert.ok(stylesContent.includes("@media (max-height: 720px)"), "Doit adapter les paddings pour écrans compacts");
 });
+
+test("Thème Nuit: Lisibilité et contraste parfait des textes (treasure-card, eyebrow, muted, footer)", () => {
+  const stylesPath = path.join(rootDir, "src", "styles.css");
+  const stylesContent = fs.readFileSync(stylesPath, "utf-8");
+
+  // Vérifier la redéfinition des variables de texte et de sourdine en mode nuit
+  assert.ok(stylesContent.includes("body.night-mode {\n  --text: #f0f6fc;"), "body.night-mode doit redéfinir --text");
+  assert.ok(stylesContent.includes("--muted: #94a9c0;"), "body.night-mode doit redéfinir --muted avec haut contraste");
+
+  // Vérifier la carte du trésor (coffre des perles) en mode nuit
+  assert.ok(stylesContent.includes("body.night-mode .treasure-card b {"), "Le titre du coffre des perles doit être stylé en mode nuit");
+  assert.ok(stylesContent.includes("body.night-mode .treasure-card p {"), "Le descriptif du coffre des perles doit être stylé en mode nuit");
+
+  // Vérifier l'eyebrow en mode nuit
+  assert.ok(stylesContent.includes("body.night-mode .eyebrow {\n  color: #4ade80;"), "L'eyebrow doit être vert menthe éclatant en mode nuit");
+
+  // Vérifier le pied de page en mode nuit
+  assert.ok(stylesContent.includes("body.night-mode .footer {\n  color: #94a9c0;"), "Le footer doit être lisible en mode nuit");
+
+  // Vérifier le scroll de la barre latérale pour ne jamais couper l'attribution
+  assert.ok(stylesContent.includes(".sidebar {\n  position: fixed;"), "La sidebar doit exister");
+  assert.ok(stylesContent.includes("overflow-y: auto"), "La sidebar doit avoir overflow-y: auto pour rester accessible");
+});
+
