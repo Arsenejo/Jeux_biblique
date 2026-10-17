@@ -42,7 +42,7 @@ export default function WelcomeLanding({
               title="Installer l'application sur ton appareil"
             >
               <Download size={15} />
-              <span>Installer l'App</span>
+              <span className="hide-mobile">Installer l'App</span>
             </button>
           )}
 

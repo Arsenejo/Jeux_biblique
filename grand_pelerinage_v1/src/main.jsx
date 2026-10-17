@@ -1127,8 +1127,8 @@ function App() {
         {/* TOPBAR */}
         <header className="topbar">
           <div className="breadcrumb">
-            <span>Le Grand Pèlerinage</span>
-            <ChevronRight size={14} />
+            <span className="hide-mobile">Le Grand Pèlerinage</span>
+            <ChevronRight size={14} className="hide-mobile" />
             <b>{tab}</b>
           </div>
 
@@ -1166,7 +1166,7 @@ function App() {
             </button>
 
             <button
-              className="icon-button"
+              className="icon-button hide-mobile"
               onClick={() => notify("Tu es fidèle dans ta marche. Que la paix soit avec toi !")}
               aria-label="Encouragement du jour"
               title="Pensée spirituelle"
@@ -1210,7 +1210,7 @@ function App() {
                 title={`Connecté : ${user.email || profileName} (Synchronisé sur tous vos appareils)`}
               >
                 <span className="sync-dot" />
-                <span>{user.displayName || profileName}</span>
+                <span className="auth-badge-name">{user.displayName || profileName}</span>
               </button>
             ) : (
               <button
@@ -1220,11 +1220,11 @@ function App() {
                 title="Connecte-toi pour sauvegarder ton pèlerinage sur tous tes appareils"
               >
                 <LogIn size={15} />
-                <span>Connexion</span>
+                <span className="auth-badge-name">Connexion</span>
               </button>
             )}
 
-            <button className="profile-chip" onClick={() => setTab("Profil")}>
+            <button className="profile-chip hide-mobile" onClick={() => setTab("Profil")}>
               <span className="avatar">🌿</span>
               <span>
                 {profileName}

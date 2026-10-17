@@ -245,3 +245,46 @@ test("Thème Nuit: Lisibilité et contraste parfait des textes (treasure-card, e
   assert.ok(stylesContent.includes("overflow-y: auto"), "La sidebar doit avoir overflow-y: auto pour rester accessible");
 });
 
+test("Responsivité Mobile: Élimination du défilement horizontal et adaptation 320px–800px", () => {
+  const stylesPath = path.join(rootDir, "src", "styles.css");
+  const stylesContent = fs.readFileSync(stylesPath, "utf-8");
+  const mainPath = path.join(rootDir, "src", "main.jsx");
+  const mainContent = fs.readFileSync(mainPath, "utf-8");
+
+  // 1. Confinement strict du viewport racine pour éliminer la barre de défilement horizontal
+  assert.ok(
+    stylesContent.includes("max-width: 100vw") && stylesContent.includes("overflow-x: hidden"),
+    "html et body doivent être strictement bornés à 100vw sans débordement horizontal"
+  );
+  assert.ok(
+    stylesContent.includes(".app-shell {\n  min-height: 100vh;\n  display: flex;\n  flex-direction: column;\n  width: 100%;\n  max-width: 100vw;\n  overflow-x: hidden;"),
+    ".app-shell doit être bornée à 100vw avec overflow-x: hidden"
+  );
+
+  // 2. Main content et Topbar sur mobile
+  assert.ok(
+    stylesContent.includes(".main-content {\n  margin-left: 250px;\n  min-height: 100vh;\n  display: flex;\n  flex-direction: column;\n  min-width: 0;\n  max-width: calc(100vw - 250px);\n  overflow-x: hidden;"),
+    ".main-content doit avoir min-width: 0 et overflow-x: hidden pour empêcher l'expansion par les enfants flex"
+  );
+
+  // 3. Masquage responsive des éléments superflus de la topbar sur mobile
+  assert.ok(
+    mainContent.includes('<span className="hide-mobile">Le Grand Pèlerinage</span>'),
+    "Le préfixe textuel du fil d'Ariane doit être masqué sur mobile"
+  );
+  assert.ok(
+    mainContent.includes('className="profile-chip hide-mobile"'),
+    "Le chip de profil redondant dans la topbar doit être masqué sur mobile au profit de la bottom navigation"
+  );
+  assert.ok(
+    mainContent.includes('className="icon-button hide-mobile"'),
+    "Le bouton d'encouragement redondant dans la topbar doit être masqué sur mobile"
+  );
+
+  // 4. Règles de mise en page réactives pour cartes & progression
+  assert.ok(stylesContent.includes(".journey-summary {\n    flex-wrap: wrap;"), "journey-summary doit s'adapter en multi-lignes sur mobile");
+  assert.ok(stylesContent.includes(".next-step {\n    flex-direction: column;"), "next-step doit s'empiler verticalement sur mobile");
+  assert.ok(stylesContent.includes(".auth-badge-name {\n    max-width: 75px;"), "auth-badge-name doit tronquer les pseudos trop longs avec ellipsis");
+  assert.ok(stylesContent.includes("@media (max-width: 380px)"), "Un palier ultra-compact doit exister pour les petits smartphones");
+});
+
