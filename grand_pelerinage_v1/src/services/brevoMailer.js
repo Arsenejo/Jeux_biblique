@@ -6,6 +6,41 @@
 
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
+import { validateCommunityMessage } from "./moderation.js";
+
+/**
+ * Nettoie et échappe tout texte pour éviter toute injection HTML ou tentative de phishing dans les courriels
+ */
+export function escapeHtml(str = "") {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Limiteur de débit côté client pour prévenir les attaques de spam automatisé
+const inviteTimestamps = [];
+const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_WINDOW_MS = 60000;
+
+export function checkInviteRateLimit() {
+  const now = Date.now();
+  while (inviteTimestamps.length > 0 && now - inviteTimestamps[0] > RATE_LIMIT_WINDOW_MS) {
+    inviteTimestamps.shift();
+  }
+  if (inviteTimestamps.length >= RATE_LIMIT_MAX) {
+    const waitSeconds = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - inviteTimestamps[0])) / 1000);
+    return {
+      allowed: false,
+      error: `Par mesure de sécurité anti-spam, veuillez patienter ${waitSeconds}s avant d'envoyer une nouvelle invitation.`
+    };
+  }
+  inviteTimestamps.push(now);
+  return { allowed: true };
+}
+
 // Récupération de la clé API Brevo depuis les variables d'environnement Vite ou le stockage local
 export function getBrevoApiKey() {
   if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_BREVO_API_KEY) {
@@ -105,6 +140,7 @@ export async function sendBrevoEmail({ toEmail, toName = "Pèlerin", subject, ht
  * Envoie un courriel de bienvenue après l'inscription
  */
 export async function sendWelcomeEmail(toEmail, pilgrimName = "Pèlerin") {
+  const safePilgrimName = escapeHtml(pilgrimName || "Pèlerin");
   const subject = "Bienvenue dans Le Grand Pèlerinage de la Bible 🌿";
   const htmlContent = `
     <!DOCTYPE html>
@@ -129,11 +165,11 @@ export async function sendWelcomeEmail(toEmail, pilgrimName = "Pèlerin") {
       <div class="card">
         <div class="header">
           <span class="badge" style="background: rgba(255,255,255,0.2); color: #fff; margin-bottom: 8px;">COMPTE PÈLERIN ACTIVÉ</span>
-          <h1>Paix et grâce sur ton chemin, ${pilgrimName} !</h1>
+          <h1>Paix et grâce sur ton chemin, ${safePilgrimName} !</h1>
           <p>Ton carnet de route et ta progression sont désormais synchronisés.</p>
         </div>
         <div class="content">
-          <p>Bonjour <strong>${pilgrimName}</strong>,</p>
+          <p>Bonjour <strong>${safePilgrimName}</strong>,</p>
           <p>Nous sommes très heureux de t'accueillir dans <strong>Le Grand Pèlerinage de la Bible</strong>. Désormais, quel que soit l'appareil (ordinateur, tablette ou smartphone) ou le navigateur sur lequel tu te connectes, tu retrouveras automatiquement :</p>
           <ul class="features">
             <li>🌱 <strong>Ton parcours complet</strong> sans jamais perdre aucune étape ni aucun point d'XP.</li>
@@ -147,7 +183,7 @@ export async function sendWelcomeEmail(toEmail, pilgrimName = "Pèlerin") {
           <p>Que ce voyage nourrisse ton esprit, ravive ta foi et fortifie tes liens avec la communauté.</p>
         </div>
         <div class="footer">
-          Le Grand Pèlerinage de la Bible • Un voyage au cœur de la Parole, à ton rythme.
+          Le Grand Pèlerinage de la Bible • Propriété de l'Église Évangélique Assemblée de la Grâce, sise à Issia (Côte d'Ivoire).
         </div>
       </div>
     </body>
@@ -166,7 +202,12 @@ export async function sendWelcomeEmail(toEmail, pilgrimName = "Pèlerin") {
  * Envoie un récapitulatif spirituel de la progression
  */
 export async function sendProgressSummaryEmail(toEmail, pilgrimName, stats = {}) {
-  const { xp = 0, pearls = 0, stagesCount = 0, versesCount = 0 } = stats;
+  const safePilgrimName = escapeHtml(pilgrimName || "Pèlerin");
+  const xp = Number(stats.xp) || 0;
+  const pearls = Number(stats.pearls) || 0;
+  const stagesCount = Number(stats.stagesCount) || 0;
+  const versesCount = Number(stats.versesCount) || 0;
+
   const subject = `Ton récapitulatif spirituel — ${stagesCount} étape(s) franchie(s) 🌟`;
   const htmlContent = `
     <!DOCTYPE html>
@@ -184,7 +225,7 @@ export async function sendProgressSummaryEmail(toEmail, pilgrimName, stats = {})
     </head>
     <body>
       <div class="card">
-        <h2 style="color: #14532d; margin-top: 0;">Trace de ton pèlerinage, ${pilgrimName} 🌿</h2>
+        <h2 style="color: #14532d; margin-top: 0;">Trace de ton pèlerinage, ${safePilgrimName} 🌿</h2>
         <p>Voici l'état actuel de ton cheminement dans les Saintes Écritures :</p>
         <div class="stat-grid">
           <div class="stat-box"><b>${stagesCount}</b><small>Étapes accomplies</small></div>
@@ -193,6 +234,9 @@ export async function sendProgressSummaryEmail(toEmail, pilgrimName, stats = {})
           <div class="stat-box"><b>${pearls}</b><small>Perles célestes</small></div>
         </div>
         <p style="font-size: 13px; color: #4a5568;">Continue avec persévérance et paix. Chaque verset médité est une semence d'espérance.</p>
+        <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 20px; border-top: 1px solid #edf2f7; padding-top: 12px;">
+          Le Grand Pèlerinage de la Bible • Propriété de l'Église Évangélique Assemblée de la Grâce, sise à Issia (Côte d'Ivoire).
+        </p>
       </div>
     </body>
     </html>
@@ -217,10 +261,40 @@ export async function sendInviteEmail({
   customMessage = "",
   inviteUrl = ""
 }) {
-  const { xp = 0, pearls = 0, stagesCount = 0, versesCount = 0 } = inviterStats;
-  const subject = `${inviterName} t'invite à marcher dans Le Grand Pèlerinage de la Bible 🌿`;
+  // 1. Contrôle anti-spam (Rate Limiting)
+  const rateLimit = checkInviteRateLimit();
+  if (!rateLimit.allowed) {
+    return {
+      success: false,
+      error: rateLimit.error
+    };
+  }
 
-  const fallbackUrl = inviteUrl || (typeof window !== "undefined" ? window.location.href : "https://legrandpelerinage.fr");
+  // 2. Modération du message personnalisé si fourni
+  if (customMessage) {
+    const modCheck = validateCommunityMessage(customMessage);
+    if (!modCheck.valid) {
+      return {
+        success: false,
+        error: modCheck.reason || "Message d'invitation non conforme."
+      };
+    }
+  }
+
+  // 3. Assainissement strict contre injection HTML et XSS mail
+  const safeFriendName = escapeHtml(friendName || "Mon ami(e)");
+  const safeInviterName = escapeHtml(inviterName || "Un ami pèlerin");
+  const safeCustomMessage = escapeHtml(customMessage || "");
+
+  const xp = Number(inviterStats.xp) || 0;
+  const pearls = Number(inviterStats.pearls) || 0;
+  const stagesCount = Number(inviterStats.stagesCount) || 0;
+
+  const rawUrl = inviteUrl || (typeof window !== "undefined" ? window.location.href : "https://legrandpelerinage.fr");
+  const isUrlSafe = rawUrl.startsWith("http://") || rawUrl.startsWith("https://");
+  const safeUrl = isUrlSafe ? escapeHtml(rawUrl) : "https://legrandpelerinage.fr";
+
+  const subject = `${safeInviterName} t'invite à marcher dans Le Grand Pèlerinage de la Bible 🌿`;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -247,17 +321,17 @@ export async function sendInviteEmail({
       <div class="card">
         <div class="header">
           <span class="badge">INVITATION FRATERNELLE</span>
-          <h1>${inviterName} t'invite à marcher avec lui</h1>
+          <h1>${safeInviterName} t'invite à marcher avec lui</h1>
           <p style="margin: 6px 0 0; opacity: 0.9; font-size: 14px;">Une aventure biblique vivante, bienveillante et profonde</p>
         </div>
         <div class="content">
-          <p>Bonjour <strong>${friendName}</strong>,</p>
-          <p><strong>${inviterName}</strong> a commencé son voyage dans <strong>Le Grand Pèlerinage de la Bible</strong> et souhaite partager ce chemin de foi et d'édification avec toi !</p>
+          <p>Bonjour <strong>${safeFriendName}</strong>,</p>
+          <p><strong>${safeInviterName}</strong> a commencé son voyage dans <strong>Le Grand Pèlerinage de la Bible</strong> et souhaite partager ce chemin de foi et d'édification avec toi !</p>
 
           <div class="inviter-box">
             <span style="font-size: 32px;">🎒</span>
             <div>
-              <b style="color: #14532d; font-size: 14px;">La marche de ${inviterName} :</b><br>
+              <b style="color: #14532d; font-size: 14px;">La marche de ${safeInviterName} :</b><br>
               <div style="margin-top: 5px;">
                 <span class="score-pill">✨ ${xp} XP</span>
                 <span class="score-pill">💎 ${pearls} perles</span>
@@ -266,10 +340,10 @@ export async function sendInviteEmail({
             </div>
           </div>
 
-          ${customMessage ? `
+          ${safeCustomMessage ? `
             <div class="personal-msg">
-              <strong>Mot personnel de ${inviterName} :</strong><br>
-              « ${customMessage} »
+              <strong>Mot personnel de ${safeInviterName} :</strong><br>
+              « ${safeCustomMessage} »
             </div>
           ` : ""}
 
@@ -279,7 +353,7 @@ export async function sendInviteEmail({
           </div>
 
           <div class="cta-container">
-            <a href="${fallbackUrl}" class="cta-btn" target="_blank" rel="noopener noreferrer">
+            <a href="${safeUrl}" class="cta-btn" target="_blank" rel="noopener noreferrer">
               Rejoindre le pèlerinage maintenant →
             </a>
           </div>
@@ -288,7 +362,7 @@ export async function sendInviteEmail({
           </p>
         </div>
         <div class="footer">
-          Le Grand Pèlerinage de la Bible • Un voyage au cœur de la Parole, à ton rythme.
+          Le Grand Pèlerinage de la Bible • Propriété de l'Église Évangélique Assemblée de la Grâce, sise à Issia (Côte d'Ivoire).
         </div>
       </div>
     </body>

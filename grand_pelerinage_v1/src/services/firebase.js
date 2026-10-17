@@ -435,6 +435,19 @@ export async function syncPelerinProfile(uid, profileData) {
       ...profileData,
       derniereMiseAJour: serverTimestamp()
     }, { merge: true });
+
+    // Publication sécurisée dans le classement public sans PII (zéro email, zéro données personnelles)
+    try {
+      const publicRef = doc(db, "classement_pelerins", uid);
+      await setDoc(publicRef, {
+        pseudo: String(profileData.profileName || "Pèlerin").slice(0, 30),
+        xp: Number(profileData.xp) || 0,
+        pearls: Number(profileData.pearls) || 0,
+        avatar: profileData.avatar || "🌿",
+        niveau: profileData.niveau || ((profileData.xp || 0) >= 300 ? "Pèlerin zélé" : "Pèlerin de la Parole"),
+        derniereMiseAJour: serverTimestamp()
+      }, { merge: true });
+    } catch {}
   } catch (err) {
     console.warn("Synchronisation Cloud différée :", err.message);
   }
@@ -536,14 +549,14 @@ export async function fetchClassementFraternel() {
   if (!db) return fauxClassementParDefaut;
 
   try {
-    const q = query(collection(db, "pelerins"), orderBy("xp", "desc"), limit(10));
+    const q = query(collection(db, "classement_pelerins"), orderBy("xp", "desc"), limit(10));
     const snap = await getDocs(q);
     if (!snap.empty) {
       return snap.docs.map((docSnap, index) => {
         const d = docSnap.data();
         return {
           id: docSnap.id,
-          nom: d.profileName || `Pèlerin #${index + 1}`,
+          nom: d.pseudo || d.profileName || `Pèlerin #${index + 1}`,
           points: d.xp || 0,
           perles: d.pearls || 0,
           niveau: d.niveau || "Pèlerin de la Parole",

@@ -429,6 +429,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   font-size: 50px;
   filter: drop-shadow(0 8px 6px rgba(22, 75, 62, 0.3));
   animation: float 4s ease-in-out infinite;
+  transform: translateZ(0);
+  will-change: transform;
 }
 .floating-leaf {
   position: absolute;
@@ -1274,9 +1276,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   height: 68px;
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--line);
   z-index: 45;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  transform: translateZ(0);
+  will-change: transform;
 }
 .bottom-nav-item {
   flex: 1;

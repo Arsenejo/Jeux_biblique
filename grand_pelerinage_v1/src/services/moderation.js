@@ -21,8 +21,9 @@ const URL_REGEX = /(https?:\/\/|www\.)[^\s]+/i;
  * @returns {{ valid: boolean, reason: string }}
  */
 export function validatePrayerContent(text = "", author = "") {
-  const cleanText = (text || "").trim();
-  const cleanAuthor = (author || "").trim();
+  const cleanText = (text || "").replace(/<[^>]*>/g, "").trim();
+  const cleanAuthor = (author || "").replace(/<[^>]*>/g, "").trim();
+  const combined = `${cleanText} ${cleanAuthor}`.toLowerCase();
 
   if (cleanText.length < 5) {
     return {
@@ -45,23 +46,23 @@ export function validatePrayerContent(text = "", author = "") {
     };
   }
 
-  // 1. Protection de la vie privée (Protection des mineurs & RGPD)
-  if (PHONE_REGEX.test(cleanText)) {
+  // 1. Protection de la vie privée (Protection des mineurs & RGPD) - Teste le texte et l'auteur
+  if (PHONE_REGEX.test(cleanText) || PHONE_REGEX.test(cleanAuthor)) {
     return {
       valid: false,
       reason: "Par sécurité pour toi et pour les jeunes pèlerins, il est interdit de publier des coordonnées personnelles ou un numéro de téléphone sur le mur public 🛡️"
     };
   }
 
-  if (EMAIL_REGEX.test(cleanText)) {
+  if (EMAIL_REGEX.test(cleanText) || EMAIL_REGEX.test(cleanAuthor)) {
     return {
       valid: false,
       reason: "Par sécurité pour ta vie privée, merci de ne pas partager d'adresse e-mail ou email sur le mur public 🛡️"
     };
   }
 
-  // 2. Blocage des spams et liens publicitaires
-  if (URL_REGEX.test(cleanText)) {
+  // 2. Blocage des spams et liens publicitaires (sur le texte et l'auteur)
+  if (URL_REGEX.test(cleanText) || URL_REGEX.test(cleanAuthor)) {
     return {
       valid: false,
       reason: "Les liens internet, liens externes et publicités ne sont pas autorisés dans cet espace de recueillement 🌿"
@@ -69,9 +70,8 @@ export function validatePrayerContent(text = "", author = "") {
   }
 
   // 3. Modération des propos haineux ou vulgaires
-  const lower = cleanText.toLowerCase();
   for (const word of FORBIDDEN_WORDS) {
-    if (lower.includes(word)) {
+    if (combined.includes(word)) {
       return {
         valid: false,
         reason: "Ce message ne respecte pas le climat de bienveillance, de respect et d'édification fraternelle 🕊️"
@@ -79,7 +79,45 @@ export function validatePrayerContent(text = "", author = "") {
     }
   }
 
-  return { valid: true, reason: "" };
+  return {
+    valid: true,
+    reason: "",
+    sanitizedText: cleanText,
+    sanitizedAuthor: cleanAuthor
+  };
+}
+
+/**
+ * Valide et assainit tout message communautaire ou mot personnel d'invitation
+ */
+export function validateCommunityMessage(message = "") {
+  const clean = (message || "").replace(/<[^>]*>/g, "").trim();
+  if (!clean) return { valid: true, reason: "", sanitized: "" };
+
+  if (clean.length > 300) {
+    return { valid: false, reason: "Le message est trop long (maximum 300 caractères).", sanitized: clean.slice(0, 300) };
+  }
+
+  if (PHONE_REGEX.test(clean)) {
+    return { valid: false, reason: "Interdiction d'insérer des numéros de téléphone.", sanitized: "" };
+  }
+
+  if (EMAIL_REGEX.test(clean)) {
+    return { valid: false, reason: "Interdiction d'insérer des adresses e-mail.", sanitized: "" };
+  }
+
+  if (URL_REGEX.test(clean)) {
+    return { valid: false, reason: "Interdiction d'insérer des liens externes ou adresses web.", sanitized: "" };
+  }
+
+  const lower = clean.toLowerCase();
+  for (const word of FORBIDDEN_WORDS) {
+    if (lower.includes(word)) {
+      return { valid: false, reason: "Propos inappropriés détectés.", sanitized: "" };
+    }
+  }
+
+  return { valid: true, reason: "", sanitized: clean };
 }
 
 /**

@@ -82,11 +82,12 @@ function App() {
     } catch {}
   }, [nightMode]);
 
-  // Profil et Progression du Pèlerin
+  // Profil et Progression du Pèlerin avec parsing sécurisé
   const [profileName, setProfileName] = useState(() => {
     try {
-      const p = JSON.parse(localStorage.getItem("pelerinage_profile_local") || "{}");
-      return p.profileName || "Ami pèlerin";
+      const raw = localStorage.getItem("pelerinage_profile_local");
+      const p = raw ? JSON.parse(raw) : null;
+      return (p && typeof p === "object" && typeof p.profileName === "string") ? p.profileName : "Ami pèlerin";
     } catch {
       return "Ami pèlerin";
     }
@@ -94,7 +95,9 @@ function App() {
 
   const [saved, setSaved] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("pelerinage_progress") || "{}");
+      const raw = localStorage.getItem("pelerinage_progress");
+      const parsed = raw ? JSON.parse(raw) : null;
+      return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
     } catch {
       return {};
     }
@@ -280,14 +283,19 @@ function App() {
     };
   }, [user, profileName, xp, pearls, streak, saved]);
 
-  // Détection d'invitation dans l'URL (?invite=...&by=...)
+  // Détection d'invitation dans l'URL (?invite=...&by=...) avec assainissement anti-injection
   useEffect(() => {
     try {
       if (typeof window !== "undefined" && window.location?.search) {
         const searchParams = new URLSearchParams(window.location.search);
         const invitedBy = searchParams.get("by") || searchParams.get("invite");
         if (invitedBy) {
-          setInvitedByBanner(decodeURIComponent(invitedBy));
+          // Tronquer et éliminer tout caractère de script, balise ou contrôle HTML/DOM
+          const decoded = decodeURIComponent(invitedBy).trim().slice(0, 35);
+          const sanitized = decoded.replace(/[<>'"/\\`(){}[\];=]/g, "").trim();
+          if (sanitized && sanitized.length >= 2) {
+            setInvitedByBanner(sanitized);
+          }
         }
       }
     } catch {}
@@ -371,7 +379,7 @@ function App() {
     return () => clearInterval(interval);
   }, [timerRunning, timeLeft, tab, contemplativeMode, currentStageForTimer]);
 
-  // Sauvegarde automatique du profil lors des changements
+  // Sauvegarde locale immédiate et synchronisation cloud debouncée (600ms) pour une fluidité 60fps constante
   useEffect(() => {
     const profilePayload = {
       profileName,
@@ -386,9 +394,13 @@ function App() {
       localStorage.setItem("pelerinage_profile_local", JSON.stringify(profilePayload));
     } catch {}
 
-    if (user) {
+    if (!user) return;
+
+    const timer = setTimeout(() => {
       syncPelerinProfile(user.uid, profilePayload);
-    }
+    }, 600);
+
+    return () => clearTimeout(timer);
   }, [profileName, saved, xp, pearls, streak, user]);
 
   // Gestion de l'authentification et du compte
