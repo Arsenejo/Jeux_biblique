@@ -1109,6 +1109,16 @@ function App() {
             <Sparkles size={14} />
             <span>Présentation du jeu</span>
           </button>
+
+          {/* MENTION OFFICIELLE DE PROPRIÉTÉ DANS LA SIDEBAR */}
+          <div className="sidebar-church-ownership">
+            <span className="church-cross-micro">✝</span>
+            <div>
+              <small>Propriété de l'</small>
+              <b>Église Évangélique Assemblée de la Grâce</b>
+              <span>Issia · Côte d'Ivoire</span>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -2532,12 +2542,25 @@ function App() {
                 <b>Ta valeur ne se mesure pas en points ni en vitesse.</b> Ces étapes célèbrent simplement les moments précieux que tu consacres à Dieu.
               </span>
             </div>
+
+            {/* CARTE OFFICIELLE DE PROPRIÉTÉ DANS L'ONGLET PROFIL */}
+            <div className="church-ownership-profile-card">
+              <div className="church-profile-badge">✝</div>
+              <div className="church-profile-content">
+                <span className="church-profile-eyebrow">PATERNITÉ & PROPRIÉTÉ SPIRITUELLE</span>
+                <h3>Église Évangélique Assemblée de la Grâce</h3>
+                <p className="church-profile-location">Sise à Issia · Côte d'Ivoire 🇨🇮</p>
+                <p className="church-profile-description">
+                  Ce jeu est la propriété exclusive de l'<b>Église Évangélique Assemblée de la Grâce</b>, sise à <b>Issia (Côte d'Ivoire)</b>. Conçu pour encourager la jeunesse, les croyants et les familles dans la lecture, la méditation, la mémorisation et l'amour de la Sainte Bible. Que toute la gloire soit rendue à notre Seigneur Jésus-Christ !
+                </p>
+              </div>
+            </div>
           </section>
         )}
 
         <footer className="footer">
-          <span>✦ Le Grand Pèlerinage de la Bible</span>
-          <span>Un voyage au cœur de la Parole, à ton rythme.</span>
+          <span>✦ Le Grand Pèlerinage de la Bible · Propriété de l'Église Évangélique Assemblée de la Grâce (Issia, Côte d'Ivoire)</span>
+          <span>Basé sur la version Louis Segond 1910 · Un voyage vivant au cœur de la Parole.</span>
         </footer>
       </main>
 

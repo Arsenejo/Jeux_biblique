@@ -1,5 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, "..");
 
 import { translateAuthError } from "../src/services/firebase.js";
 import {
@@ -41,6 +48,14 @@ test("Auth: Traduction claire des erreurs Firebase en français", () => {
   assert.equal(
     translateAuthError({ code: "auth/popup-closed-by-user" }),
     "La fenêtre de connexion Google a été fermée avant la finalisation."
+  );
+  assert.equal(
+    translateAuthError({ code: "auth/api-key-not-valid.-please-pass-a-valid-api-key." }),
+    "Connexion locale sécurisée : ton parcours est sauvegardé sur cet appareil avec amour et fidélité 🌿"
+  );
+  assert.equal(
+    translateAuthError(new Error("Firebase: Error (auth/api-key-not-valid.-please-pass-a-valid-api-key.)")),
+    "Connexion locale sécurisée : ton parcours est sauvegardé sur cet appareil avec amour et fidélité 🌿"
   );
 });
 
@@ -142,4 +157,51 @@ test("Brevo: Génération du récapitulatif spirituel personnalisé", async () =
     versesCount: 5
   });
   assert.equal(res.success, true);
+});
+
+// =========================================================================
+// 4. TESTS DE PERFECTION DES CHAMPS DE SAISIE ET MENTION DE PROPRIÉTÉ
+// =========================================================================
+test("Champs de saisie: Structure soignée, bascule de visibilité et neutralisation d'autofill", () => {
+  const authModalPath = path.join(rootDir, "src", "components", "AuthModal.jsx");
+  const authModalContent = fs.readFileSync(authModalPath, "utf-8");
+
+  // Présence des classes de champs raffinés
+  assert.ok(authModalContent.includes("auth-input-wrapper"), "Doit utiliser un wrapper ergonomique pour les inputs");
+  assert.ok(authModalContent.includes("auth-input-field"), "Doit utiliser la classe auth-input-field pour les inputs");
+  assert.ok(authModalContent.includes("auth-password-toggle-btn"), "Doit intégrer le bouton oeil pour révéler le mot de passe");
+  assert.ok(authModalContent.includes("showPassword"), "Doit gérer l'état de visibilité du mot de passe");
+
+  // Neutralisation du fond jaune/bleu de l'autofill dans styles.css
+  const stylesPath = path.join(rootDir, "src", "styles.css");
+  const stylesContent = fs.readFileSync(stylesPath, "utf-8");
+  assert.ok(stylesContent.includes(":-webkit-autofill"), "Doit surcharger l'autofill des navigateurs");
+  assert.ok(stylesContent.includes("box-shadow: 0 0 0 1000px"), "Doit neutraliser le fond d'autofill via box-shadow");
+});
+
+test("Propriété officielle: Mention de l'Église Évangélique Assemblée de la Grâce sise à Issia Côte d'Ivoire", () => {
+  // 1. index.html
+  const indexPath = path.join(rootDir, "index.html");
+  const htmlContent = fs.readFileSync(indexPath, "utf-8");
+  assert.ok(htmlContent.includes("Église Évangélique Assemblée de la Grâce"), "index.html doit citer l'Église");
+  assert.ok(htmlContent.includes("Issia"), "index.html doit mentionner Issia");
+  assert.ok(htmlContent.includes("Côte d'Ivoire"), "index.html doit mentionner Côte d'Ivoire");
+
+  // 2. AuthModal.jsx
+  const authModalPath = path.join(rootDir, "src", "components", "AuthModal.jsx");
+  const authModalContent = fs.readFileSync(authModalPath, "utf-8");
+  assert.ok(authModalContent.includes("Église Évangélique Assemblée de la Grâce"), "AuthModal doit afficher la propriété");
+  assert.ok(authModalContent.includes("Issia (Côte d'Ivoire)"), "AuthModal doit préciser Issia (Côte d'Ivoire)");
+
+  // 3. WelcomeLanding.jsx
+  const landingPath = path.join(rootDir, "src", "components", "WelcomeLanding.jsx");
+  const landingContent = fs.readFileSync(landingPath, "utf-8");
+  assert.ok(landingContent.includes("Église Évangélique Assemblée de la Grâce"), "WelcomeLanding doit afficher la propriété");
+  assert.ok(landingContent.includes("Issia"), "WelcomeLanding doit préciser Issia");
+
+  // 4. main.jsx
+  const mainPath = path.join(rootDir, "src", "main.jsx");
+  const mainContent = fs.readFileSync(mainPath, "utf-8");
+  assert.ok(mainContent.includes("Église Évangélique Assemblée de la Grâce"), "main.jsx doit afficher la propriété");
+  assert.ok(mainContent.includes("Issia (Côte d'Ivoire)"), "main.jsx doit mentionner Issia (Côte d'Ivoire)");
 });

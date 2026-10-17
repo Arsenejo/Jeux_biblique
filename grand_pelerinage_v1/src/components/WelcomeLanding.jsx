@@ -211,7 +211,18 @@ export default function WelcomeLanding({
       </main>
 
       <footer className="landing-footer">
-        <p>✦ Le Grand Pèlerinage de la Bible · Application Web Progressive & Évangélique</p>
+        <div className="church-ownership-badge-landing">
+          <span className="church-cross-symbol">✝</span>
+          <div className="church-info-landing">
+            <strong>Propriété & Paternité Spirituelle</strong>
+            <p>
+              Ce jeu est la propriété exclusive de l'<b>Église Évangélique Assemblée de la Grâce</b>, sise à <b>Issia (Côte d'Ivoire)</b>.
+            </p>
+            <small>Œuvre chrétienne dédiée à l'édification de la foi et à l'enracinement dans la Parole de Dieu.</small>
+          </div>
+        </div>
+
+        <p className="landing-app-credits">✦ Le Grand Pèlerinage de la Bible · Application Web Progressive & Évangélique</p>
         <p className="license">Basé sur la Sainte Bible selon la version Louis Segond 1910 (domaine public).</p>
       </footer>
     </div>

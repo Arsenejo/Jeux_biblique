@@ -3379,6 +3379,700 @@ body.night-mode .surprise-stage-btn:hover {
   }
 }
 
+/* =========================================================================
+   CHAMPS DE SAISIE PARFAITS & DESIGN RAFFINÉ DE L'AUTHENTIFICATION
+   ========================================================================= */
+.auth-modal-card {
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+  position: relative;
+  overflow: hidden;
+}
+
+body.night-mode .auth-modal-card {
+  background: rgba(15, 23, 42, 0.96);
+  border-color: rgba(51, 65, 85, 0.8);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.auth-header-block {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.auth-icon-badge {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #e8f7ed 0%, #c8f2d6 100%);
+  color: #15803d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  font-size: 26px;
+  box-shadow: 0 8px 20px rgba(22, 113, 62, 0.16);
+}
+
+body.night-mode .auth-icon-badge {
+  background: linear-gradient(135deg, #063c1e 0%, #0c2d1b 100%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.auth-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #15803d;
+  margin-bottom: 4px;
+}
+
+body.night-mode .auth-eyebrow {
+  color: #4ade80;
+}
+
+.auth-main-title {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  margin: 4px 0 8px;
+}
+
+body.night-mode .auth-main-title {
+  color: #f8fafc;
+}
+
+.auth-subtitle {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #64748b;
+  margin: 0;
+}
+
+body.night-mode .auth-subtitle {
+  color: #94a3b8;
+}
+
+/* BOUTON GOOGLE ULTRA-ÉLÉGANT */
+.google-auth-button-refined {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 13px 20px;
+  border-radius: 14px;
+  border: 1.5px solid #dbe2ea;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.night-mode .google-auth-button-refined {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.google-auth-button-refined:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+}
+
+body.night-mode .google-auth-button-refined:hover {
+  background: #273549;
+  border-color: #475569;
+}
+
+.auth-separator {
+  display: flex;
+  align-items: center;
+  margin: 18px 0;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-separator .sep-line {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+body.night-mode .auth-separator .sep-line {
+  background: #334155;
+}
+
+.auth-separator span {
+  padding: 0 12px;
+}
+
+/* ALERTES ADOUCIES (CAMOUFLAGE BIENVEILLANT) */
+.auth-alert-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 16px;
+  animation: fadeInDown 0.25s ease;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-alert-box.error {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+}
+
+body.night-mode .auth-alert-box.error {
+  background: #431407;
+  border-color: #7c2d12;
+  color: #fed7aa;
+}
+
+.auth-alert-box.success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+body.night-mode .auth-alert-box.success {
+  background: #064e3b;
+  border-color: #047857;
+  color: #a7f3d0;
+}
+
+.auth-alert-box .alert-icon {
+  flex-shrink: 0;
+}
+
+/* FORMULAIRE ET CHAMPS DE SAISIE PARFAITS */
+.auth-form-refined {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.auth-field-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-field-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+
+body.night-mode .auth-field-label {
+  color: #cbd5e1;
+}
+
+.auth-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.auth-forgot-link {
+  background: none;
+  border: none;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+body.night-mode .auth-forgot-link {
+  color: #4ade80;
+}
+
+.auth-forgot-link:hover {
+  text-decoration: underline;
+  color: #047857;
+}
+
+/* CONTENEUR DE L'INPUT AVEC ICÔNES INTÉGRÉES */
+.auth-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1.5px solid #dbe2ea;
+  border-radius: 14px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+body.night-mode .auth-input-wrapper {
+  background: #111c2a;
+  border-color: #2a3c53;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.auth-input-wrapper:hover {
+  border-color: #cbd5e1;
+}
+
+body.night-mode .auth-input-wrapper:hover {
+  border-color: #3b5373;
+}
+
+.auth-input-wrapper:focus-within {
+  border-color: #15803d;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(21, 128, 61, 0.14);
+}
+
+body.night-mode .auth-input-wrapper:focus-within {
+  border-color: #22c55e;
+  background: #111c2a;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+}
+
+.auth-input-left-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.auth-input-wrapper:focus-within .auth-input-left-icon {
+  color: #15803d;
+}
+
+body.night-mode .auth-input-wrapper:focus-within .auth-input-left-icon {
+  color: #4ade80;
+}
+
+.auth-input-field {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 13.5px 14px 13.5px 44px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #0f172a;
+  border-radius: 14px;
+  font-family: inherit;
+}
+
+body.night-mode .auth-input-field {
+  color: #f1f5f9;
+}
+
+.auth-input-field::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.auth-input-field.password-input {
+  padding-right: 44px;
+}
+
+/* ÉLIMINATION DU FOND BLEU/JAUNE DÉGRADANT DE L'AUTOFILL DU NAVIGATEUR */
+.auth-input-field:-webkit-autofill,
+.auth-input-field:-webkit-autofill:hover, 
+.auth-input-field:-webkit-autofill:focus, 
+.auth-input-field:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+body.night-mode .auth-input-field:-webkit-autofill,
+body.night-mode .auth-input-field:-webkit-autofill:hover, 
+body.night-mode .auth-input-field:-webkit-autofill:focus, 
+body.night-mode .auth-input-field:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #111c2a inset !important;
+  -webkit-text-fill-color: #f1f5f9 !important;
+}
+
+.auth-password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.auth-password-toggle-btn:hover {
+  color: #334155;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+body.night-mode .auth-password-toggle-btn:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* BOUTON DE SOUMISSION PRINCIPAL */
+.auth-submit-btn-refined {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 14px 22px;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(22, 163, 74, 0.32);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-submit-btn-refined:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(22, 163, 74, 0.42);
+}
+
+.auth-submit-btn-refined:disabled {
+  opacity: 0.7;
+  cursor: wait;
+  transform: none;
+}
+
+/* BASCULE DE MODE */
+.auth-mode-switch {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+body.night-mode .auth-mode-switch {
+  color: #94a3b8;
+}
+
+.auth-switch-link {
+  background: none;
+  border: none;
+  color: #15803d;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+body.night-mode .auth-switch-link {
+  color: #4ade80;
+}
+
+.auth-switch-link:hover {
+  text-decoration: underline;
+  color: #166534;
+}
+
+/* MENTION OFFICIELLE DE PROPRIÉTÉ DANS L'AUTH MODAL */
+.auth-church-footer {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px dashed #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+body.night-mode .auth-church-footer {
+  border-top-color: #334155;
+}
+
+.church-cross-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #15803d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+body.night-mode .church-cross-badge {
+  background: #064e3b;
+  color: #86efac;
+}
+
+.auth-church-footer p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+body.night-mode .auth-church-footer p {
+  color: #94a3b8;
+}
+
+/* =========================================================================
+   STYLES DE PROPRIÉTÉ DE L'ÉGLISE D'ISSIA (LANDING, SIDEBAR, PROFIL)
+   ========================================================================= */
+.church-ownership-badge-landing {
+  max-width: 680px;
+  margin: 0 auto 24px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid #dbe2ea;
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+  text-align: left;
+}
+
+body.night-mode .church-ownership-badge-landing {
+  background: rgba(17, 28, 42, 0.85);
+  border-color: #2a3c53;
+}
+
+.church-cross-symbol {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #073763;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.church-info-landing strong {
+  display: block;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #0284c7;
+  margin-bottom: 2px;
+}
+
+body.night-mode .church-info-landing strong {
+  color: #38bdf8;
+}
+
+.church-info-landing p {
+  margin: 0 0 3px !important;
+  font-size: 13.5px;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+body.night-mode .church-info-landing p {
+  color: #e2e8f0;
+}
+
+.church-info-landing small {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+body.night-mode .church-info-landing small {
+  color: #94a3b8;
+}
+
+/* SIDEBAR CHURCH CREDIT */
+.sidebar-church-ownership {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: rgba(7, 55, 99, 0.05);
+  border: 1px solid rgba(7, 55, 99, 0.12);
+  border-radius: 12px;
+  text-align: left;
+}
+
+body.night-mode .sidebar-church-ownership {
+  background: rgba(56, 189, 248, 0.06);
+  border-color: rgba(56, 189, 248, 0.15);
+}
+
+.church-cross-micro {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #073763;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+body.night-mode .church-cross-micro {
+  background: #38bdf8;
+  color: #071728;
+}
+
+.sidebar-church-ownership small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.1;
+}
+
+.sidebar-church-ownership b {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.sidebar-church-ownership span {
+  display: block;
+  font-size: 10.5px;
+  color: #0284c7;
+  font-weight: 700;
+}
+
+body.night-mode .sidebar-church-ownership span {
+  color: #38bdf8;
+}
+
+/* CARTE SOLENNELLE DANS LE PROFIL */
+.church-ownership-profile-card {
+  margin-top: 24px;
+  background: linear-gradient(135deg, #f8fafc 0%, #edf4fa 100%);
+  border: 1.5px solid #d0deec;
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+}
+
+body.night-mode .church-ownership-profile-card {
+  background: linear-gradient(135deg, #0d1e30 0%, #081524 100%);
+  border-color: #1e3852;
+}
+
+.church-profile-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #073763;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 900;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px rgba(7, 55, 99, 0.25);
+}
+
+body.night-mode .church-profile-badge {
+  background: #0284c7;
+}
+
+.church-profile-content {
+  flex: 1;
+}
+
+.church-profile-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #0284c7;
+  margin-bottom: 4px;
+}
+
+body.night-mode .church-profile-eyebrow {
+  color: #38bdf8;
+}
+
+.church-profile-content h3 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 2px;
+}
+
+body.night-mode .church-profile-content h3 {
+  color: #f1f5f9;
+}
+
+.church-profile-location {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #15803d;
+  margin: 0 0 10px;
+}
+
+body.night-mode .church-profile-location {
+  color: #4ade80;
+}
+
+.church-profile-description {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #475569;
+  margin: 0;
+}
+
+body.night-mode .church-profile-description {
+  color: #cbd5e1;
+}
+
+
 
 
 
