@@ -41,6 +41,23 @@ export const firebaseConfig = {
   measurementId: "G-JDRRPPV15D"
 };
 
+/**
+ * Vérifie si une clé Firebase active a été configurée dans l'environnement.
+ * Évite de lancer des requêtes fetch HTTP qui échouent avec 400 Bad Request dans la console du navigateur.
+ */
+export function isFirebaseCloudActive() {
+  try {
+    const envKey = (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_API_KEY) || "";
+    // Clé factice ou par défaut non encore configurée dans la console Google
+    if (!envKey || envKey === "AIzaSyDsIYH4rplT1giMld2cxq4x1IqWmNyIZ6Q") {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 let app = null;
 let auth = null;
 let db = null;
@@ -87,7 +104,7 @@ export function getFirebaseServices() {
 }
 
 /**
- * Initialise l'authentification anonyme transparente pour le pèlerin
+ * Initialise l'authentification transparente pour le pèlerin
  */
 export async function initPelerinAuth(onUserReady) {
   // 1. Restaurer une session locale pèlerin active si existante
@@ -101,6 +118,13 @@ export async function initPelerinAuth(onUserReady) {
       }
     }
   } catch {}
+
+  // 2. Si le projet Firebase n'a pas encore de clé active enregistrée, activer directement le mode local
+  // Cela empêche l'apparition de "POST https://identitytoolkit.googleapis.com/... 400 (Bad Request)"
+  if (!isFirebaseCloudActive()) {
+    onUserReady(null, "local");
+    return () => {};
+  }
 
   const { auth } = getFirebaseServices();
   if (!auth) {
@@ -117,7 +141,7 @@ export async function initPelerinAuth(onUserReady) {
           const cred = await signInAnonymously(auth);
           onUserReady(cred.user, "cloud");
         } catch {
-          // Repli local transparent et silencieux sans polluer la console
+          // Repli local transparent et silencieux
           onUserReady(null, "local");
         }
       }
@@ -212,6 +236,11 @@ export function translateAuthError(err) {
  * Connexion avec un compte Google (One-Click)
  */
 export async function loginWithGoogle() {
+  if (!isFirebaseCloudActive()) {
+    const localUser = createLocalPelerinSession("pelerin.google@grace-issia.org", "Pèlerin Google");
+    return { success: true, user: localUser, isLocalFallback: true };
+  }
+
   const { auth } = getFirebaseServices();
   if (!auth) {
     const localUser = createLocalPelerinSession("pelerin.google@grace-issia.org", "Pèlerin Google");
@@ -260,8 +289,6 @@ export async function loginWithGoogle() {
  * Création de compte pèlerin par Email et Mot de passe
  */
 export async function registerWithEmailPassword(email, password, displayName) {
-  const { auth } = getFirebaseServices();
-
   if (!email || !email.includes("@")) {
     throw new Error("Veuillez renseigner une adresse e-mail valide.");
   }
@@ -269,6 +296,12 @@ export async function registerWithEmailPassword(email, password, displayName) {
     throw new Error("Le mot de passe doit comporter au moins 6 caractères pour protéger votre carnet.");
   }
 
+  if (!isFirebaseCloudActive()) {
+    const localUser = createLocalPelerinSession(email, displayName);
+    return { success: true, user: localUser, isLocalFallback: true };
+  }
+
+  const { auth } = getFirebaseServices();
   if (!auth) {
     const localUser = createLocalPelerinSession(email, displayName);
     return { success: true, user: localUser, isLocalFallback: true };
@@ -313,12 +346,16 @@ export async function registerWithEmailPassword(email, password, displayName) {
  * Connexion avec Email et Mot de passe
  */
 export async function loginWithEmailPassword(email, password) {
-  const { auth } = getFirebaseServices();
-
   if (!email || !password) {
     throw new Error("Veuillez remplir votre e-mail et votre mot de passe.");
   }
 
+  if (!isFirebaseCloudActive()) {
+    const localUser = createLocalPelerinSession(email);
+    return { success: true, user: localUser, isLocalFallback: true };
+  }
+
+  const { auth } = getFirebaseServices();
   if (!auth) {
     const localUser = createLocalPelerinSession(email);
     return { success: true, user: localUser, isLocalFallback: true };
@@ -362,18 +399,21 @@ export async function logoutPelerin() {
  * Réinitialisation du mot de passe par courriel
  */
 export async function sendPelerinPasswordReset(email) {
-  const { auth } = getFirebaseServices();
-  if (!auth) throw new Error("Le service d'authentification n'est pas disponible.");
-
   if (!email || !email.includes("@")) {
     throw new Error("Veuillez saisir l'adresse e-mail de votre compte pèlerin.");
   }
+
+  if (!isFirebaseCloudActive()) {
+    return { success: true, simulated: true };
+  }
+
+  const { auth } = getFirebaseServices();
+  if (!auth) throw new Error("Le service d'authentification n'est pas disponible.");
 
   try {
     await sendPasswordResetEmail(auth, email.trim());
     return { success: true };
   } catch (err) {
-    console.error("Échec réinitialisation mot de passe :", err);
     throw new Error(translateAuthError(err));
   }
 }

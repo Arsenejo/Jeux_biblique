@@ -127,7 +127,6 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
       <div
         className="modal-card auth-modal-card"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: "480px", padding: "34px 30px" }}
       >
         <button
           type="button"

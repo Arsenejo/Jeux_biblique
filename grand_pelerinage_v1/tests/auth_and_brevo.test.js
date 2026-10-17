@@ -205,3 +205,19 @@ test("Propriété officielle: Mention de l'Église Évangélique Assemblée de l
   assert.ok(mainContent.includes("Église Évangélique Assemblée de la Grâce"), "main.jsx doit afficher la propriété");
   assert.ok(mainContent.includes("Issia (Côte d'Ivoire)"), "main.jsx doit mentionner Issia (Côte d'Ivoire)");
 });
+
+test("Modale Auth: Responsivité absolue et confinement dans l'écran sans dépassement", () => {
+  const stylesPath = path.join(rootDir, "src", "styles.css");
+  const stylesContent = fs.readFileSync(stylesPath, "utf-8");
+
+  // modal-overlay doit être scrollable sans cliper
+  assert.ok(stylesContent.includes(".modal-overlay"), "modal-overlay doit être présent");
+  assert.ok(stylesContent.includes("overscroll-behavior: contain"), "modal-overlay doit contenir le scroll");
+
+  // auth-modal-card doit être borné en hauteur et scrollable en interne
+  assert.ok(stylesContent.includes("max-height: calc(100vh - 28px)"), "auth-modal-card doit borner sa hauteur à l'écran");
+  assert.ok(stylesContent.includes("overflow-y: auto"), "auth-modal-card doit pouvoir défiler");
+
+  // Media query pour écrans courts (laptops, claviers virtuels, devtools ouverts)
+  assert.ok(stylesContent.includes("@media (max-height: 720px)"), "Doit adapter les paddings pour écrans compacts");
+});
