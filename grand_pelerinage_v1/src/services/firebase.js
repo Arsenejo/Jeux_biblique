@@ -1,7 +1,10 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import {
+  initializeFirestore,
   getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   doc,
   getDoc,
   setDoc,
@@ -10,8 +13,7 @@ import {
   query,
   orderBy,
   limit,
-  serverTimestamp,
-  enableIndexedDbPersistence
+  serverTimestamp
 } from "firebase/firestore";
 
 // Configuration Firebase réelle du projet defi-jean
@@ -30,28 +32,41 @@ let auth = null;
 let db = null;
 let isInitialized = false;
 
+// Identifiant unique persistant pour le pèlerin local
+export function getLocalPilgrimId() {
+  try {
+    let id = localStorage.getItem("pelerin_local_uuid");
+    if (!id) {
+      id = "pelerin_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now().toString(36);
+      localStorage.setItem("pelerin_local_uuid", id);
+    }
+    return id;
+  } catch {
+    return "pelerin_visiteur";
+  }
+}
+
 export function getFirebaseServices() {
   if (isInitialized) return { app, auth, db };
 
   try {
     app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
     auth = getAuth(app);
-    db = getFirestore(app);
 
-    // Activer la persistance locale IndexedDB si supportée
-    if (typeof window !== "undefined") {
-      enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code === "failed-precondition") {
-          console.warn("Persistance Firestore active dans un autre onglet.");
-        } else if (err.code === "unimplemented") {
-          console.warn("IndexedDB non supporté par ce navigateur.");
-        }
+    // Initialisation moderne du cache persistant Firestore pour Firebase 11
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
       });
+    } catch {
+      db = getFirestore(app);
     }
 
     isInitialized = true;
-  } catch (error) {
-    console.warn("Initialisation Firebase en mode secours local :", error.message);
+  } catch {
+    // Mode repli local silencieux et robuste
   }
 
   return { app, auth, db };
