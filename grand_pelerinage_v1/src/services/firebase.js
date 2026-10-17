@@ -231,3 +231,90 @@ export async function fetchClassementFraternel() {
 
   return fauxClassementParDefaut;
 }
+
+/**
+ * Récupère les prières du mur communautaire
+ */
+export async function fetchCommunityPrayers() {
+  const { db } = getFirebaseServices();
+  let localPrayers = [];
+  try {
+    const raw = localStorage.getItem("pelerinage_prieres_communaute");
+    if (raw) localPrayers = JSON.parse(raw);
+  } catch {}
+
+  if (!db) return localPrayers;
+
+  try {
+    const q = query(collection(db, "prieres"), orderBy("dateCreation", "desc"), limit(20));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      return snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data()
+      }));
+    }
+  } catch {
+    // Repli sur le stockage local
+  }
+
+  return localPrayers;
+}
+
+/**
+ * Publie une intention de prière ou gratitude sur le mur
+ */
+export async function addCommunityPrayer(prayer) {
+  const { db } = getFirebaseServices();
+  const prayerItem = {
+    ...prayer,
+    soutiens: 1,
+    dateCreation: new Date().toISOString()
+  };
+
+  // Sauvegarde locale instantanée
+  let localPrayers = [];
+  try {
+    localPrayers = JSON.parse(localStorage.getItem("pelerinage_prieres_communaute") || "[]");
+    localPrayers = [prayerItem, ...localPrayers];
+    localStorage.setItem("pelerinage_prieres_communaute", JSON.stringify(localPrayers));
+  } catch {}
+
+  if (!db) return localPrayers;
+
+  try {
+    const ref = doc(db, "prieres", prayer.id);
+    await setDoc(ref, {
+      ...prayerItem,
+      dateCreation: serverTimestamp()
+    });
+  } catch {}
+
+  return localPrayers;
+}
+
+/**
+ * Soutient une prière en un clic (« Je prie avec toi 🕊️ »)
+ */
+export async function supportCommunityPrayer(prayerId) {
+  let localPrayers = [];
+  try {
+    localPrayers = JSON.parse(localStorage.getItem("pelerinage_prieres_communaute") || "[]");
+    localPrayers = localPrayers.map((p) => p.id === prayerId ? { ...p, soutiens: (p.soutiens || 0) + 1 } : p);
+    localStorage.setItem("pelerinage_prieres_communaute", JSON.stringify(localPrayers));
+  } catch {}
+
+  const { db } = getFirebaseServices();
+  if (db) {
+    try {
+      const ref = doc(db, "prieres", prayerId);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const cur = snap.data().soutiens || 0;
+        await setDoc(ref, { soutiens: cur + 1 }, { merge: true });
+      }
+    } catch {}
+  }
+
+  return localPrayers;
+}

@@ -4,7 +4,7 @@ import {
   BookOpen, Compass, Home, UserRound, Flame, Gem, Trophy, Star, LockKeyhole,
   Check, ChevronRight, Sparkles, Volume2, VolumeX, Heart, Share2, RotateCcw,
   Lightbulb, Users, Leaf, MapPinned, BookMarked, Send, MessageCircleHeart,
-  Award, ShieldCheck, Smile
+  Award, ShieldCheck, Smile, Moon, Sun, Search
 } from "lucide-react";
 
 import "./styles.css";
@@ -15,15 +15,23 @@ import {
   loadPelerinProfile,
   saveCarnetNote,
   getLocalCarnetNotes,
-  fetchClassementFraternel
+  fetchClassementFraternel,
+  fetchCommunityPrayers,
+  addCommunityPrayer,
+  supportCommunityPrayer
 } from "./services/firebase";
 import {
   BIBLE_BOOKS,
   BIBLE_CHAPTERS,
+  BIBLE_EPOCHS,
+  EPOCH_STAGES,
   PATH_STAGES,
-  FRATERNAL_BLESSINGS
+  THEMATIC_VERSES,
+  FRATERNAL_BLESSINGS,
+  INITIAL_COMMUNITY_PRAYERS,
+  LEITNER_BOXES
 } from "./data/bibleData";
-import { playSpeech, stopSpeech, triggerHaptic } from "./services/audioSpeech";
+import { playSpeech, stopSpeech, triggerHaptic, playDivineChime, playPeaceTone } from "./services/audioSpeech";
 
 function App() {
   const [tab, setTab] = useState("Accueil");
@@ -32,6 +40,26 @@ function App() {
   const [toast, setToast] = useState("");
   const [confettiActive, setConfettiActive] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+
+  // Thème Nuit Paisible
+  const [nightMode, setNightMode] = useState(() => {
+    try {
+      return localStorage.getItem("pelerinage_night_mode") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (nightMode) {
+      document.body.classList.add("night-mode");
+    } else {
+      document.body.classList.remove("night-mode");
+    }
+    try {
+      localStorage.setItem("pelerinage_night_mode", nightMode ? "true" : "false");
+    } catch {}
+  }, [nightMode]);
 
   // Profil et Progression du Pèlerin
   const [profileName, setProfileName] = useState(() => {
@@ -51,6 +79,12 @@ function App() {
     }
   });
 
+  // Époque active et Sentier
+  const [selectedEpochId, setSelectedEpochId] = useState("racines");
+  const currentStages = useMemo(() => {
+    return EPOCH_STAGES[selectedEpochId] || EPOCH_STAGES.racines;
+  }, [selectedEpochId]);
+
   // Étape active pour l'atelier
   const [activeStageId, setActiveStageId] = useState(1);
   const [placedWords, setPlacedWords] = useState([]);
@@ -63,10 +97,43 @@ function App() {
   const [selectedChapterKey, setSelectedChapterKey] = useState("gen-1");
   const [reflectionInput, setReflectionInput] = useState("");
   const [carnetNotes, setCarnetNotes] = useState([]);
+  const [selectedThemeId, setSelectedThemeId] = useState("paix");
 
-  // Fraternité & Classement
+  // Fraternité, Mur de Prières & Classement
   const [leaderboard, setLeaderboard] = useState([]);
-  const [blessingModal, setBlessingModal] = useState(null);
+  const [communityPrayers, setCommunityPrayers] = useState(INITIAL_COMMUNITY_PRAYERS);
+  const [newPrayerText, setNewPrayerText] = useState("");
+
+  // Système Leitner (Mémorisation du Cœur & Répétition Espacée)
+  const [leitnerModalOpen, setLeitnerModalOpen] = useState(false);
+  const [leitnerReviewIndex, setLeitnerReviewIndex] = useState(0);
+  const [leitnerCardRevealed, setLeitnerCardRevealed] = useState(false);
+
+  const leitnerCards = useMemo(() => {
+    const cards = saved.leitnerCards;
+    if (cards && Object.keys(cards).length > 0) {
+      return Object.values(cards);
+    }
+    // Cartes d'inspiration initiales pour découvrir immédiatement le Jardin
+    return [
+      {
+        ref: "Genèse 1:1",
+        titre: "La Création du monde",
+        texte: "Au commencement, Dieu créa les cieux et la terre.",
+        box: 1,
+        lastReviewed: Date.now() - 86400000,
+        nextReview: Date.now() - 1000
+      },
+      {
+        ref: "Psaume 23:1",
+        titre: "Le Berger bienveillant",
+        texte: "L'Éternel est mon berger : je ne manquerai de rien.",
+        box: 2,
+        lastReviewed: Date.now() - 86400000 * 3,
+        nextReview: Date.now() - 1000
+      }
+    ];
+  }, [saved.leitnerCards]);
 
   const xp = saved.xp || 0;
   const pearls = saved.pearls || 0;
@@ -109,6 +176,12 @@ function App() {
     }).then((fn) => { unsubAuth = fn; });
 
     fetchClassementFraternel().then(setLeaderboard);
+
+    fetchCommunityPrayers().then((prayers) => {
+      if (prayers && prayers.length > 0) {
+        setCommunityPrayers(prayers);
+      }
+    });
 
     return () => {
       if (unsubAuth) unsubAuth();
@@ -198,11 +271,43 @@ function App() {
     setCarnetNotes(updated);
     setReflectionInput("");
     notify("Pensée enregistrée dans ton carnet spirituel 💚");
+    playPeaceTone();
     triggerHaptic([30]);
   };
 
+  // Création d'une intention de prière
+  const handleCreatePrayer = async () => {
+    if (!newPrayerText.trim()) {
+      notify("Écris ton intention de prière ou gratitude avant de déposer 🌿");
+      return;
+    }
+
+    const newPrayer = {
+      id: "prayer_" + Date.now(),
+      auteur: profileName,
+      avatar: "🌿",
+      texte: newPrayerText.trim(),
+      date: "À l'instant",
+      soutiens: 1
+    };
+
+    const updated = await addCommunityPrayer(newPrayer);
+    setCommunityPrayers(updated);
+    setNewPrayerText("");
+    notify("Ton intention de prière a été déposée sur le mur fraternel 🕊️");
+    triggerHaptic([30]);
+  };
+
+  // Soutien fraternel en 1 clic
+  const handleSupportPrayer = async (prayerId) => {
+    const updated = await supportCommunityPrayer(prayerId);
+    setCommunityPrayers(updated);
+    notify("Tu as prié pour cette intention. Que Dieu vous fortifie ! 🕊️");
+    triggerHaptic([20, 40]);
+  };
+
   // Logique de validation d'un atelier d'étape
-  const currentStage = PATH_STAGES.find((s) => s.id === activeStageId) || PATH_STAGES[0];
+  const currentStage = currentStages.find((s) => s.id === activeStageId) || currentStages[0];
 
   const validateExercise = () => {
     let isSuccess = false;
@@ -228,18 +333,42 @@ function App() {
     }
 
     if (isSuccess) {
+      playDivineChime();
       triggerHaptic([20, 60, 20]);
       setConfettiActive(true);
       setExerciseFeedback("Bravo ! Ton cœur accueille la Parole avec joie ✨");
 
-      // Mise à jour de la progression
+      // Mise à jour de la progression et enracinement dans le Jardin de la Mémoire
       const nextCompleted = Array.from(new Set([...completedStages, currentStage.id]));
-      setSaved((prev) => ({
-        ...prev,
-        completedStages: nextCompleted,
-        xp: (prev.xp || 0) + (currentStage.recompense?.xp || 20),
-        pearls: (prev.pearls || 0) + (currentStage.recompense?.perles || 1)
-      }));
+      setSaved((prev) => {
+        const prevCards = prev.leitnerCards || {};
+        const existingCard = prevCards[currentStage.ref];
+        const nextBox = existingCard ? Math.min(5, (existingCard.box || 1) + 1) : 1;
+        const intervalsDays = [0, 1, 3, 7, 30, 90];
+        const nextReview = Date.now() + (intervalsDays[nextBox] || 1) * 24 * 3600 * 1000;
+
+        const updatedCards = {
+          ...prevCards,
+          [currentStage.ref]: {
+            ref: currentStage.ref,
+            titre: currentStage.titre,
+            texte: currentStage.motsCorrects ? currentStage.motsCorrects.join(" ") : currentStage.titre,
+            box: nextBox,
+            stageId: currentStage.id,
+            epochId: selectedEpochId,
+            lastReviewed: Date.now(),
+            nextReview
+          }
+        };
+
+        return {
+          ...prev,
+          completedStages: nextCompleted,
+          xp: (prev.xp || 0) + (currentStage.recompense?.xp || 20),
+          pearls: (prev.pearls || 0) + (currentStage.recompense?.perles || 1),
+          leitnerCards: updatedCards
+        };
+      });
     } else {
       triggerHaptic([40, 20]);
       setExerciseFeedback("Presque ! Prends un instant pour relire avec calme 🌿");
@@ -261,15 +390,92 @@ function App() {
 
   const nextStage = () => {
     resetStageExercise();
-    if (activeStageId < PATH_STAGES.length) {
-      setActiveStageId((id) => id + 1);
+    const curIdx = currentStages.findIndex((s) => s.id === activeStageId);
+    if (curIdx >= 0 && curIdx < currentStages.length - 1) {
+      setActiveStageId(currentStages[curIdx + 1].id);
     } else {
       setTab("Parcours");
-      notify("Toutes les étapes de ce sentier sont accomplies ! Gloire à Dieu 🌟");
+      notify("Toutes les étapes de cette époque sont accomplies ! Gloire à Dieu 🌟");
     }
   };
 
+  // Gestion de la réponse en révision Leitner
+  const handleReviewAnswer = (cardRef, isSuccess) => {
+    setSaved((prev) => {
+      const prevCards = prev.leitnerCards || {};
+      const card = prevCards[cardRef] || { ref: cardRef, box: 1 };
+      let newBox = card.box || 1;
+      if (isSuccess) {
+        newBox = Math.min(5, newBox + 1);
+        playDivineChime();
+        triggerHaptic([20, 60, 20]);
+        setConfettiActive(true);
+        notify(`« ${cardRef} » monte au Niveau ${newBox} ! Gloire à Dieu ✨`);
+      } else {
+        newBox = 1;
+        playPeaceTone();
+        triggerHaptic([30]);
+        notify(`« ${cardRef} » sera consolidé demain avec douceur 🌿`);
+      }
+
+      const intervalsDays = [0, 1, 3, 7, 30, 90];
+      const nextReview = Date.now() + (intervalsDays[newBox] || 1) * 24 * 3600 * 1000;
+
+      const updatedCards = {
+        ...prevCards,
+        [cardRef]: {
+          ...card,
+          box: newBox,
+          lastReviewed: Date.now(),
+          nextReview
+        }
+      };
+
+      return {
+        ...prev,
+        xp: (prev.xp || 0) + (isSuccess ? 15 : 5),
+        pearls: (prev.pearls || 0) + (isSuccess ? 1 : 0),
+        leitnerCards: updatedCards
+      };
+    });
+
+    setLeitnerCardRevealed(false);
+    setLeitnerReviewIndex((idx) => idx + 1);
+  };
+
+  // Ancrer un verset lu dans le Jardin depuis la Bible
+  const handleAnchorVerse = (verseRef, verseText) => {
+    setSaved((prev) => {
+      const prevCards = prev.leitnerCards || {};
+      const existing = prevCards[verseRef];
+      if (existing) {
+        notify(`« ${verseRef} » est déjà dans ton Jardin (Niveau ${existing.box}) 🌿`);
+        return prev;
+      }
+      playPeaceTone();
+      triggerHaptic([25]);
+      notify(`« ${verseRef} » a été planté dans ton Jardin de la Parole 🌱`);
+      return {
+        ...prev,
+        pearls: (prev.pearls || 0) + 1,
+        leitnerCards: {
+          ...prevCards,
+          [verseRef]: {
+            ref: verseRef,
+            titre: verseText.slice(0, 45) + "...",
+            texte: verseText,
+            box: 1,
+            lastReviewed: Date.now(),
+            nextReview: Date.now() + 24 * 3600 * 1000
+          }
+        }
+      };
+    });
+  };
+
   const currentBibleChapter = BIBLE_CHAPTERS[selectedChapterKey] || BIBLE_CHAPTERS["gen-1"];
+  const activeEpoch = BIBLE_EPOCHS.find((e) => e.id === selectedEpochId) || BIBLE_EPOCHS[0];
+  const activeTheme = THEMATIC_VERSES.find((t) => t.themeId === selectedThemeId) || THEMATIC_VERSES[0];
 
   const navTabs = [
     { name: "Accueil", icon: Home },
@@ -321,11 +527,11 @@ function App() {
           </div>
           <div className="mini-progress">
             <div>
-              <span>Sentier de la Genèse</span>
-              <b>{Math.round((completedStages.length / PATH_STAGES.length) * 100)}%</b>
+              <span>{activeEpoch.nom}</span>
+              <b>{Math.round((completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100)}%</b>
             </div>
             <div className="progress-track">
-              <i style={{ width: `${(completedStages.length / PATH_STAGES.length) * 100}%` }} />
+              <i style={{ width: `${(completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100}%` }} />
             </div>
           </div>
           <div className="sync-status">
@@ -346,6 +552,16 @@ function App() {
           </div>
 
           <div className="top-actions">
+            {/* BOUTON MODE NUIT PAISIBLE */}
+            <button
+              className="icon-button"
+              onClick={() => setNightMode((n) => !n)}
+              aria-label={nightMode ? "Passer en mode jour" : "Passer en mode nuit paisible"}
+              title={nightMode ? "Mode Jour" : "Mode Nuit Paisible"}
+            >
+              {nightMode ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
             <button
               className="icon-button"
               onClick={() => notify("Tu es fidèle dans ta marche. Que la paix soit avec toi !")}
@@ -404,7 +620,7 @@ function App() {
               <Stat
                 icon={<Heart />}
                 label="Étapes vécues"
-                value={`${completedStages.length} / ${PATH_STAGES.length}`}
+                value={`${completedStages.length} découvertes`}
                 tone="rose"
               />
             </div>
@@ -426,7 +642,7 @@ function App() {
                   <span className="landscape-hill h1" />
                   <span className="landscape-hill h2" />
                   <span className="landscape-river" />
-                  <span className="art-label">GENÈSE · ÉTAPE {completedStages.length + 1}</span>
+                  <span className="art-label">{activeEpoch.nom.toUpperCase()}</span>
                 </div>
                 <div className="feature-body">
                   <div className="card-title-row">
@@ -437,13 +653,13 @@ function App() {
                     <span className="round-icon"><Compass size={18} /></span>
                   </div>
                   <div className="progress-label">
-                    <span>Avancement du sentier</span>
-                    <b>{completedStages.length} / {PATH_STAGES.length} découvertes</b>
+                    <span>Avancement de l'époque</span>
+                    <b>{completedStages.filter((id) => currentStages.some((s) => s.id === id)).length} / {currentStages.length}</b>
                   </div>
                   <div className="progress-track">
-                    <i style={{ width: `${(completedStages.length / PATH_STAGES.length) * 100}%` }} />
+                    <i style={{ width: `${(completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100}%` }} />
                   </div>
-                  <button className="primary-button full" onClick={() => startStage(completedStages.length + 1 <= PATH_STAGES.length ? completedStages.length + 1 : 1)}>
+                  <button className="primary-button full" onClick={() => startStage(currentStage.id)}>
                     Continuer l'aventure <ChevronRight size={17} />
                   </button>
                 </div>
@@ -486,6 +702,58 @@ function App() {
               </div>
             </div>
 
+            {/* JARDIN DE LA PAROLE / RÉPÉTITION ESPACÉE LEITNER */}
+            <div className="leitner-section">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">MÉMORISATION DU CŒUR</span>
+                  <h2>Mon Jardin de la Parole</h2>
+                </div>
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    setLeitnerReviewIndex(0);
+                    setLeitnerCardRevealed(false);
+                    setLeitnerModalOpen(true);
+                  }}
+                >
+                  Lancer la révision ({leitnerCards.length}) <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <div className="leitner-garden-card">
+                <div className="leitner-stats-row">
+                  {LEITNER_BOXES.map((box) => {
+                    const count = leitnerCards.filter((c) => (c.box || 1) === box.level).length;
+                    return (
+                      <div key={box.level} className="leitner-box-stat">
+                        <span className="box-icon">{box.icon}</span>
+                        <b>{count}</b>
+                        <small>{box.nom}</small>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="leitner-garden-cta">
+                  <div>
+                    <h4>Enracine la Parole dans ton quotidien</h4>
+                    <p>Grâce au cycle de révision espacée (1j, 3j, 1sem, 1mois), chaque verset médité s'ancre durablement dans ton cœur.</p>
+                  </div>
+                  <button
+                    className="primary-button"
+                    onClick={() => {
+                      setLeitnerReviewIndex(0);
+                      setLeitnerCardRevealed(false);
+                      setLeitnerModalOpen(true);
+                    }}
+                  >
+                    <Sparkles size={17} /> Réviser mes versets ({leitnerCards.length})
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="gentle-note">
               <Leaf size={20} />
               <span>
@@ -496,29 +764,66 @@ function App() {
           </section>
         )}
 
-        {/* 2. ONGLET PARCOURS / SENTIER */}
+        {/* 2. ONGLET PARCOURS / SENTIER AVEC LES 7 ÉPOQUES */}
         {tab === "Parcours" && (
           <section className="page">
             <div className="page-intro">
-              <span className="eyebrow"><MapPinned size={14} /> LE SENTIER DE LA PAROLE</span>
-              <h1>Le sentier de la Genèse</h1>
-              <p>Chaque jalon est une découverte interactive sans pression. Avance à ton rythme.</p>
+              <span className="eyebrow"><MapPinned size={14} /> LA CARTE PAN-BIBLIQUE</span>
+              <h1>Le Sentier de la Parole</h1>
+              <p>Voyage à travers les 7 grandes époques bibliques. Chaque étape est une découverte vivante.</p>
             </div>
 
+            {/* SÉLECTEUR DE CARTE DES 7 ÉPOQUES */}
+            <div className="epochs-container">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">CHOISIS TON ÉPOQUE</span>
+                  <h2>Les 7 Grandes Époques</h2>
+                </div>
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>{activeEpoch.tagline}</span>
+              </div>
+
+              <div className="epochs-scroll">
+                {BIBLE_EPOCHS.map((epoch) => (
+                  <button
+                    key={epoch.id}
+                    className={`epoch-card ${selectedEpochId === epoch.id ? "active" : ""}`}
+                    onClick={() => {
+                      setSelectedEpochId(epoch.id);
+                      const firstStage = (EPOCH_STAGES[epoch.id] || EPOCH_STAGES.racines)[0];
+                      setActiveStageId(firstStage.id);
+                      resetStageExercise();
+                      notify(`Sentier : ${epoch.nom} ✨`);
+                    }}
+                  >
+                    <div className="epoch-icon">{epoch.icon}</div>
+                    <div className="epoch-name">{epoch.nom}</div>
+                    <div className="epoch-books">{epoch.livres}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* SYNTHÈSE DE L'ÉPOQUE */}
             <div className="journey-summary">
               <div className="summary-book"><BookOpen size={24} /></div>
               <div>
-                <b>Genèse & Commencement</b>
-                <small>{completedStages.length} sur {PATH_STAGES.length} étapes vécues · Louis Segond</small>
+                <b>{activeEpoch.nom} ({activeEpoch.livres})</b>
+                <small>
+                  {completedStages.filter((id) => currentStages.some((s) => s.id === id)).length} sur {currentStages.length} étapes vécues · Louis Segond 1910
+                </small>
               </div>
               <div className="summary-progress">
                 <div className="progress-track">
-                  <i style={{ width: `${(completedStages.length / PATH_STAGES.length) * 100}%` }} />
+                  <i style={{ width: `${(completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100}%` }} />
                 </div>
-                <small>{Math.round((completedStages.length / PATH_STAGES.length) * 100)}% accompli</small>
+                <small>
+                  {Math.round((completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100)}% accompli
+                </small>
               </div>
             </div>
 
+            {/* SENTIER WINDING PATH SVG */}
             <div className="path-landscape">
               <div className="landscape-glow" />
               <div className="path-cloud cloud-a" />
@@ -542,33 +847,27 @@ function App() {
                 />
               </svg>
 
-              {PATH_STAGES.map((node) => {
+              {currentStages.map((node) => {
                 const isDone = completedStages.includes(node.id);
-                const isCurrent = !isDone && node.id === (completedStages[completedStages.length - 1] || 0) + 1;
-                const isLocked = !isDone && !isCurrent;
+                const isCurrent = !isDone;
+                const isLocked = false; // Accessible avec joie
 
                 return (
                   <button
                     key={node.id}
-                    className={`path-node ${isDone ? "done" : ""} ${isCurrent ? "current" : ""} ${isLocked ? "locked" : ""}`}
+                    className={`path-node ${isDone ? "done" : ""} ${node.id === currentStage.id ? "current" : ""}`}
                     style={{ left: `${node.x}%`, top: `${node.y}%` }}
-                    onClick={() => {
-                      if (isLocked) {
-                        notify("Cette étape s'ouvrira en avançant avec joie sur le sentier 🌱");
-                        return;
-                      }
-                      startStage(node.id);
-                    }}
-                    aria-label={`${node.titre}${isLocked ? ", verrouillée" : ""}`}
+                    onClick={() => startStage(node.id)}
+                    aria-label={`${node.titre}`}
                   >
                     <span className="node-circle">
-                      {isDone ? <Check size={22} /> : isLocked ? <LockKeyhole size={18} /> : <span>{node.id}</span>}
+                      {isDone ? <Check size={22} /> : <span>{node.id}</span>}
                     </span>
                     <span className="node-label">
                       <b>{node.titre}</b>
                       <small>{node.ref}</small>
                       {isDone && <span className="node-stars">★ ★ ★</span>}
-                      {isCurrent && <em>À découvrir</em>}
+                      {node.id === currentStage.id && !isDone && <em>À découvrir</em>}
                     </span>
                   </button>
                 );
@@ -584,7 +883,7 @@ function App() {
               <div className="feature-card next-step">
                 <div className="round-icon"><BookOpen size={20} /></div>
                 <div>
-                  <span className="eyebrow">ÉTAPE EN COURS</span>
+                  <span className="eyebrow">ÉTAPE SÉLECTIONNÉE</span>
                   <h3>{currentStage.titre}</h3>
                   <p>{currentStage.ref} · {currentStage.consigne}</p>
                 </div>
@@ -615,10 +914,10 @@ function App() {
             <div className="exercise-shell">
               <div className="exercise-top">
                 <span><BookOpen size={17} /> {currentStage.ref}</span>
-                <span className="step-count">Étape {currentStage.id} sur {PATH_STAGES.length}</span>
+                <span className="step-count">Époque {activeEpoch.nom}</span>
               </div>
               <div className="exercise-progress">
-                <i style={{ width: `${(currentStage.id / PATH_STAGES.length) * 100}%` }} />
+                <i style={{ width: "60%" }} />
               </div>
 
               <div className="exercise-content">
@@ -758,10 +1057,15 @@ function App() {
                   <select
                     value={selectedBookId}
                     onChange={(e) => {
-                      setSelectedBookId(e.target.value);
-                      if (e.target.value === "gen") setSelectedChapterKey("gen-1");
-                      if (e.target.value === "jea") setSelectedChapterKey("jea-1");
-                      if (e.target.value === "psa") setSelectedChapterKey("psa-23");
+                      const book = e.target.value;
+                      setSelectedBookId(book);
+                      if (book === "gen") setSelectedChapterKey("gen-1");
+                      if (book === "exo") setSelectedChapterKey("exo-20");
+                      if (book === "psa") setSelectedChapterKey("psa-23");
+                      if (book === "jea") setSelectedChapterKey("jea-1");
+                      if (book === "rom") setSelectedChapterKey("rom-8");
+                      if (book === "1co") setSelectedChapterKey("1co-13");
+                      if (book === "apo") setSelectedChapterKey("apo-21");
                       stopSpeech();
                       setAudioPlaying(false);
                     }}
@@ -783,15 +1087,24 @@ function App() {
                     }}
                     aria-label="Chapitre biblique"
                   >
-                    {selectedBookId === "gen" && <option value="gen-1">Chapitre 1</option>}
-                    {selectedBookId === "jea" && (
+                    {selectedBookId === "gen" && <option value="gen-1">Chapitre 1 (La Création)</option>}
+                    {selectedBookId === "exo" && <option value="exo-20">Chapitre 20 (Les 10 Commandements)</option>}
+                    {selectedBookId === "psa" && (
                       <>
-                        <option value="jea-1">Chapitre 1</option>
-                        <option value="jea-3">Chapitre 3</option>
+                        <option value="psa-23">Psaume 23 (Le Berger)</option>
+                        <option value="psa-91">Psaume 91 (La Protection Divine)</option>
                       </>
                     )}
-                    {selectedBookId === "psa" && <option value="psa-23">Psaume 23</option>}
-                    {!["gen", "jea", "psa"].includes(selectedBookId) && (
+                    {selectedBookId === "jea" && (
+                      <>
+                        <option value="jea-1">Chapitre 1 (La Parole faite chair)</option>
+                        <option value="jea-3">Chapitre 3 (Nicodème & Jean 3:16)</option>
+                      </>
+                    )}
+                    {selectedBookId === "rom" && <option value="rom-8">Chapitre 8 (Plus que vainqueurs)</option>}
+                    {selectedBookId === "1co" && <option value="1co-13">Chapitre 13 (Cantique de l'Amour)</option>}
+                    {selectedBookId === "apo" && <option value="apo-21">Chapitre 21 (La Cité de Paix)</option>}
+                    {!["gen", "exo", "psa", "jea", "rom", "1co", "apo"].includes(selectedBookId) && (
                       <option value="gen-1">Chapitre 1</option>
                     )}
                   </select>
@@ -828,11 +1141,21 @@ function App() {
                     className="secondary-button"
                     onClick={() => {
                       const keyVerse = currentBibleChapter.versets.find((v) => v.cle) || currentBibleChapter.versets[0];
+                      handleAnchorVerse(`${currentBibleChapter.livre} ${currentBibleChapter.chapitre}:${keyVerse.num}`, keyVerse.texte);
+                    }}
+                  >
+                    <Leaf size={16} /> Ancrer dans mon jardin
+                  </button>
+
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      const keyVerse = currentBibleChapter.versets.find((v) => v.cle) || currentBibleChapter.versets[0];
                       setReflectionInput(`« ${keyVerse.texte} » (${currentBibleChapter.livre} ${currentBibleChapter.chapitre}:${keyVerse.num})\n\nMa prière : `);
                       notify("Verset préparé dans ton carnet spirituel 🌿");
                     }}
                   >
-                    <BookMarked size={16} /> Méditer ce verset
+                    <BookMarked size={16} /> Méditer
                   </button>
 
                   <button
@@ -842,11 +1165,11 @@ function App() {
                       handleShareBlessing({
                         verset: keyVerse.texte,
                         ref: `${currentBibleChapter.livre} ${currentBibleChapter.chapitre}:${keyVerse.num}`,
-                        message: "Que cette Parole remplisse ta journée de joie !"
+                        message: "Que cette Parole remplisse ta journée de paix !"
                       });
                     }}
                   >
-                    <Share2 size={16} /> Partager une bénédiction
+                    <Share2 size={16} /> Partager
                   </button>
                 </div>
               </div>
@@ -881,7 +1204,7 @@ function App() {
                         <div
                           key={n.id}
                           style={{
-                            background: "#fff",
+                            background: "rgba(255,255,255,0.8)",
                             border: "1px solid #d8e9de",
                             borderRadius: "10px",
                             padding: "10px",
@@ -902,10 +1225,61 @@ function App() {
                 )}
               </aside>
             </div>
+
+            {/* RECHERCHE THÉMATIQUE PAR ÉMOTIONS */}
+            <div style={{ marginTop: "32px" }}>
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">LA PAROLE DANS MON QUOTIDIEN</span>
+                  <h2>Versets selon les besoins de ton cœur</h2>
+                </div>
+              </div>
+
+              <div className="theme-chips">
+                {THEMATIC_VERSES.map((thm) => (
+                  <button
+                    key={thm.themeId}
+                    className={`theme-chip ${selectedThemeId === thm.themeId ? "active" : ""}`}
+                    onClick={() => setSelectedThemeId(thm.themeId)}
+                  >
+                    <span>{thm.icon}</span>
+                    <span>{thm.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="theme-verses-list">
+                {activeTheme.versets.map((v, idx) => (
+                  <div key={idx} className="theme-verse-card">
+                    <p>« {v.texte} »</p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <small>— {v.ref}</small>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          className="text-button"
+                          onClick={() => handleToggleAudio(v.texte)}
+                        >
+                          <Volume2 size={14} /> Écouter
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() => {
+                            setReflectionInput(`« ${v.texte} » (${v.ref})\n\nMa prière : `);
+                            notify("Verset préparé dans ton carnet spirituel 🌿");
+                          }}
+                        >
+                          <BookMarked size={14} /> Méditer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
         )}
 
-        {/* 5. ONGLET FRATERNITÉ (COMMUNION & ENCOURAGEMENT MUTUEL) */}
+        {/* 5. ONGLET FRATERNITÉ (COMMUNION, MUR DE PRIÈRES & CLASSEMENT) */}
         {tab === "Fraternité" && (
           <section className="page">
             <div className="page-intro">
@@ -942,12 +1316,62 @@ function App() {
                   className="secondary-button"
                   style={{ background: "#fff", color: "#0756a5", border: "0" }}
                   onClick={() => {
-                    notify("Encouragement envoyé à l'ensemble du groupe : « Que Dieu vous fortifie ! » 🕊️");
+                    notify("Encouragement envoyé au groupe : « Que Dieu vous fortifie ! » 🕊️");
                     triggerHaptic([30]);
                   }}
                 >
                   <Send size={16} /> Envoyer un encouragement (1 clic)
                 </button>
+              </div>
+            </div>
+
+            {/* LE MUR DE PRIÈRES FRATERNELLES */}
+            <div style={{ margin: "28px 0" }}>
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">COMMUNION DES CŒURS</span>
+                  <h2>Le Mur de Prières & Gratitudes</h2>
+                </div>
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>Prier les uns pour les autres</span>
+              </div>
+
+              <div className="prayer-composer">
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span className="avatar">🌿</span>
+                  <b style={{ fontSize: "13px" }}>{profileName}</b>
+                  <small style={{ color: "var(--muted)", marginLeft: "auto" }}>Déposer une intention</small>
+                </div>
+                <textarea
+                  placeholder="Partage une prière, une gratitude ou un besoin de soutien avec tes frères et sœurs…"
+                  value={newPrayerText}
+                  onChange={(e) => setNewPrayerText(e.target.value)}
+                />
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button className="primary-button" onClick={handleCreatePrayer}>
+                    <Send size={15} /> Déposer ma prière
+                  </button>
+                </div>
+              </div>
+
+              <div className="prayers-list">
+                {communityPrayers.map((prayer) => (
+                  <div key={prayer.id} className="prayer-card">
+                    <div className="prayer-header">
+                      <div className="prayer-avatar">{prayer.avatar || "🕊️"}</div>
+                      <span className="prayer-author">{prayer.auteur}</span>
+                      <span className="prayer-date">{prayer.date}</span>
+                    </div>
+                    <p className="prayer-text">{prayer.texte}</p>
+                    <button
+                      className="pray-support-btn"
+                      onClick={() => handleSupportPrayer(prayer.id)}
+                      title="Soutenir cette intention"
+                    >
+                      <span>🕊️ Je prie avec toi</span>
+                      <b>({prayer.soutiens || 1})</b>
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -980,7 +1404,7 @@ function App() {
                 </div>
 
                 {/* LISTE DES AUTRES MARCHES */}
-                <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: "16px", padding: "16px" }}>
+                <div style={{ background: "rgba(255,255,255,0.9)", border: "1px solid var(--line)", borderRadius: "16px", padding: "16px" }}>
                   {leaderboard.slice(3).map((item, index) => (
                     <div
                       key={item.id}
@@ -1017,7 +1441,7 @@ function App() {
                   <div key={idx} className="blessing-card">
                     <span className="pill">BÉNÉDICTION</span>
                     <h3 style={{ margin: "10px 0 6px", fontSize: "16px" }}>{blessing.titre}</h3>
-                    <blockquote>{blessing.verset}</blockquote>
+                    <blockquote>« {blessing.verset} »</blockquote>
                     <small style={{ display: "block", color: "var(--muted)", marginBottom: "14px" }}>
                       {blessing.ref}
                     </small>
@@ -1064,7 +1488,7 @@ function App() {
                   </span>
                 </div>
 
-                <div className="profile-metrics">
+                <div className="profile-metrics" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
                   <div>
                     <b>{xp}</b>
                     <small>Points de joie</small>
@@ -1074,8 +1498,12 @@ function App() {
                     <small>Perles de vie</small>
                   </div>
                   <div>
-                    <b>{completedStages.length} / {PATH_STAGES.length}</b>
-                    <small>Étapes</small>
+                    <b>{completedStages.length}</b>
+                    <small>Étapes vécues</small>
+                  </div>
+                  <div>
+                    <b>{leitnerCards.length}</b>
+                    <small>Versets ancrés</small>
                   </div>
                 </div>
 
@@ -1108,6 +1536,15 @@ function App() {
                     <small>Tu as remis un verset dans le bon ordre.</small>
                   </div>
                   {completedStages.length >= 1 ? <Check size={18} color="#159447" /> : <LockKeyhole size={17} />}
+                </div>
+
+                <div className={`achievement ${leitnerCards.length >= 1 ? "" : "dimmed"}`}>
+                  <span className="achievement-icon">🌿</span>
+                  <div>
+                    <b>Jardinier de la Parole</b>
+                    <small>{leitnerCards.length} verset(s) enraciné(s) dans ton cœur par révision espacée.</small>
+                  </div>
+                  {leitnerCards.length >= 1 ? <Check size={18} color="#159447" /> : <LockKeyhole size={17} />}
                 </div>
 
                 <div className={`achievement ${completedStages.length >= 3 ? "" : "dimmed"}`}>
@@ -1162,6 +1599,120 @@ function App() {
           </button>
         ))}
       </nav>
+
+      {/* MODAL DE RÉVISION LEITNER DU JARDIN DE LA PAROLE */}
+      {leitnerModalOpen && (
+        <div className="modal-overlay" onClick={() => setLeitnerModalOpen(false)}>
+          <div className="modal-card leitner-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span className="leitner-modal-icon">🌱</span>
+                <div>
+                  <h3>Mon Jardin de la Parole</h3>
+                  <span className="eyebrow">RÉPÉTITION ESPACÉE & ANCRAGE DU CŒUR</span>
+                </div>
+              </div>
+              <button className="icon-close" onClick={() => setLeitnerModalOpen(false)} aria-label="Fermer">✕</button>
+            </div>
+
+            {leitnerCards.length === 0 ? (
+              <div className="leitner-empty-state">
+                <p>Aucun verset n'est encore semé dans ton jardin.</p>
+                <small>Accomplis des étapes sur le Sentier ou ancre un verset depuis la Bible !</small>
+              </div>
+            ) : (
+              <div className="leitner-review-content">
+                {leitnerReviewIndex < leitnerCards.length ? (
+                  (() => {
+                    const card = leitnerCards[leitnerReviewIndex];
+                    const boxInfo = LEITNER_BOXES.find((b) => b.level === (card.box || 1)) || LEITNER_BOXES[0];
+                    return (
+                      <div className="leitner-card-view">
+                        <div className="leitner-card-progress">
+                          <span>Verset {leitnerReviewIndex + 1} sur {leitnerCards.length}</span>
+                          <span className="leitner-badge" style={{ backgroundColor: boxInfo.color + "22", color: boxInfo.color }}>
+                            {boxInfo.icon} Niveau {boxInfo.level} · {boxInfo.nom}
+                          </span>
+                        </div>
+
+                        <div className="leitner-flashcard">
+                          <span className="leitner-ref-tag">{card.ref}</span>
+                          <h2 className="leitner-stage-title">{card.titre}</h2>
+
+                          {!leitnerCardRevealed ? (
+                            <div className="leitner-hidden-box">
+                              <p className="leitner-prompt-text">
+                                Prends quelques secondes pour te remémorer ce verset dans ton cœur…
+                              </p>
+                              <button
+                                className="secondary-button"
+                                onClick={() => {
+                                  triggerHaptic([20]);
+                                  setLeitnerCardRevealed(true);
+                                }}
+                              >
+                                <Sparkles size={16} /> Révéler la Parole
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="leitner-revealed-box">
+                              <blockquote className="leitner-quote">
+                                « {card.texte || "La Parole de Dieu est une lampe à nos pieds et une lumière sur notre sentier."} »
+                              </blockquote>
+                              <button
+                                className="audio-listen-btn"
+                                onClick={() => {
+                                  const txt = card.texte;
+                                  if (txt) playSpeech(txt);
+                                }}
+                              >
+                                <Volume2 size={16} /> Écouter à voix haute
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {leitnerCardRevealed && (
+                          <div className="leitner-actions-row">
+                            <button
+                              className="leitner-revisit-btn"
+                              onClick={() => handleReviewAnswer(card.ref, false)}
+                            >
+                              🌱 À consolider (Revoir demain)
+                            </button>
+                            <button
+                              className="leitner-master-btn"
+                              onClick={() => handleReviewAnswer(card.ref, true)}
+                            >
+                              ✨ Bien ancré ! (+1 Niveau)
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="leitner-congrats-view">
+                    <span className="congrats-emoji">🕊️</span>
+                    <h3>Session de révision accomplie !</h3>
+                    <p>Chaque graine arrosée aujourd'hui produira un fruit de paix et d'espérance dans ta marche avec Dieu.</p>
+                    <button
+                      className="primary-button"
+                      onClick={() => {
+                        setLeitnerModalOpen(false);
+                        setLeitnerReviewIndex(0);
+                        setLeitnerCardRevealed(false);
+                      }}
+                    >
+                      Retourner à mon pèlerinage <ChevronRight size={17} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* TOAST DE NOTIFICATION BIENVEILLANT */}
       {toast && (

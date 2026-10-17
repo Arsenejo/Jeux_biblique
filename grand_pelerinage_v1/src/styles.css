@@ -1305,3 +1305,625 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .word-tile { font-size: 12px; padding: 11px 14px; }
   .podium-container { gap: 6px; }
 }
+
+/* =========================================================================
+   SÉLECTEUR DE CARTE DES 7 ÉPOQUES BIBLIQUES
+   ========================================================================= */
+.epochs-container {
+  margin-bottom: 24px;
+}
+.epochs-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 6px 2px 14px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.epoch-card {
+  flex: 0 0 auto;
+  width: 175px;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 12px;
+  text-align: left;
+  transition: all 0.22s ease;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+.epoch-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.07);
+  border-color: #92c5f8;
+}
+.epoch-card.active {
+  border-color: #0756a5;
+  background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
+  box-shadow: 0 6px 18px rgba(7, 86, 165, 0.16);
+}
+.epoch-icon { font-size: 24px; margin-bottom: 8px; }
+.epoch-name { font-weight: 800; font-size: 13px; color: #143e5e; margin-bottom: 2px; }
+.epoch-books { font-size: 10px; color: var(--muted); }
+
+/* =========================================================================
+   MUR DE PRIÈRES & GRATITUDES FRATERNELLES
+   ========================================================================= */
+.prayer-composer {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+.prayer-composer textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  border: 1px solid #dce8e0;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 10px 0 12px;
+  color: #17324d;
+  background: #fbfdfc;
+}
+.prayers-list {
+  display: grid;
+  gap: 14px;
+}
+.prayer-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s;
+}
+.prayer-card:hover { transform: translateY(-1px); }
+.prayer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.prayer-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #eef7f0;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+}
+.prayer-author { font-size: 12px; font-weight: 700; color: #173b5a; }
+.prayer-date { font-size: 10px; color: var(--muted); margin-left: auto; }
+.prayer-text { font-size: 13px; line-height: 1.6; color: #233f55; margin: 0 0 12px; }
+.pray-support-btn {
+  border: 1px solid #d4ebd9;
+  background: #f0faf3;
+  color: #127941;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s;
+}
+.pray-support-btn:hover {
+  background: #e1f5e8;
+  transform: scale(1.03);
+}
+
+/* =========================================================================
+   RECHERCHE THÉMATIQUE (BESOINS DU CŒUR)
+   ========================================================================= */
+.theme-chips {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin: 14px 0 20px;
+}
+.theme-chip {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: #234661;
+  padding: 8px 14px;
+  border-radius: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.2s;
+}
+.theme-chip:hover {
+  border-color: #0756a5;
+  background: #eef7ff;
+}
+.theme-chip.active {
+  background: #0756a5;
+  color: #fff;
+  border-color: #0756a5;
+  box-shadow: 0 4px 12px rgba(7, 86, 165, 0.24);
+}
+.theme-verses-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+.theme-verse-card {
+  background: #fff;
+  border-left: 3px solid #159447;
+  border-radius: 0 14px 14px 0;
+  padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+.theme-verse-card p {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #16693d;
+  font-style: italic;
+  margin: 0 0 6px;
+}
+.theme-verse-card small {
+  font-size: 11px;
+  font-weight: 800;
+  color: #6a8274;
+}
+
+/* =========================================================================
+   MODE NUIT PAISIBLE (MÉDITATION DU SOIR)
+   ========================================================================= */
+body.night-mode {
+  background: #09131e;
+  color: #e2eaf4;
+}
+body.night-mode .topbar {
+  background: rgba(10, 24, 39, 0.92);
+  border-bottom-color: #1c3652;
+}
+body.night-mode .breadcrumb span { color: #7f99b3; }
+body.night-mode .breadcrumb b { color: #e2edfa; }
+body.night-mode .icon-button {
+  background: #0f2742;
+  border-color: #1f3f61;
+  color: #8bc2f8;
+}
+body.night-mode .profile-chip { color: #dbe7f5; }
+body.night-mode .profile-chip:hover { background: #132d4b; }
+body.night-mode .feature-card,
+body.night-mode .stat-card,
+body.night-mode .journey-summary,
+body.night-mode .exercise-shell,
+body.night-mode .bible-reader,
+body.night-mode .reflection-card,
+body.night-mode .profile-card,
+body.night-mode .blessing-card,
+body.night-mode .prayer-composer,
+body.night-mode .prayer-card,
+body.night-mode .theme-verse-card,
+body.night-mode .epoch-card {
+  background: #0d2138;
+  border-color: #1a395b;
+  color: #dbe7f5;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+body.night-mode .stat-card b,
+body.night-mode .section-heading h2,
+body.night-mode .feature-card h3,
+body.night-mode .epoch-name,
+body.night-mode .page-intro h1 {
+  color: #ffffff;
+}
+body.night-mode .reader-top {
+  background: #091a2e;
+  border-bottom-color: #1a395b;
+}
+body.night-mode .reader-top select {
+  background: #0d2138;
+  border-color: #1e3f65;
+  color: #e2ecf7;
+}
+body.night-mode .reader-text {
+  color: #d2dfed;
+}
+body.night-mode .reader-text h2 {
+  color: #ffffff;
+}
+body.night-mode .reader-text mark {
+  background: #113f28;
+  color: #8bebb3;
+}
+body.night-mode .bottom-nav {
+  background: rgba(10, 24, 39, 0.94);
+  border-top-color: #1b3857;
+}
+body.night-mode .bottom-nav-item { color: #7690a8; }
+body.night-mode .bottom-nav-item.active { color: #52e08a; }
+body.night-mode .gentle-note {
+  background: #0d2920;
+  border-color: #164f3a;
+  color: #9fe2be;
+}
+body.night-mode .gentle-note b { color: #ffffff; }
+body.night-mode .reflection-card textarea,
+body.night-mode .prayer-composer textarea {
+  background: #09192b;
+  border-color: #1d3e63;
+  color: #ffffff;
+}
+body.night-mode .theme-chip {
+  background: #0d2138;
+  border-color: #1f4268;
+  color: #c4d7ec;
+}
+body.night-mode .theme-chip.active {
+  background: #0756a5;
+  color: #fff;
+}
+body.night-mode .qcm-option {
+  background: #0d2138;
+  border-color: #1b3857;
+  color: #dbe7f5;
+}
+body.night-mode .qcm-option.selected {
+  background: #133256;
+  border-color: #559be6;
+}
+body.night-mode .word-slot {
+  background: #0a1b2d;
+  border-color: #21436a;
+  color: #8cc4f7;
+}
+body.night-mode .word-bank {
+  background: #081728;
+}
+body.night-mode .word-tile {
+  background: #0f2d4f;
+  border-color: #1e4573;
+  color: #8ec3f7;
+}
+
+/* =========================================================================
+   SYSTÈME LEITNER : JARDIN DE LA PAROLE & ANCRAGE DU CŒUR
+   ========================================================================= */
+.leitner-section {
+  margin-top: 24px;
+}
+.leitner-garden-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f4faf6 100%);
+  border: 1px solid #d1eedc;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 6px 20px rgba(21, 148, 71, 0.06);
+}
+.leitner-stats-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.leitner-box-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 6px;
+  transition: transform 0.2s;
+}
+.leitner-box-stat:hover {
+  transform: translateY(-2px);
+}
+.leitner-box-stat .box-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+.leitner-box-stat b {
+  font-size: 16px;
+  font-weight: 800;
+  color: #17324d;
+}
+.leitner-box-stat small {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.leitner-garden-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-top: 1px dashed #d1eedc;
+  padding-top: 18px;
+}
+.leitner-garden-cta h4 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #15693b;
+}
+.leitner-garden-cta p {
+  margin: 0;
+  font-size: 13px;
+  color: #4a6356;
+  line-height: 1.5;
+}
+
+/* MODAL DE RÉVISION LEITNER */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 24, 39, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  animation: fadeIn 0.25s ease-out;
+}
+.modal-card.leitner-modal {
+  width: 100%;
+  max-width: 540px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  animation: pop 0.28s ease-out;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #17324d;
+}
+.leitner-modal-icon {
+  font-size: 28px;
+}
+.icon-close {
+  background: #f0f4f8;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: bold;
+  color: #526779;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.icon-close:hover {
+  background: #e2eaf2;
+  color: #17324d;
+}
+.leitner-card-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.leitner-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.leitner-flashcard {
+  background: #f8fafc;
+  border: 1px solid #e1eaf2;
+  border-radius: 20px;
+  padding: 26px 20px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.leitner-ref-tag {
+  display: inline-block;
+  background: #e8f5ed;
+  color: #159447;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+.leitner-stage-title {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #17324d;
+}
+.leitner-hidden-box {
+  padding: 16px 0;
+}
+.leitner-prompt-text {
+  font-size: 14px;
+  color: #557088;
+  margin-bottom: 18px;
+  line-height: 1.6;
+}
+.leitner-revealed-box {
+  animation: fadeIn 0.3s ease-out;
+}
+.leitner-quote {
+  font-family: Georgia, serif;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #15693b;
+  background: #eef8f2;
+  border-left: 4px solid #159447;
+  padding: 16px;
+  border-radius: 0 14px 14px 0;
+  margin: 0 0 14px;
+  text-align: left;
+}
+.audio-listen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0756a5;
+  cursor: pointer;
+}
+.audio-listen-btn:hover {
+  background: #f0f7ff;
+}
+.leitner-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 12px;
+}
+.leitner-revisit-btn {
+  background: #fff;
+  border: 1px solid #d9e4ee;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #557088;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.leitner-revisit-btn:hover {
+  background: #f8fafc;
+  color: #17324d;
+}
+.leitner-master-btn {
+  background: #159447;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(21, 148, 71, 0.3);
+  transition: all 0.2s;
+}
+.leitner-master-btn:hover {
+  background: #127c3c;
+  transform: translateY(-1px);
+}
+.leitner-congrats-view {
+  text-align: center;
+  padding: 24px 12px;
+}
+.congrats-emoji {
+  font-size: 48px;
+  display: inline-block;
+  margin-bottom: 12px;
+  animation: pop 0.4s ease-out;
+}
+.leitner-congrats-view h3 {
+  font-size: 20px;
+  font-weight: 800;
+  color: #17324d;
+  margin: 0 0 8px;
+}
+.leitner-congrats-view p {
+  font-size: 14px;
+  color: #557088;
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+/* NIGHT MODE POUR LEITNER */
+body.night-mode .leitner-garden-card {
+  background: linear-gradient(135deg, #0d2138 0%, #0c2b22 100%);
+  border-color: #184c36;
+}
+body.night-mode .leitner-box-stat {
+  background: #091a2e;
+  border-color: #1c3d61;
+}
+body.night-mode .leitner-box-stat b {
+  color: #ffffff;
+}
+body.night-mode .leitner-garden-cta {
+  border-top-color: #184c36;
+}
+body.night-mode .leitner-garden-cta h4 {
+  color: #52e08a;
+}
+body.night-mode .leitner-garden-cta p {
+  color: #b3cddf;
+}
+body.night-mode .modal-card.leitner-modal {
+  background: #0d2138;
+  border: 1px solid #1a3c63;
+  color: #dbe7f5;
+}
+body.night-mode .modal-header h3 {
+  color: #ffffff;
+}
+body.night-mode .icon-close {
+  background: #132d4b;
+  color: #8bc2f8;
+}
+body.night-mode .leitner-flashcard {
+  background: #09182b;
+  border-color: #17375c;
+}
+body.night-mode .leitner-stage-title {
+  color: #ffffff;
+}
+body.night-mode .leitner-prompt-text {
+  color: #9ab4cb;
+}
+body.night-mode .leitner-quote {
+  background: #0c2820;
+  border-left-color: #159447;
+  color: #a4e6c3;
+}
+body.night-mode .audio-listen-btn {
+  background: #0d2540;
+  border-color: #214873;
+  color: #8bc2f8;
+}
+body.night-mode .leitner-revisit-btn {
+  background: #0e2744;
+  border-color: #1e4573;
+  color: #b5cde2;
+}
+
+@media (max-width: 600px) {
+  .leitner-stats-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .leitner-garden-cta {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+}
+
+
