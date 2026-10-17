@@ -1,17 +1,19 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import {
   BookOpen, Compass, Home, UserRound, Flame, Gem, Trophy, Star, LockKeyhole,
   Check, ChevronRight, Sparkles, Volume2, VolumeX, Heart, Share2, RotateCcw,
   Lightbulb, Users, Leaf, MapPinned, BookMarked, Send, MessageCircleHeart,
   Award, ShieldCheck, Smile, Moon, Sun, Search, Flag, LogIn, LogOut, Globe,
-  AlertCircle, MailCheck, RefreshCw, Timer, Clock, UserPlus, Info, AlertTriangle
+  AlertCircle, MailCheck, RefreshCw, Timer, Clock, UserPlus, Info, AlertTriangle,
+  Shuffle, Wifi, WifiOff, Download, Smartphone
 } from "lucide-react";
 
 import "./styles.css";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { AuthModal } from "./components/AuthModal";
 import InviteShareModal from "./components/InviteShareModal";
+import WelcomeLanding from "./components/WelcomeLanding";
 import {
   initPelerinAuth,
   syncPelerinProfile,
@@ -25,6 +27,7 @@ import {
   flagCommunityPrayer,
   logoutPelerin
 } from "./services/firebase";
+import { reconcilePelerinData } from "./services/dataReconciliation";
 import { sendProgressSummaryEmail, isBrevoConfigured } from "./services/brevoMailer";
 import { validatePrayerContent } from "./services/moderation";
 import {
@@ -39,6 +42,17 @@ import {
   LEITNER_BOXES
 } from "./data/bibleData";
 import { playSpeech, stopSpeech, triggerHaptic, playDivineChime, playPeaceTone } from "./services/audioSpeech";
+
+// Utilitaire de mélange aléatoire pour renouveler les questions et susciter le suspense
+function shuffleArray(arr) {
+  if (!Array.isArray(arr)) return [];
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 function App() {
   const [tab, setTab] = useState("Accueil");
@@ -122,6 +136,24 @@ function App() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [invitedByBanner, setInvitedByBanner] = useState(null);
 
+  // Écran d'accueil de présentation initiale (Landing Gate pour synchroniser dès le départ)
+  const [hasSeenLanding, setHasSeenLanding] = useState(() => {
+    try {
+      return localStorage.getItem("pelerinage_welcomed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  // Statut Réseau & Mode Hors-Ligne
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
+  const [pwaInstallPrompt, setPwaInstallPrompt] = useState(null);
+
+  // Mots et options mélangés aléatoirement (Randomisation des questions pour plus de suspense)
+  const [shuffledBankWords, setShuffledBankWords] = useState([]);
+  const [shuffledQcmOptions, setShuffledQcmOptions] = useState([]);
+  const [shuffledClozeOptions, setShuffledClozeOptions] = useState([]);
+
   // Authentification multi-appareils (Modal & Compte)
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [sendingBrevoEmail, setSendingBrevoEmail] = useState(false);
@@ -179,14 +211,74 @@ function App() {
     window.setTimeout(() => setToast(""), 3000);
   };
 
-  // Enregistrement PWA Service Worker
+  // Enregistrement PWA Service Worker & Capture de l'invite d'installation
   useEffect(() => {
     if ("serviceWorker" in navigator && typeof window !== "undefined") {
       window.addEventListener("load", () => {
         navigator.serviceWorker.register("/sw.js").catch(() => {});
       });
     }
+
+    const installHandler = (e) => {
+      e.preventDefault();
+      setPwaInstallPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", installHandler);
+    return () => window.removeEventListener("beforeinstallprompt", installHandler);
   }, []);
+
+  const handleInstallPwa = async () => {
+    if (!pwaInstallPrompt) return;
+    try {
+      pwaInstallPrompt.prompt();
+      const choice = await pwaInstallPrompt.userChoice;
+      if (choice.outcome === "accepted") {
+        notify("Gloire à Dieu ! Le Grand Pèlerinage a été installé sur votre écran d'accueil 📲");
+      }
+    } catch {}
+    setPwaInstallPrompt(null);
+  };
+
+  // Détection Réseau Hors-Ligne & Synchronisation Automatique à la reconnexion
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      notify("Connexion rétablie 🟢 ! Synchronisation automatique de ton sentier en cours…");
+
+      if (user && !user.isAnonymous) {
+        try {
+          const cloudData = await loadPelerinProfile(user.uid);
+          const reconciled = reconcilePelerinData(
+            { profileName, xp, pearls, streak, saved },
+            cloudData
+          );
+          if (reconciled.profileName) setProfileName(reconciled.profileName);
+          if (reconciled.saved) {
+            setSaved(reconciled.saved);
+            if (typeof reconciled.saved.lampes === "number") {
+              setLampes(reconciled.saved.lampes);
+            }
+          }
+          await syncPelerinProfile(user.uid, reconciled);
+          notify("Toutes tes étapes et ton Jardin sont parfaitement synchronisés avec le nuage 🕊️✨");
+        } catch (e) {
+          console.warn("Synchronisation automatique différée :", e);
+        }
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      notify("Mode hors-ligne actif 🟡. Tu peux continuer à avancer, tes progrès restent en sécurité sur cet appareil 🌿");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [user, profileName, xp, pearls, streak, saved]);
 
   // Détection d'invitation dans l'URL (?invite=...&by=...)
   useEffect(() => {
@@ -303,6 +395,10 @@ function App() {
   const handleAuthSuccess = async (authenticatedUser) => {
     setUser(authenticatedUser);
     setFirebaseStatus("cloud");
+    try {
+      localStorage.setItem("pelerinage_welcomed", "true");
+    } catch {}
+    setHasSeenLanding(true);
     if (authenticatedUser) {
       const cloudData = await loadPelerinProfile(authenticatedUser.uid);
       if (cloudData) {
@@ -469,6 +565,24 @@ function App() {
   // Logique de validation d'un atelier d'étape
   const currentStage = currentStages.find((s) => s.id === activeStageId) || currentStages[0];
 
+  // Préparation du contenu aléatoire (Banque de mots, options QCM, options Cloze mélangées)
+  const setupRandomExerciseContent = useCallback((stageObj) => {
+    if (!stageObj) return;
+    if (stageObj.type === "order" && Array.isArray(stageObj.motsBanque)) {
+      setShuffledBankWords(shuffleArray(stageObj.motsBanque));
+    }
+    if (stageObj.type === "qcm" && Array.isArray(stageObj.options)) {
+      setShuffledQcmOptions(shuffleArray(stageObj.options));
+    }
+    if (stageObj.type === "cloze" && Array.isArray(stageObj.options)) {
+      setShuffledClozeOptions(shuffleArray(stageObj.options));
+    }
+  }, []);
+
+  useEffect(() => {
+    setupRandomExerciseContent(currentStage);
+  }, [activeStageId, selectedEpochId, setupRandomExerciseContent]);
+
   const validateExercise = () => {
     let isSuccess = false;
 
@@ -484,7 +598,8 @@ function App() {
         setExerciseFeedback("Sélectionne une réponse pour continuer 🌿");
         return;
       }
-      isSuccess = currentStage.options[selectedQcmIndex].correct;
+      const activeOptions = shuffledQcmOptions.length > 0 ? shuffledQcmOptions : currentStage.options;
+      isSuccess = activeOptions[selectedQcmIndex]?.correct || false;
     } else if (currentStage.type === "cloze") {
       if (!selectedCloze) {
         setExerciseFeedback("Choisis le mot manquant pour compléter le verset 🌿");
@@ -559,6 +674,7 @@ function App() {
     setDragOverBank(false);
     setTouchGhost(null);
     touchStateRef.current = { item: null };
+    setupRandomExerciseContent(currentStage);
   };
 
   // --- GESTIONNAIRES DU GLISSER / DÉPOSER (DRAG & DROP TACTILE & SOURIS) ---
@@ -747,6 +863,8 @@ function App() {
     resetStageExercise();
 
     const stageObj = currentStages.find((s) => s.id === stageId) || currentStages[0];
+    setupRandomExerciseContent(stageObj);
+
     if (stageObj?.tempsLimite && !contemplativeMode) {
       setTimeLeft(stageObj.tempsLimite);
       setTimerRunning(true);
@@ -764,6 +882,7 @@ function App() {
     if (curIdx >= 0 && curIdx < currentStages.length - 1) {
       const nextStageObj = currentStages[curIdx + 1];
       setActiveStageId(nextStageObj.id);
+      setupRandomExerciseContent(nextStageObj);
       if (nextStageObj?.tempsLimite && !contemplativeMode) {
         setTimeLeft(nextStageObj.tempsLimite);
         setTimerRunning(true);
@@ -776,6 +895,25 @@ function App() {
       setTimerRunning(false);
       setTab("Parcours");
       notify("Toutes les étapes de cette époque sont accomplies ! Gloire à Dieu 🌟");
+    }
+  };
+
+  // Défi Providenciel : Sélectionne une étape surprise au hasard parmi les 72 étapes
+  const handleRandomStageSurprise = () => {
+    const allStages = Object.entries(EPOCH_STAGES).flatMap(([epochId, stages]) =>
+      stages.map((st) => ({ ...st, epochId }))
+    );
+    // Priorité aux étapes non encore franchies
+    const uncompleted = allStages.filter((s) => !completedStages.includes(s.id));
+    const pool = uncompleted.length > 0 ? uncompleted : allStages;
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+
+    if (picked) {
+      setSelectedEpochId(picked.epochId);
+      startStage(picked.id);
+      playPeaceTone();
+      triggerHaptic([20, 40]);
+      notify(`🎲 Défi Providenciel : « ${picked.titre} » (${picked.ref}) ! ✨`);
     }
   };
 
@@ -865,6 +1003,49 @@ function App() {
     { name: "Profil", icon: UserRound }
   ];
 
+  // PAGE D'ACCUEIL DE PRÉSENTATION & EMBARQUEMENT INITIAL (Landing Gate)
+  if (!hasSeenLanding && (!user || user.isAnonymous)) {
+    return (
+      <div className="landing-wrapper">
+        <WelcomeLanding
+          onLoginClick={() => setAuthModalOpen(true)}
+          onStartAsGuest={() => {
+            try {
+              localStorage.setItem("pelerinage_welcomed", "true");
+            } catch {}
+            setHasSeenLanding(true);
+            notify("Bienvenue sur le sentier, cher ami pèlerin 🌿");
+          }}
+          nightMode={nightMode}
+          setNightMode={setNightMode}
+          pwaInstallPrompt={pwaInstallPrompt}
+          onInstallPwa={handleInstallPwa}
+        />
+        {authModalOpen && (
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={() => setAuthModalOpen(false)}
+            onAuthSuccess={async (u) => {
+              await handleAuthSuccess(u);
+              try {
+                localStorage.setItem("pelerinage_welcomed", "true");
+              } catch {}
+              setHasSeenLanding(true);
+              setAuthModalOpen(false);
+            }}
+            notify={notify}
+          />
+        )}
+        {toast && (
+          <div className="toast">
+            <Sparkles size={18} />
+            <span>{toast}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <ConfettiCanvas active={confettiActive} onComplete={() => setConfettiActive(false)} />
@@ -918,6 +1099,16 @@ function App() {
             <span className={`status-dot ${firebaseStatus === "cloud" ? "connected" : ""}`} />
             <span>{firebaseStatus === "cloud" ? "Pèlerinage synchronisé" : "Progression sur cet appareil"}</span>
           </div>
+
+          <button
+            type="button"
+            className="sidebar-presentation-btn"
+            onClick={() => setHasSeenLanding(false)}
+            title="Revoir la présentation et l'accueil du Pèlerinage"
+          >
+            <Sparkles size={14} />
+            <span>Présentation du jeu</span>
+          </button>
         </div>
       </aside>
 
@@ -932,6 +1123,28 @@ function App() {
           </div>
 
           <div className="top-actions">
+            {/* STATUT RÉSEAU / MODE HORS-LIGNE */}
+            <div
+              className={`network-badge ${isOnline ? "online" : "offline"}`}
+              title={isOnline ? "Connecté au réseau · Synchronisation active" : "Mode Hors-ligne · Progression conservée localement"}
+            >
+              {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+              <span className="hide-mobile">{isOnline ? "En ligne" : "Hors ligne"}</span>
+            </div>
+
+            {/* BOUTON INSTALLER PWA */}
+            {pwaInstallPrompt && (
+              <button
+                type="button"
+                className="pwa-topbar-install-btn"
+                onClick={handleInstallPwa}
+                title="Installer Le Grand Pèlerinage sur votre appareil (PWA)"
+              >
+                <Download size={14} />
+                <span className="hide-mobile">Installer PWA</span>
+              </button>
+            )}
+
             {/* BOUTON MODE NUIT PAISIBLE */}
             <button
               className="icon-button"
@@ -1034,9 +1247,20 @@ function App() {
                   « Ta parole est une lampe à mes pieds, et une lumière sur mon sentier. »
                   <b>— Psaume 119:105</b>
                 </div>
-                <button className="primary-button" onClick={() => setTab("Parcours")}>
-                  Reprendre mon pèlerinage <ChevronRight size={18} />
-                </button>
+                <div className="hero-cta-group">
+                  <button className="primary-button" onClick={() => setTab("Parcours")}>
+                    Reprendre mon pèlerinage <ChevronRight size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button surprise-stage-btn"
+                    onClick={handleRandomStageSurprise}
+                    title="Lancer une étape aléatoire parmi les 72 étapes pour tester votre foi et vos connaissances"
+                  >
+                    <Shuffle size={17} />
+                    <span>🎲 Défi Providenciel</span>
+                  </button>
+                </div>
               </div>
 
               <div className="hero-art" aria-hidden="true">
@@ -1205,10 +1429,21 @@ function App() {
         {/* 2. ONGLET PARCOURS / SENTIER AVEC LES 7 ÉPOQUES */}
         {tab === "Parcours" && (
           <section className="page">
-            <div className="page-intro">
-              <span className="eyebrow"><MapPinned size={14} /> LA CARTE PAN-BIBLIQUE</span>
-              <h1>Le Sentier de la Parole</h1>
-              <p>Voyage à travers les 7 grandes époques bibliques. Chaque étape est une découverte vivante.</p>
+            <div className="page-intro with-action">
+              <div>
+                <span className="eyebrow"><MapPinned size={14} /> LA CARTE PAN-BIBLIQUE</span>
+                <h1>Le Sentier de la Parole</h1>
+                <p>Voyage à travers les 7 grandes époques bibliques. Chaque étape est une découverte vivante.</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button surprise-stage-btn"
+                onClick={handleRandomStageSurprise}
+                title="Lancer une étape aléatoire pour tester vos connaissances"
+              >
+                <Shuffle size={16} />
+                <span>🎲 Étape Surprise</span>
+              </button>
             </div>
 
             {/* SÉLECTEUR DE CARTE DES 7 ÉPOQUES */}
@@ -1524,7 +1759,7 @@ function App() {
                       onDragLeave={() => setDragOverBank(false)}
                       onDrop={handleDropOnBank}
                     >
-                      {currentStage.motsBanque.map((word, idx) => {
+                      {(shuffledBankWords.length > 0 ? shuffledBankWords : currentStage.motsBanque).map((word, idx) => {
                         const isUsed = placedWords.includes(word);
                         const isTileDragging = draggedItem?.type === "bank" && draggedItem?.word === word;
                         return (
@@ -1570,10 +1805,10 @@ function App() {
                   </>
                 )}
 
-                {/* FORMAT 2 : QCM ILLUSTRE BIENVEILLANT */}
+                {/* FORMAT 2 : QCM ILLUSTRE BIENVEILLANT (OPTIONS ALÉATOIRES) */}
                 {currentStage.type === "qcm" && (
                   <div className="qcm-grid">
-                    {currentStage.options.map((opt, idx) => (
+                    {(shuffledQcmOptions.length > 0 ? shuffledQcmOptions : currentStage.options).map((opt, idx) => (
                       <button
                         key={idx}
                         className={`qcm-option ${selectedQcmIndex === idx ? "selected" : ""}`}
@@ -1587,7 +1822,7 @@ function App() {
                   </div>
                 )}
 
-                {/* FORMAT 3 : TEXTE A TROUS VIVANT */}
+                {/* FORMAT 3 : TEXTE A TROUS VIVANT (OPTIONS ALÉATOIRES) */}
                 {currentStage.type === "cloze" && (
                   <>
                     <div className="cloze-box">
@@ -1597,7 +1832,7 @@ function App() {
                     </div>
 
                     <div className="word-bank">
-                      {currentStage.options.map((opt) => (
+                      {(shuffledClozeOptions.length > 0 ? shuffledClozeOptions : currentStage.options).map((opt) => (
                         <button
                           key={opt}
                           className={`word-tile ${selectedCloze === opt ? "used" : ""}`}
@@ -2214,6 +2449,29 @@ function App() {
                 >
                   {user && !user.isAnonymous ? "Vérifier la synchronisation Cloud" : "Activer la synchronisation Cloud"}
                 </button>
+
+                {/* ACTIONS COMPLÉMENTAIRES : PWA ET PRÉSENTATION */}
+                <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {pwaInstallPrompt && (
+                    <button
+                      type="button"
+                      className="primary-button full"
+                      onClick={handleInstallPwa}
+                    >
+                      <Download size={15} />
+                      <span>Installer l'application sur cet appareil (PWA)</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="secondary-button full"
+                    onClick={() => setHasSeenLanding(false)}
+                  >
+                    <Sparkles size={15} />
+                    <span>Revoir la Présentation & l'Accueil du Pèlerinage</span>
+                  </button>
+                </div>
               </div>
 
               {/* VICTOIRES & BADGES */}

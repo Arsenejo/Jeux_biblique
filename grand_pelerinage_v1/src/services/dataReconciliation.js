@@ -81,14 +81,29 @@ export function reconcilePelerinData(localData = {}, cloudData = {}) {
     }
   });
 
-  const isArrayInput = Array.isArray(localSaved.leitnerCards) || Array.isArray(cloudSaved.leitnerCards);
-  const finalLeitnerCards = isArrayInput ? Object.values(mergedCards) : mergedCards;
+  // 6. Lampes de foi (Vies)
+  const mergedLampes = typeof localSaved.lampes === "number"
+    ? localSaved.lampes
+    : (typeof cloudSaved.lampes === "number" ? cloudSaved.lampes : 5);
+
+  // Conserver la compatibilité à la fois pour un dictionnaire clé-valeur et un tableau
+  const isArraySource = Array.isArray(localSaved.leitnerCards) || Array.isArray(cloudSaved.leitnerCards);
+  let finalLeitnerCards;
+  if (isArraySource) {
+    finalLeitnerCards = Object.values(mergedCards);
+    Object.keys(mergedCards).forEach((k) => {
+      finalLeitnerCards[k] = mergedCards[k];
+    });
+  } else {
+    finalLeitnerCards = { ...mergedCards };
+  }
 
   const resultSaved = {
     completedStages: mergedStages.length > 0 ? mergedStages : [1],
     xp: mergedXp,
     pearls: mergedPearls,
     streak: mergedStreak,
+    lampes: mergedLampes,
     leitnerCards: finalLeitnerCards,
     anchoredVerses: mergedAnchored
   };
