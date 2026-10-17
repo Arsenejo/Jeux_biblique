@@ -4,7 +4,7 @@ import {
   BookOpen, Compass, Home, UserRound, Flame, Gem, Trophy, Star, LockKeyhole,
   Check, ChevronRight, Sparkles, Volume2, VolumeX, Heart, Share2, RotateCcw,
   Lightbulb, Users, Leaf, MapPinned, BookMarked, Send, MessageCircleHeart,
-  Award, ShieldCheck, Smile, Moon, Sun, Search
+  Award, ShieldCheck, Smile, Moon, Sun, Search, Flag
 } from "lucide-react";
 
 import "./styles.css";
@@ -18,8 +18,10 @@ import {
   fetchClassementFraternel,
   fetchCommunityPrayers,
   addCommunityPrayer,
-  supportCommunityPrayer
+  supportCommunityPrayer,
+  flagCommunityPrayer
 } from "./services/firebase";
+import { validatePrayerContent } from "./services/moderation";
 import {
   BIBLE_BOOKS,
   BIBLE_CHAPTERS,
@@ -275,10 +277,18 @@ function App() {
     triggerHaptic([30]);
   };
 
-  // Création d'une intention de prière
+  // Création d'une intention de prière avec validation de fraternité et sécurité
   const handleCreatePrayer = async () => {
     if (!newPrayerText.trim()) {
       notify("Écris ton intention de prière ou gratitude avant de déposer 🌿");
+      return;
+    }
+
+    // Modération fraternelle et protection des données / mineurs
+    const validation = validatePrayerContent(newPrayerText, profileName);
+    if (!validation.valid) {
+      notify(validation.reason);
+      triggerHaptic([40, 80]);
       return;
     }
 
@@ -304,6 +314,19 @@ function App() {
     setCommunityPrayers(updated);
     notify("Tu as prié pour cette intention. Que Dieu vous fortifie ! 🕊️");
     triggerHaptic([20, 40]);
+  };
+
+  // Signalement bienveillant et masquage d'un contenu inapproprié
+  const handleFlagPrayer = async (prayerId) => {
+    const confirmReport = window.confirm(
+      "Souhaites-tu masquer cette intention et la signaler pour modération fraternelle ?"
+    );
+    if (!confirmReport) return;
+
+    const updated = await flagCommunityPrayer(prayerId);
+    setCommunityPrayers(updated);
+    notify("Cette intention a été masquée de ton fil et signalée pour examen 🛡️");
+    triggerHaptic([30, 30]);
   };
 
   // Logique de validation d'un atelier d'étape
@@ -1003,14 +1026,33 @@ function App() {
                   </>
                 )}
 
-                {/* ENCART DE RETOUR PEDAGOGIQUE */}
+                {/* ENCART DE RETOUR PEDAGOGIQUE ET DISTINCTION ÉCRITURE / MÉDITATION */}
                 {exerciseFeedback && (
                   <div className={`feedback ${exerciseFeedback.startsWith("Bravo") ? "success" : "try-again"}`}>
                     <span className="feedback-icon">{exerciseFeedback.startsWith("Bravo") ? "✨" : "🌿"}</span>
-                    <div>
+                    <div style={{ width: "100%" }}>
                       <b>{exerciseFeedback}</b>
                       {exerciseFeedback.startsWith("Bravo") && (
-                        <p>{currentStage.explication}</p>
+                        <>
+                          {currentStage.ref && (
+                            <div className="scripture-source-card">
+                              <div className="scripture-source-tag">
+                                <BookOpen size={12} /> {currentStage.ref} · Texte Biblique (Louis Segond 1910)
+                              </div>
+                              <p style={{ margin: 0, fontStyle: "italic", fontSize: "14px", lineHeight: "1.6" }}>
+                                « {currentStage.motsCorrects ? currentStage.motsCorrects.join(" ") : (currentStage.phraseAvant ? `${currentStage.phraseAvant}${currentStage.motCorrect}${currentStage.phraseApres}` : currentStage.titre)} »
+                              </p>
+                            </div>
+                          )}
+                          {currentStage.explication && (
+                            <div className="meditation-note-card">
+                              <div className="meditation-tag">
+                                <Sparkles size={12} /> Éclairage spirituel & Méditation
+                              </div>
+                              <p style={{ margin: 0 }}>{currentStage.explication}</p>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -1124,6 +1166,9 @@ function App() {
                 </div>
 
                 <div className="reader-text">
+                  <div className="scripture-source-tag" style={{ marginBottom: "10px" }}>
+                    <BookOpen size={13} /> ÉCRITURE SAINTE · VERSION OFFICIELLE LOUIS SEGOND 1910
+                  </div>
                   <h2>{currentBibleChapter.titre}</h2>
                   {currentBibleChapter.versets.map((v) => (
                     <p key={v.num}>
@@ -1132,7 +1177,7 @@ function App() {
                     </p>
                   ))}
                   <small>
-                    {currentBibleChapter.livre} {currentBibleChapter.chapitre} · Version Louis Segond 1910
+                    {currentBibleChapter.livre} {currentBibleChapter.chapitre} · Texte authentique Louis Segond 1910 (Libre de droits & vérifié)
                   </small>
                 </div>
 
@@ -1335,6 +1380,14 @@ function App() {
                 <span style={{ fontSize: "12px", color: "var(--muted)" }}>Prier les uns pour les autres</span>
               </div>
 
+              {/* Charte de bienveillance et protection fraternelle */}
+              <div className="prayer-charter-banner">
+                <span style={{ fontSize: "16px" }}>🛡️</span>
+                <span>
+                  <b>Charte fraternelle :</b> Espace de paix et d'édification mutuelle. Pour la protection de tous et des mineurs, les coordonnées personnelles (téléphone, e-mail) et les liens externes sont automatiquement exclus.
+                </span>
+              </div>
+
               <div className="prayer-composer">
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <span className="avatar">🌿</span>
@@ -1362,14 +1415,23 @@ function App() {
                       <span className="prayer-date">{prayer.date}</span>
                     </div>
                     <p className="prayer-text">{prayer.texte}</p>
-                    <button
-                      className="pray-support-btn"
-                      onClick={() => handleSupportPrayer(prayer.id)}
-                      title="Soutenir cette intention"
-                    >
-                      <span>🕊️ Je prie avec toi</span>
-                      <b>({prayer.soutiens || 1})</b>
-                    </button>
+                    <div className="pray-card-footer">
+                      <button
+                        className="pray-support-btn"
+                        onClick={() => handleSupportPrayer(prayer.id)}
+                        title="Soutenir cette intention"
+                      >
+                        <span>🕊️ Je prie avec toi</span>
+                        <b>({prayer.soutiens || 1})</b>
+                      </button>
+                      <button
+                        className="pray-flag-btn"
+                        onClick={() => handleFlagPrayer(prayer.id)}
+                        title="Signaler ce message s'il ne respecte pas la paix fraternelle"
+                      >
+                        <Flag size={12} /> Signaler
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

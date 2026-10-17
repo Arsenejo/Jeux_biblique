@@ -1,0 +1,65 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Règles pour le classement mondial du Défi Jean
+    match /classement_defi_jean/{joueurId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.pseudo is string
+                            && request.resource.data.pseudo.size() >= 2
+                            && request.resource.data.pseudo.size() <= 25
+                            && request.resource.data.scoreTotal is number
+                            && request.resource.data.scoreTotal >= 0
+                            && request.resource.data.scoreTotal <= 100
+                            && request.resource.data.etoilesTotal is number
+                            && request.resource.data.etoilesTotal >= 0
+                            && request.resource.data.etoilesTotal <= 30
+                            && request.resource.data.niveauxDebloques is number
+                            && request.resource.data.niveauxDebloques >= 1
+                            && request.resource.data.niveauxDebloques <= 10;
+      allow delete: if false;
+    }
+
+    // =======================================================================
+    // LE GRAND PÈLERINAGE DE LA BIBLE (RÈGLES DE SÉCURITÉ & VIE PRIVÉE)
+    // =======================================================================
+
+    match /pelerins/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && request.resource.data.xp is number
+                            && request.resource.data.xp >= 0
+                            && request.resource.data.pearls is number
+                            && request.resource.data.pearls >= 0;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+
+      // Carnet spirituel intime : strictement privé
+      match /carnet/{noteId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Mur communautaire de prières & gratitudes
+    match /prieres/{prayerId} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.texte is string
+                    && request.resource.data.texte.size() >= 5
+                    && request.resource.data.texte.size() <= 600
+                    && request.resource.data.auteur is string
+                    && request.resource.data.auteur.size() >= 2
+                    && request.resource.data.auteur.size() <= 40
+                    && request.resource.data.soutiens is number
+                    && request.resource.data.soutiens >= 0;
+      allow update: if request.auth != null
+                    && (
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['soutiens'])
+                      || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signaux', 'masque'])
+                    );
+      allow delete: if request.auth != null
+                    && resource.data.auteurId == request.auth.uid;
+    }
+  }
+}

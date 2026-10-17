@@ -15,6 +15,8 @@ import {
   limit,
   serverTimestamp
 } from "firebase/firestore";
+import { reconcilePelerinData, reconcilePrayers } from "./dataReconciliation";
+import { getReportedPrayerIds, reportPrayerLocally } from "./moderation";
 
 // Configuration Firebase réelle du projet defi-jean
 export const firebaseConfig = {
@@ -143,7 +145,18 @@ export async function loadPelerinProfile(uid) {
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const cloudData = snap.data();
-      return { ...localData, ...cloudData };
+      // Réconciliation bidirectionnelle sans perte de progrès
+      const reconciled = reconcilePelerinData(localData, cloudData);
+
+      // Met à jour le cache local avec la fusion propre
+      try {
+        localStorage.setItem("pelerinage_profile_" + uid, JSON.stringify(reconciled));
+        if (reconciled.saved) {
+          localStorage.setItem("pelerinage_progress", JSON.stringify(reconciled.saved));
+        }
+      } catch {}
+
+      return reconciled;
     }
   } catch (err) {
     console.warn("Lecture Cloud impossible, utilisation du cache local :", err.message);
@@ -233,26 +246,33 @@ export async function fetchClassementFraternel() {
 }
 
 /**
- * Récupère les prières du mur communautaire
+ * Récupère les prières du mur communautaire avec filtrage des signalements
  */
 export async function fetchCommunityPrayers() {
   const { db } = getFirebaseServices();
+  const reported = getReportedPrayerIds();
+
   let localPrayers = [];
   try {
     const raw = localStorage.getItem("pelerinage_prieres_communaute");
-    if (raw) localPrayers = JSON.parse(raw);
+    if (raw) {
+      localPrayers = JSON.parse(raw).filter((p) => !reported.includes(p.id) && !p.masque);
+    }
   } catch {}
 
   if (!db) return localPrayers;
 
   try {
-    const q = query(collection(db, "prieres"), orderBy("dateCreation", "desc"), limit(20));
+    const q = query(collection(db, "prieres"), orderBy("dateCreation", "desc"), limit(30));
     const snap = await getDocs(q);
     if (!snap.empty) {
-      return snap.docs.map((d) => ({
+      const cloudPrayers = snap.docs.map((d) => ({
         id: d.id,
         ...d.data()
-      }));
+      })).filter((p) => !reported.includes(p.id) && !p.masque);
+
+      // Réconciliation intelligente des prières
+      return reconcilePrayers(localPrayers, cloudPrayers);
     }
   } catch {
     // Repli sur le stockage local
@@ -269,6 +289,8 @@ export async function addCommunityPrayer(prayer) {
   const prayerItem = {
     ...prayer,
     soutiens: 1,
+    signaux: 0,
+    masque: false,
     dateCreation: new Date().toISOString()
   };
 
@@ -318,3 +340,40 @@ export async function supportCommunityPrayer(prayerId) {
 
   return localPrayers;
 }
+
+/**
+ * Signale un abus ou contenu inapproprié sur le mur de prières
+ * Masque immédiatement le message pour l'utilisateur et alerte le serveur.
+ */
+export async function flagCommunityPrayer(prayerId) {
+  reportPrayerLocally(prayerId);
+
+  let localPrayers = [];
+  try {
+    const raw = localStorage.getItem("pelerinage_prieres_communaute");
+    if (raw) {
+      localPrayers = JSON.parse(raw).filter((p) => p.id !== prayerId);
+      localStorage.setItem("pelerinage_prieres_communaute", JSON.stringify(localPrayers));
+    }
+  } catch {}
+
+  const { db } = getFirebaseServices();
+  if (db && prayerId) {
+    try {
+      const ref = doc(db, "prieres", prayerId);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const cur = snap.data().signaux || 0;
+        const newCount = cur + 1;
+        // Si plus de 3 signalements, masquage automatique pour tous
+        await setDoc(ref, {
+          signaux: newCount,
+          masque: newCount >= 3
+        }, { merge: true });
+      }
+    } catch {}
+  }
+
+  return await fetchCommunityPrayers();
+}
+

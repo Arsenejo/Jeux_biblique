@@ -1419,6 +1419,119 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   transform: scale(1.03);
 }
 
+.prayer-charter-banner {
+  background: #f3f9f5;
+  border: 1px dashed #b7dfc6;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 11.5px;
+  color: #1a5732;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.pray-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.pray-flag-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.pray-flag-btn:hover {
+  color: #c93b2b;
+  background: #fdf2f2;
+}
+
+/* Distinction Formelle : Écriture Sainte vs Méditation Spirituelle */
+.scripture-source-card {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: #fdfaf6;
+  border-left: 4px solid #c88a4b;
+  border-radius: 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #2b2b28;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+
+.scripture-source-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  color: #9c602a;
+  margin-bottom: 6px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.meditation-note-card {
+  margin-top: 10px;
+  padding: 12px 16px;
+  background: #f0f7f3;
+  border-left: 4px solid #28a745;
+  border-radius: 8px;
+  color: #173b28;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.meditation-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  color: #167240;
+  margin-bottom: 4px;
+}
+
+body.night-mode .prayer-charter-banner {
+  background: #142820;
+  border-color: #264e39;
+  color: #8eddb0;
+}
+
+body.night-mode .pray-flag-btn:hover {
+  background: #361717;
+  color: #f87171;
+}
+
+body.night-mode .scripture-source-card {
+  background: #1c1a17;
+  border-left-color: #d4a373;
+  color: #ece8e1;
+}
+
+body.night-mode .meditation-note-card {
+  background: #13241b;
+  border-left-color: #34d399;
+  color: #c7eed8;
+}
+
+
 /* =========================================================================
    RECHERCHE THÉMATIQUE (BESOINS DU CŒUR)
    ========================================================================= */

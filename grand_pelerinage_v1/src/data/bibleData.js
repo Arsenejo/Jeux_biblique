@@ -252,17 +252,17 @@ export const EPOCH_STAGES = {
     },
     {
       id: 3,
-      titre: "L'Arche et l'Arc-en-ciel",
+      titre: "L'Alliance et l'Arc dans la nue",
       ref: "Genèse 9:13",
       x: 50,
       y: 75,
       type: "cloze",
-      consigne: "Complète le signe de l'alliance de paix que Dieu établit avec la terre.",
+      consigne: "Complète le signe de l'alliance de paix que Dieu établit avec la terre (Louis Segond 1910).",
       phraseAvant: "J'ai placé mon ",
-      phraseApres: " dans la nue, et il servira de signe d'alliance.",
-      options: ["arc-en-ciel", "soleil", "flambeau"],
-      motCorrect: "arc-en-ciel",
-      explication: "L'arc-en-ciel est le rappel vivant de la miséricorde de Dieu qui veille sur toute sa création.",
+      phraseApres: " dans la nue, et il servira de signe d'alliance entre moi et la terre.",
+      options: ["arc", "soleil", "flambeau"],
+      motCorrect: "arc",
+      explication: "Dans le texte biblique de la Louis Segond 1910, le terme sacré exact est « arc » (l'arc-en-ciel). C'est le mémorial vivant de la miséricorde de Dieu qui veille sur toute sa création.",
       recompense: { xp: 35, perles: 1 }
     },
     {
