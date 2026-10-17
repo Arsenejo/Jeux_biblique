@@ -1,0 +1,10 @@
+{
+  "name": "Le Grand Pèlerinage de la Bible",
+  "short_name": "Pèlerinage",
+  "description": "Un voyage ludique au cœur de la Parole de Dieu.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f8fc",
+  "theme_color": "#073763",
+  "icons": []
+}
