@@ -1,4 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "outputDirectory": "."
+  "buildCommand": "npm --prefix grand_pelerinage_v1 install && npm --prefix grand_pelerinage_v1 run build",
+  "outputDirectory": "grand_pelerinage_v1/dist",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

@@ -1,0 +1,9 @@
+{
+  "name": "jeux-biblique",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix grand_pelerinage_v1 install && npm --prefix grand_pelerinage_v1 run build",
+    "test": "npm --prefix grand_pelerinage_v1 test"
+  }
+}
