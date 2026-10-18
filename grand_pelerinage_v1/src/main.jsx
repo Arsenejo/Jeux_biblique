@@ -25,7 +25,12 @@ import {
   addCommunityPrayer,
   supportCommunityPrayer,
   flagCommunityPrayer,
-  logoutPelerin
+  logoutPelerin,
+  checkIsPseudoAvailable,
+  reservePelerinPseudo,
+  setFirestoreOnline,
+  setFirestoreOffline,
+  normalizePseudo
 } from "./services/firebase";
 import { reconcilePelerinData } from "./services/dataReconciliation";
 import { sendProgressSummaryEmail, isBrevoConfigured } from "./services/brevoMailer";
@@ -92,6 +97,11 @@ function App() {
       return "Ami pèlerin";
     }
   });
+
+  // États pour l'unicité stricte du pseudonyme dans la base commune
+  const [pseudoError, setPseudoError] = useState("");
+  const [pseudoSuccess, setPseudoSuccess] = useState("");
+  const [isSavingPseudo, setIsSavingPseudo] = useState(false);
 
   const [saved, setSaved] = useState(() => {
     try {
@@ -246,7 +256,8 @@ function App() {
   useEffect(() => {
     const handleOnline = async () => {
       setIsOnline(true);
-      notify("Connexion rétablie 🟢 ! Synchronisation automatique de ton sentier en cours…");
+      await setFirestoreOnline();
+      notify("Connexion rétablie 🟢 ! Synchronisation automatique de ton sentier avec la base commune…");
 
       if (user && !user.isAnonymous) {
         try {
@@ -263,16 +274,17 @@ function App() {
             }
           }
           await syncPelerinProfile(user.uid, reconciled);
-          notify("Toutes tes étapes et ton Jardin sont parfaitement synchronisés avec le nuage 🕊️✨");
+          notify("Toutes tes étapes et ton Jardin sont synchronisés avec la base commune 🕊️✨");
         } catch (e) {
           console.warn("Synchronisation automatique différée :", e);
         }
       }
     };
 
-    const handleOffline = () => {
+    const handleOffline = async () => {
       setIsOnline(false);
-      notify("Mode hors-ligne actif 🟡. Tu peux continuer à avancer, tes progrès restent en sécurité sur cet appareil 🌿");
+      await setFirestoreOffline();
+      notify("Mode hors-ligne actif 🟡. Tes progrès restent en sécurité sur cet appareil et convergeront vers la base dès la reconnexion 🌿");
     };
 
     window.addEventListener("online", handleOnline);
@@ -425,8 +437,44 @@ function App() {
   const handleLogout = async () => {
     await logoutPelerin();
     setUser(null);
-    setFirebaseStatus("local");
+    setFirebaseStatus("guest");
     notify("Tu es déconnecté·e. Ta progression reste en sécurité sur ton compte 🌿");
+  };
+
+  const handleSaveProfileName = async () => {
+    setPseudoError("");
+    setPseudoSuccess("");
+    const clean = normalizePseudo(profileName);
+    if (!clean || clean.length < 2) {
+      setPseudoError("Le nom de pèlerin doit comporter au moins 2 caractères.");
+      return;
+    }
+    setIsSavingPseudo(true);
+    try {
+      const check = await checkIsPseudoAvailable(profileName, user?.uid);
+      if (!check.available) {
+        setPseudoError(check.reason || "Ce nom de pèlerin est déjà réservé par un autre joueur.");
+        setIsSavingPseudo(false);
+        return;
+      }
+
+      if (user && !user.isAnonymous) {
+        await reservePelerinPseudo(user.uid, profileName);
+        await syncPelerinProfile(user.uid, { profileName });
+      } else {
+        try {
+          const raw = localStorage.getItem("pelerinage_profile_local");
+          const p = raw ? JSON.parse(raw) : {};
+          localStorage.setItem("pelerinage_profile_local", JSON.stringify({ ...p, profileName }));
+        } catch {}
+      }
+      setPseudoSuccess("✓ Nom unique validé et synchronisé dans la base commune 🌿");
+      notify("Ton nom de pèlerin est validé et garanti sans doublon ✨");
+    } catch (err) {
+      setPseudoError(err?.message || "Impossible de vérifier le nom actuellement.");
+    } finally {
+      setIsSavingPseudo(false);
+    }
   };
 
   const handleSendProgressByEmail = async () => {
@@ -1145,14 +1193,23 @@ function App() {
           </div>
 
           <div className="top-actions">
-            {/* STATUT RÉSEAU / MODE HORS-LIGNE */}
-            <div
+            {/* STATUT RÉSEAU / MODE HORS-LIGNE & BASE UNIQUE */}
+            <button
+              type="button"
               className={`network-badge ${isOnline ? "online" : "offline"}`}
-              title={isOnline ? "Connecté au réseau · Synchronisation active" : "Mode Hors-ligne · Progression conservée localement"}
+              onClick={() => {
+                if (isOnline) {
+                  notify("🟢 En ligne : synchronisé avec la base commune de tous les joueurs.");
+                } else {
+                  notify("🟡 Mode Hors-ligne : tes progrès restent conservés sur cet appareil et convergeront vers la base dès la reconnexion.");
+                }
+              }}
+              title={isOnline ? "En ligne · Synchronisé avec la base commune" : "Hors ligne · Progrès conservés localement"}
+              style={{ background: "none", border: "none", cursor: "pointer", font: "inherit", padding: 0 }}
             >
               {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
               <span className="hide-mobile">{isOnline ? "En ligne" : "Hors ligne"}</span>
-            </div>
+            </button>
 
             {/* BOUTON INSTALLER PWA */}
             {pwaInstallPrompt && (
@@ -2375,15 +2432,43 @@ function App() {
               <div className="profile-card">
                 <div className="profile-avatar">🌿</div>
                 <label htmlFor="pelerin-name" style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px" }}>
-                  Comment souhaites-tu être appelé·e ?
+                  Comment souhaites-tu être appelé·e ? (Nom unique garanti sans doublon)
                 </label>
-                <input
-                  id="pelerin-name"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value.slice(0, 30))}
-                  maxLength={30}
-                  placeholder="Ton prénom ou pseudo"
-                />
+                <div style={{ display: "flex", gap: "8px", marginTop: "4px", marginBottom: "6px" }}>
+                  <input
+                    id="pelerin-name"
+                    value={profileName}
+                    onChange={(e) => {
+                      setProfileName(e.target.value.slice(0, 30));
+                      setPseudoError("");
+                      setPseudoSuccess("");
+                    }}
+                    maxLength={30}
+                    placeholder="Ton prénom ou pseudo unique"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ padding: "8px 12px", fontSize: "12px", whiteSpace: "nowrap" }}
+                    onClick={handleSaveProfileName}
+                    disabled={isSavingPseudo}
+                    title="Vérifier et réserver ce nom unique dans la base de données commune"
+                  >
+                    {isSavingPseudo ? <RefreshCw size={13} className="spin-icon" /> : <ShieldCheck size={13} />}
+                    <span>Valider l'unicité</span>
+                  </button>
+                </div>
+                {pseudoError && (
+                  <p style={{ color: "#dc2626", fontSize: "12px", margin: "4px 0 10px", fontWeight: 600 }}>
+                    ⚠️ {pseudoError}
+                  </p>
+                )}
+                {pseudoSuccess && (
+                  <p style={{ color: "#16a34a", fontSize: "12px", margin: "4px 0 10px", fontWeight: 600 }}>
+                    {pseudoSuccess}
+                  </p>
+                )}
 
                 {/* BLOC D'AUTHENTIFICATION & SYNCHRONISATION MULTI-APPAREILS */}
                 {user && !user.isAnonymous ? (

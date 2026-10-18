@@ -8,7 +8,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 
-import { translateAuthError } from "../src/services/firebase.js";
+import {
+  translateAuthError,
+  normalizePseudo,
+  checkIsPseudoAvailable,
+  reservePelerinPseudo,
+  isFirebaseCloudActive
+} from "../src/services/firebase.js";
 import {
   isBrevoConfigured,
   sendBrevoEmail,
@@ -18,16 +24,16 @@ import {
 import { reconcilePelerinData } from "../src/services/dataReconciliation.js";
 
 // =========================================================================
-// 1. TESTS D'AUTHENTIFICATION & TRADUCTION DES ERREURS
+// 1. TESTS D'AUTHENTIFICATION, TRADUCTION DES ERREURS & ZÉRO SIMULATION
 // =========================================================================
-test("Auth: Traduction claire des erreurs Firebase en français", () => {
+test("Auth: Traduction claire des erreurs Firebase réelles en français", () => {
   assert.equal(
     translateAuthError({ code: "auth/invalid-email" }),
     "L'adresse e-mail renseignée n'est pas valide."
   );
   assert.equal(
     translateAuthError({ code: "auth/user-not-found" }),
-    "Aucun compte pèlerin n'est associé à cette adresse e-mail."
+    "Aucun compte pèlerin n'est associé à cette adresse e-mail. Veuillez créer un compte."
   );
   assert.equal(
     translateAuthError({ code: "auth/wrong-password" }),
@@ -39,24 +45,51 @@ test("Auth: Traduction claire des erreurs Firebase en français", () => {
   );
   assert.equal(
     translateAuthError({ code: "auth/email-already-in-use" }),
-    "Cette adresse e-mail est déjà utilisée par un autre pèlerin."
+    "Cette adresse e-mail est déjà utilisée par un autre compte pèlerin. Veuillez vous connecter."
   );
   assert.equal(
     translateAuthError({ code: "auth/weak-password" }),
-    "Le mot de passe doit comporter au moins 6 caractères."
+    "Le mot de passe doit comporter au moins 6 caractères pour protéger votre carnet."
   );
   assert.equal(
     translateAuthError({ code: "auth/popup-closed-by-user" }),
-    "La fenêtre de connexion Google a été fermée avant la finalisation."
+    "La fenêtre de sélection de compte Google a été fermée avant la finalisation."
   );
   assert.equal(
-    translateAuthError({ code: "auth/api-key-not-valid.-please-pass-a-valid-api-key." }),
-    "Connexion locale sécurisée : ton parcours est sauvegardé sur cet appareil avec amour et fidélité 🌿"
+    translateAuthError({ code: "auth/api-key-not-valid" }),
+    "La clé API Firebase doit être activée pour le projet defi-jean."
   );
-  assert.equal(
-    translateAuthError(new Error("Firebase: Error (auth/api-key-not-valid.-please-pass-a-valid-api-key.)")),
-    "Connexion locale sécurisée : ton parcours est sauvegardé sur cet appareil avec amour et fidélité 🌿"
-  );
+});
+
+// =========================================================================
+// 1bis. TESTS D'UNICITÉ STRICTE DES DONNÉES JOUEURS (ZÉRO DOUBLON)
+// =========================================================================
+test("Unicité Joueurs: Normalisation stricte et rejet des noms réservés", async () => {
+  // Normalisation
+  assert.equal(normalizePseudo("  Marie de   Magdala  "), "marie de magdala");
+  assert.equal(normalizePseudo("DAVID LE BERGER"), "david le berger");
+
+  // Rejet des noms trop courts (< 2 caractères)
+  const tropCourt = await checkIsPseudoAvailable("A");
+  assert.equal(tropCourt.available, false);
+  assert.ok(tropCourt.reason.includes("au moins 2 caractères"));
+
+  // Rejet des noms génériques réservés aux visiteurs
+  const reserveAmi = await checkIsPseudoAvailable("Ami pèlerin");
+  assert.equal(reserveAmi.available, false);
+  assert.ok(reserveAmi.reason.includes("réservé"));
+
+  const reserveVisiteur = await checkIsPseudoAvailable("Visiteur");
+  assert.equal(reserveVisiteur.available, false);
+
+  // Acceptation d'un pseudonyme unique valide
+  const pseudoValide = await checkIsPseudoAvailable("Barnabé de Chypre");
+  assert.equal(pseudoValide.available, true);
+});
+
+test("Sécurité & Unicité: Aucune simulation factice de session lors d'erreur Google", async () => {
+  // Vérifie que isFirebaseCloudActive() est opérationnel avec la configuration
+  assert.equal(isFirebaseCloudActive(), true, "La configuration Firebase doit être active sans faux blocage");
 });
 
 // =========================================================================

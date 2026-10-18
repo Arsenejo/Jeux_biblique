@@ -8,13 +8,13 @@ import {
   loginWithEmailPassword,
   registerWithEmailPassword,
   sendPelerinPasswordReset,
-  createLocalPelerinSession
+  checkIsPseudoAvailable
 } from "../services/firebase";
 
 /**
- * Modale d'authentification et de synchronisation du pèlerin
- * Conçue avec des champs de saisie haut de gamme, camouflage des erreurs techniques
- * et mention officielle de paternité de l'Église Évangélique Assemblée de la Grâce (Issia, Côte d'Ivoire).
+ * Modale d'authentification et de synchronisation réelle du pèlerin
+ * Connexion officielle Google (sélecteur de compte réel) & Email avec unicité stricte des comptes et pseudonymes.
+ * Mention officielle de paternité de l'Église Évangélique Assemblée de la Grâce (Issia, Côte d'Ivoire).
  */
 export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
   const [mode, setMode] = useState("login"); // "login" | "register" | "forgot"
@@ -33,30 +33,18 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
     setSuccessMsg("");
     setLoading(true);
     try {
+      // Ouvre impérativement le vrai sélecteur de compte Google
       const res = await loginWithGoogle();
       if (res?.user) {
         if (notify) {
-          notify(`Bienvenue, ${res.user.displayName || "Pèlerin"} ! Ton pèlerinage est sauvegardé ✨`);
+          notify(`Bienvenue, ${res.user.displayName || "Pèlerin"} ! Ton pèlerinage est synchronisé dans la base commune ✨`);
         }
         if (onAuthSuccess) onAuthSuccess(res.user);
         onClose();
       }
     } catch (err) {
-      // Repli local gracieux et camouflage total de toute erreur technique
-      const isTechError =
-        err?.message?.includes("api-key") ||
-        err?.message?.includes("API key") ||
-        err?.message?.includes("Firebase") ||
-        err?.message?.includes("not-valid");
-
-      if (isTechError) {
-        const localUser = createLocalPelerinSession("pelerin.google@grace-issia.org", "Pèlerin Google");
-        if (notify) notify("Bienvenue ! Ton profil pèlerin est activé avec sauvegarde continue 🌿");
-        if (onAuthSuccess) onAuthSuccess(localUser);
-        onClose();
-      } else {
-        setError(err.message || "Connexion temporairement indisponible.");
-      }
+      // Affiche l'erreur réelle sans AUCUNE simulation factice
+      setError(err?.message || "La connexion Google a été annulée ou n'a pas pu aboutir.");
     } finally {
       setLoading(false);
     }
@@ -78,20 +66,40 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
       return;
     }
 
-    setLoading(true);
+    // Unicité stricte du nom du joueur à l'inscription
+    if (mode === "register") {
+      const cleanName = displayName.trim();
+      if (!cleanName || cleanName.length < 2) {
+        setError("Veuillez choisir un nom ou prénom de pèlerin (au moins 2 caractères).");
+        return;
+      }
+      setLoading(true);
+      try {
+        const check = await checkIsPseudoAvailable(cleanName, null);
+        if (!check.available) {
+          setError(check.reason || "Ce nom de pèlerin est déjà réservé par un autre joueur.");
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // En cas de coupure réseau, la création Firebase validera également
+      }
+    } else {
+      setLoading(true);
+    }
 
     try {
       if (mode === "login") {
         const res = await loginWithEmailPassword(cleanEmail, password);
         if (res?.user) {
-          if (notify) notify(`Heureux de te revoir, ${res.user.displayName || "Pèlerin"} ! Ton sentier est prêt 🌿`);
+          if (notify) notify(`Heureux de te revoir, ${res.user.displayName || "Pèlerin"} ! Ton sentier est synchronisé 🌿`);
           if (onAuthSuccess) onAuthSuccess(res.user);
           onClose();
         }
       } else if (mode === "register") {
         const res = await registerWithEmailPassword(cleanEmail, password, displayName);
         if (res?.user) {
-          if (notify) notify(`Bienvenue dans la famille des pèlerins, ${displayName || "Ami pèlerin"} 🌟`);
+          if (notify) notify(`Bienvenue dans la famille des pèlerins, ${displayName.trim() || "Ami pèlerin"} 🌟`);
           if (onAuthSuccess) onAuthSuccess(res.user);
           onClose();
         }
@@ -100,23 +108,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
         setSuccessMsg("Un courriel de réinitialisation vous a été envoyé. Vérifiez votre boîte de réception.");
       }
     } catch (err) {
-      const errMsg = err?.message || "";
-      const isTechError =
-        errMsg.includes("api-key") ||
-        errMsg.includes("API key") ||
-        errMsg.includes("Firebase") ||
-        errMsg.includes("not-valid") ||
-        errMsg.includes("network-request");
-
-      // Camouflage bienveillant : activation immédiate du compte local pèlerin sans bloquer le joueur
-      if (isTechError && mode !== "forgot") {
-        const localUser = createLocalPelerinSession(cleanEmail, displayName);
-        if (notify) notify(`Bienvenue, ${localUser.displayName} ! Ton compte est activé avec sauvegarde fidèle 🌿`);
-        if (onAuthSuccess) onAuthSuccess(localUser);
-        onClose();
-      } else {
-        setError(errMsg || "Une difficulté est survenue. Veuillez réessayer.");
-      }
+      setError(err?.message || "Une difficulté est survenue lors de l'authentification.");
     } finally {
       setLoading(false);
     }

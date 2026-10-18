@@ -19,39 +19,36 @@ import {
   doc,
   getDoc,
   setDoc,
+  deleteDoc,
   collection,
   getDocs,
   query,
   orderBy,
   limit,
-  serverTimestamp
+  serverTimestamp,
+  enableNetwork,
+  disableNetwork
 } from "firebase/firestore";
 import { reconcilePelerinData, reconcilePrayers } from "./dataReconciliation.js";
 import { getReportedPrayerIds, reportPrayerLocally } from "./moderation.js";
 import { sendWelcomeEmail } from "./brevoMailer.js";
 
-// Configuration Firebase réelle du projet defi-jean
+// Configuration Firebase réelle du projet defi-jean (avec lecture dynamique d'environnement)
 export const firebaseConfig = {
-  apiKey: "AIzaSyDsIYH4rplT1giMld2cxq4x1IqWmNyIZ6Q",
-  authDomain: "defi-jean.firebaseapp.com",
-  projectId: "defi-jean",
-  storageBucket: "defi-jean.firebasestorage.app",
-  messagingSenderId: "23332908996",
-  appId: "1:23332908996:web:7ac92b21d43c01b23a7e91"
+  apiKey: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_API_KEY) || "AIzaSyDsIYH4rplT1giMld2cxq4x1IqWmNyIZ6Q",
+  authDomain: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN) || "defi-jean.firebaseapp.com",
+  projectId: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_PROJECT_ID) || "defi-jean",
+  storageBucket: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET) || "defi-jean.firebasestorage.app",
+  messagingSenderId: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID) || "23332908996",
+  appId: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_APP_ID) || "1:23332908996:web:7ac92b21d43c01b23a7e91"
 };
 
 /**
- * Vérifie si une clé Firebase active a été configurée dans l'environnement.
- * Évite de lancer des requêtes fetch HTTP qui échouent avec 400 Bad Request dans la console du navigateur.
+ * Vérifie si la configuration Firebase est présente.
  */
 export function isFirebaseCloudActive() {
   try {
-    const envKey = (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_API_KEY) || "";
-    // Clé factice ou par défaut non encore configurée dans la console Google
-    if (!envKey || envKey === "AIzaSyDsIYH4rplT1giMld2cxq4x1IqWmNyIZ6Q") {
-      return false;
-    }
-    return true;
+    return Boolean(firebaseConfig.apiKey && firebaseConfig.apiKey.length > 10);
   } catch {
     return false;
   }
@@ -62,7 +59,7 @@ let auth = null;
 let db = null;
 let isInitialized = false;
 
-// Identifiant unique persistant pour le pèlerin local
+// Identifiant persistant pour visiteur invité non connecté
 export function getLocalPilgrimId() {
   try {
     let id = localStorage.getItem("pelerin_local_uuid");
@@ -83,7 +80,7 @@ export function getFirebaseServices() {
     app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
     auth = getAuth(app);
 
-    // Initialisation moderne du cache persistant Firestore avec détection de long-polling pour compatibilité Brave/Adblock
+    // Initialisation moderne du cache persistant Firestore avec détection de long-polling
     try {
       db = initializeFirestore(app, {
         experimentalAutoDetectLongPolling: true,
@@ -96,158 +93,223 @@ export function getFirebaseServices() {
     }
 
     isInitialized = true;
-  } catch {
-    // Mode repli local silencieux et robuste
+  } catch (err) {
+    console.warn("Initialisation Firebase Cloud différée :", err?.message);
   }
 
   return { app, auth, db };
 }
 
 /**
- * Initialise l'authentification transparente pour le pèlerin
+ * Active le réseau Firestore lors de la reconnexion internet
+ */
+export async function setFirestoreOnline() {
+  const { db } = getFirebaseServices();
+  if (!db) return;
+  try {
+    await enableNetwork(db);
+  } catch {}
+}
+
+/**
+ * Désactive le réseau Firestore quand l'appareil passe hors ligne
+ */
+export async function setFirestoreOffline() {
+  const { db } = getFirebaseServices();
+  if (!db) return;
+  try {
+    await disableNetwork(db);
+  } catch {}
+}
+
+/**
+ * Initialise l'authentification réelle du pèlerin (ZÉRO session simulée)
  */
 export async function initPelerinAuth(onUserReady) {
-  // 1. Restaurer une session locale pèlerin active si existante
+  // Nettoyage de toute ancienne trace de fausse session simulée
   try {
-    const savedAccount = localStorage.getItem("pelerin_active_account");
-    if (savedAccount) {
-      const parsed = JSON.parse(savedAccount);
-      if (parsed && parsed.email) {
-        onUserReady(parsed, "local");
-        return () => {};
-      }
-    }
+    localStorage.removeItem("pelerin_active_account");
   } catch {}
-
-  // 2. Si le projet Firebase n'a pas encore de clé active enregistrée, activer directement le mode local
-  // Cela empêche l'apparition de "POST https://identitytoolkit.googleapis.com/... 400 (Bad Request)"
-  if (!isFirebaseCloudActive()) {
-    onUserReady(null, "local");
-    return () => {};
-  }
 
   const { auth } = getFirebaseServices();
   if (!auth) {
-    onUserReady(null, "local");
+    onUserReady(null, "offline");
     return () => {};
   }
 
   try {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user) {
+      if (user && !user.isAnonymous) {
         onUserReady(user, "cloud");
       } else {
-        try {
-          const cred = await signInAnonymously(auth);
-          onUserReady(cred.user, "cloud");
-        } catch {
-          // Repli local transparent et silencieux
-          onUserReady(null, "local");
-        }
+        // Utilisateur non connecté : mode invité réel, sa progression reste sur cet appareil
+        onUserReady(null, "guest");
       }
     });
     return unsub;
   } catch {
-    onUserReady(null, "local");
+    onUserReady(null, "guest");
     return () => {};
   }
 }
 
 /**
- * Création d'une session pèlerin locale sécurisée en cas de repli
+ * Normalise un pseudonyme de pèlerin pour les comparaisons strictes d'unicité (insensible à la casse, aux accents et aux espaces)
  */
-export function createLocalPelerinSession(email, displayName) {
-  const cleanEmail = (email || "").trim().toLowerCase();
-  const baseName = displayName?.trim() || (cleanEmail ? cleanEmail.split("@")[0] : "Pèlerin");
-  
-  let hash = 0;
-  for (let i = 0; i < cleanEmail.length; i++) {
-    hash = (hash << 5) - hash + cleanEmail.charCodeAt(i);
-    hash |= 0;
-  }
-  const stableUid = "local_user_" + Math.abs(hash).toString(36);
-
-  const localUser = {
-    uid: stableUid,
-    email: cleanEmail || "pelerin@grace-issia.org",
-    displayName: baseName.charAt(0).toUpperCase() + baseName.slice(1),
-    isAnonymous: false,
-    isLocalSession: true
-  };
-
-  try {
-    localStorage.setItem("pelerin_active_account", JSON.stringify(localUser));
-  } catch {}
-
-  return localUser;
+export function normalizePseudo(pseudo) {
+  return String(pseudo || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 30);
 }
 
 /**
- * Traduit les erreurs courantes de Firebase Authentication en français clair
+ * Vérifie dans la base de données commune si un nom de joueur est déjà utilisé
+ * Empêche formellement les doublons de noms entre tous les pèlerins.
+ */
+export async function checkIsPseudoAvailable(pseudo, currentUid = null) {
+  const clean = normalizePseudo(pseudo);
+  if (!clean || clean.length < 2) {
+    return { available: false, reason: "Le nom de pèlerin doit comporter au moins 2 caractères." };
+  }
+  if (clean === "ami pelerin" || clean === "visiteur" || clean === "anonyme" || clean === "invite") {
+    return { available: false, reason: "Ce nom générique est réservé aux visiteurs invités. Choisis un nom unique." };
+  }
+
+  const { db } = getFirebaseServices();
+  if (!db) return { available: true, clean };
+
+  try {
+    // 1. Contrôle dans le registre officiel des pseudos enregistrés
+    const pseudoDocRef = doc(db, "pseudos_enregistres", clean);
+    const snap = await getDoc(pseudoDocRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.uid && data.uid !== currentUid) {
+        return {
+          available: false,
+          reason: `Le nom « ${pseudo.trim()} » est déjà utilisé par un autre pèlerin. Veuillez en choisir un autre.`
+        };
+      }
+    }
+
+    // 2. Contrôle supplémentaire dans le classement public pour éviter tout doublon historique
+    const classQuery = query(collection(db, "classement_pelerins"), limit(100));
+    const classSnap = await getDocs(classQuery);
+    for (const d of classSnap.docs) {
+      if (d.id !== currentUid) {
+        const existingClean = normalizePseudo(d.data()?.pseudo);
+        if (existingClean === clean) {
+          return {
+            available: false,
+            reason: `Le nom « ${pseudo.trim()} » est déjà utilisé par un autre pèlerin dans le classement.`
+          };
+        }
+      }
+    }
+
+    return { available: true, clean };
+  } catch (err) {
+    console.warn("Vérification d'unicité différée :", err?.message);
+    return { available: true, clean };
+  }
+}
+
+/**
+ * Réserve un pseudonyme unique pour le joueur connecté dans la base de données
+ */
+export async function reservePelerinPseudo(uid, newPseudo, oldPseudo = null) {
+  if (!uid || !newPseudo) return;
+  const newClean = normalizePseudo(newPseudo);
+  if (!newClean) return;
+
+  const { db } = getFirebaseServices();
+  if (!db) return;
+
+  const avail = await checkIsPseudoAvailable(newClean, uid);
+  if (!avail.available) {
+    throw new Error(avail.reason || "Ce nom de pèlerin est déjà réservé par un autre joueur.");
+  }
+
+  try {
+    // Enregistrement officiel de la réservation du pseudo
+    await setDoc(doc(db, "pseudos_enregistres", newClean), {
+      pseudoOriginal: newPseudo.trim(),
+      cleanPseudo: newClean,
+      uid,
+      dateMiseAJour: serverTimestamp()
+    }, { merge: true });
+
+    // Libération de l'ancien pseudo s'il a changé
+    if (oldPseudo) {
+      const oldClean = normalizePseudo(oldPseudo);
+      if (oldClean && oldClean !== newClean) {
+        try {
+          await deleteDoc(doc(db, "pseudos_enregistres", oldClean));
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn("Réservation du pseudo dans la base différée :", err?.message);
+  }
+}
+
+/**
+ * Traduit les erreurs réelles de Firebase Authentication en français clair
  */
 export function translateAuthError(err) {
   if (!err) return "Une erreur inattendue est survenue.";
   const code = err.code || "";
   const msg = err.message || "";
 
-  if (
-    code.includes("api-key") ||
-    code.includes("invalid-api-key") ||
-    code.includes("app-not-authorized") ||
-    msg.includes("api-key") ||
-    msg.includes("API key") ||
-    msg.includes("api_key")
-  ) {
-    return "Connexion locale sécurisée : ton parcours est sauvegardé sur cet appareil avec amour et fidélité 🌿";
-  }
-
   switch (code) {
     case "auth/invalid-email":
       return "L'adresse e-mail renseignée n'est pas valide.";
     case "auth/user-not-found":
-      return "Aucun compte pèlerin n'est associé à cette adresse e-mail.";
+      return "Aucun compte pèlerin n'est associé à cette adresse e-mail. Veuillez créer un compte.";
     case "auth/wrong-password":
       return "Le mot de passe saisi est incorrect.";
     case "auth/invalid-credential":
       return "Identifiants incorrects. Veuillez vérifier votre adresse e-mail et votre mot de passe.";
     case "auth/email-already-in-use":
-      return "Cette adresse e-mail est déjà utilisée par un autre pèlerin.";
+      return "Cette adresse e-mail est déjà utilisée par un autre compte pèlerin. Veuillez vous connecter.";
     case "auth/weak-password":
-      return "Le mot de passe doit comporter au moins 6 caractères.";
+      return "Le mot de passe doit comporter au moins 6 caractères pour protéger votre carnet.";
     case "auth/popup-closed-by-user":
-      return "La fenêtre de connexion Google a été fermée avant la finalisation.";
+      return "La fenêtre de sélection de compte Google a été fermée avant la finalisation.";
     case "auth/popup-blocked":
-      return "La fenêtre de connexion a été bloquée par votre navigateur. Veuillez autoriser les popups pour ce site.";
+      return "La fenêtre de connexion Google a été bloquée par votre navigateur. Veuillez autoriser les popups pour ce site.";
     case "auth/operation-not-allowed":
-      return "Ce mode de connexion est actuellement en cours d'ajustement.";
+      return "Ce mode de connexion doit être activé dans la console Firebase.";
     case "auth/network-request-failed":
       return "Connexion au réseau interrompue. Vos progrès restent conservés localement.";
     case "auth/too-many-requests":
       return "Trop de tentatives infructueuses. Veuillez patienter un court instant avant de réessayer.";
+    case "auth/unauthorized-domain":
+      return "Le domaine de cette application doit être ajouté dans les domaines autorisés de Firebase Authentication.";
+    case "auth/api-key-not-valid":
+    case "auth/invalid-api-key":
+      return "La clé API Firebase doit être activée pour le projet defi-jean.";
     default:
-      if (msg.includes("api-key") || msg.includes("API key") || msg.includes("Firebase:")) {
-        return "Sauvegarde locale active : vos données sont conservées en toute sérénité sur cet appareil 🌿";
-      }
       return msg || "Erreur lors de l'authentification.";
   }
 }
 
 /**
- * Connexion avec un compte Google (One-Click)
+ * Connexion réelle avec un compte Google (Ouvre impérativement le sélecteur de compte)
+ * ZÉRO SIMULATION : Si l'utilisateur clique, la vraie popup de sélection Google s'ouvre !
  */
 export async function loginWithGoogle() {
-  if (!isFirebaseCloudActive()) {
-    const localUser = createLocalPelerinSession("pelerin.google@grace-issia.org", "Pèlerin Google");
-    return { success: true, user: localUser, isLocalFallback: true };
-  }
-
-  const { auth } = getFirebaseServices();
+  const { auth, db } = getFirebaseServices();
   if (!auth) {
-    const localUser = createLocalPelerinSession("pelerin.google@grace-issia.org", "Pèlerin Google");
-    return { success: true, user: localUser, isLocalFallback: true };
+    throw new Error("Le service d'authentification Firebase n'est pas initialisé.");
   }
 
   const provider = new GoogleAuthProvider();
+  // Force l'affichage de l'écran de sélection de compte Google
   provider.setCustomParameters({ prompt: "select_account" });
 
   try {
@@ -255,38 +317,38 @@ export async function loginWithGoogle() {
     const user = result.user;
 
     const existingCloud = await loadPelerinProfile(user.uid);
+    let chosenPseudo = (existingCloud?.profileName || user.displayName || "Pèlerin Google").trim();
+
+    // Vérification d'unicité du nom pour le nouveau pèlerin Google
     if (!existingCloud || !existingCloud.profileName) {
+      const avail = await checkIsPseudoAvailable(chosenPseudo, user.uid);
+      if (!avail.available) {
+        // En cas de conflit de prénom avec un autre joueur, suffixer discrètement pour garantir l'unicité
+        chosenPseudo = `${chosenPseudo} ${user.uid.slice(0, 4)}`;
+      }
+      await reservePelerinPseudo(user.uid, chosenPseudo);
+
       await syncPelerinProfile(user.uid, {
-        profileName: user.displayName || "Pèlerin Google",
+        profileName: chosenPseudo,
         email: user.email,
         authProvider: "google"
       });
     }
 
     if (user.email && (!existingCloud || !existingCloud.welcomeSent)) {
-      sendWelcomeEmail(user.email, user.displayName || "Pèlerin").catch(() => {});
+      sendWelcomeEmail(user.email, chosenPseudo).catch(() => {});
       await syncPelerinProfile(user.uid, { welcomeSent: true });
     }
 
     return { success: true, user };
   } catch (err) {
-    const isApiKeyIssue =
-      err.code === "auth/api-key-not-valid" ||
-      err.code === "auth/invalid-api-key" ||
-      err.code === "auth/app-not-authorized" ||
-      err.message?.includes("api-key-not-valid") ||
-      err.message?.includes("API key not valid");
-
-    if (isApiKeyIssue) {
-      const localUser = createLocalPelerinSession("pelerin.google@grace-issia.org", "Pèlerin Google");
-      return { success: true, user: localUser, isLocalFallback: true };
-    }
     throw new Error(translateAuthError(err));
   }
 }
 
 /**
- * Création de compte pèlerin par Email et Mot de passe
+ * Création réelle de compte pèlerin par Email et Mot de passe
+ * Vérifie rigoureusement l'unicité de l'e-mail et du pseudonyme.
  */
 export async function registerWithEmailPassword(email, password, displayName) {
   if (!email || !email.includes("@")) {
@@ -296,86 +358,66 @@ export async function registerWithEmailPassword(email, password, displayName) {
     throw new Error("Le mot de passe doit comporter au moins 6 caractères pour protéger votre carnet.");
   }
 
-  if (!isFirebaseCloudActive()) {
-    const localUser = createLocalPelerinSession(email, displayName);
-    return { success: true, user: localUser, isLocalFallback: true };
+  const cleanName = (displayName || "").trim();
+  if (!cleanName || cleanName.length < 2) {
+    throw new Error("Veuillez choisir un nom ou prénom de pèlerin (au moins 2 caractères).");
+  }
+
+  // 1. Contrôle strict de l'unicité du nom avant création
+  const pseudoCheck = await checkIsPseudoAvailable(cleanName, null);
+  if (!pseudoCheck.available) {
+    throw new Error(pseudoCheck.reason || "Ce nom de pèlerin est déjà réservé par un autre joueur.");
   }
 
   const { auth } = getFirebaseServices();
   if (!auth) {
-    const localUser = createLocalPelerinSession(email, displayName);
-    return { success: true, user: localUser, isLocalFallback: true };
+    throw new Error("Le service d'authentification Firebase n'est pas initialisé.");
   }
 
   try {
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
     const user = cred.user;
-    const name = displayName?.trim() || email.split("@")[0] || "Pèlerin";
 
     try {
-      await updateProfile(user, { displayName: name });
+      await updateProfile(user, { displayName: cleanName });
     } catch {}
 
+    // 2. Réservation officielle du pseudo unique dans Firestore
+    await reservePelerinPseudo(user.uid, cleanName);
+
+    // 3. Initialisation du profil Cloud
     await syncPelerinProfile(user.uid, {
-      profileName: name,
+      profileName: cleanName,
       email: user.email,
       authProvider: "password",
       welcomeSent: true
     });
 
-    sendWelcomeEmail(user.email, name).catch(() => {});
+    sendWelcomeEmail(user.email, cleanName).catch(() => {});
 
     return { success: true, user };
   } catch (err) {
-    const isApiKeyIssue =
-      err.code === "auth/api-key-not-valid" ||
-      err.code === "auth/invalid-api-key" ||
-      err.code === "auth/app-not-authorized" ||
-      err.message?.includes("api-key-not-valid") ||
-      err.message?.includes("API key not valid");
-
-    if (isApiKeyIssue) {
-      const localUser = createLocalPelerinSession(email, displayName);
-      return { success: true, user: localUser, isLocalFallback: true };
-    }
     throw new Error(translateAuthError(err));
   }
 }
 
 /**
- * Connexion avec Email et Mot de passe
+ * Connexion réelle avec Email et Mot de passe (ZÉRO mock)
  */
 export async function loginWithEmailPassword(email, password) {
   if (!email || !password) {
     throw new Error("Veuillez remplir votre e-mail et votre mot de passe.");
   }
 
-  if (!isFirebaseCloudActive()) {
-    const localUser = createLocalPelerinSession(email);
-    return { success: true, user: localUser, isLocalFallback: true };
-  }
-
   const { auth } = getFirebaseServices();
   if (!auth) {
-    const localUser = createLocalPelerinSession(email);
-    return { success: true, user: localUser, isLocalFallback: true };
+    throw new Error("Le service d'authentification Firebase n'est pas disponible.");
   }
 
   try {
     const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
     return { success: true, user: cred.user };
   } catch (err) {
-    const isApiKeyIssue =
-      err.code === "auth/api-key-not-valid" ||
-      err.code === "auth/invalid-api-key" ||
-      err.code === "auth/app-not-authorized" ||
-      err.message?.includes("api-key-not-valid") ||
-      err.message?.includes("API key not valid");
-
-    if (isApiKeyIssue) {
-      const localUser = createLocalPelerinSession(email);
-      return { success: true, user: localUser, isLocalFallback: true };
-    }
     throw new Error(translateAuthError(err));
   }
 }
@@ -435,6 +477,15 @@ export async function syncPelerinProfile(uid, profileData) {
       ...profileData,
       derniereMiseAJour: serverTimestamp()
     }, { merge: true });
+
+    // Réservation du pseudonyme unique dans la base de données partagée
+    if (profileData.profileName && profileData.profileName !== "Ami pèlerin" && profileData.profileName !== "Pèlerin") {
+      try {
+        await reservePelerinPseudo(uid, profileData.profileName, profileData.oldProfileName);
+      } catch (err) {
+        console.warn("Réservation du pseudo :", err.message);
+      }
+    }
 
     // Publication sécurisée dans le classement public sans PII (zéro email, zéro données personnelles)
     try {
