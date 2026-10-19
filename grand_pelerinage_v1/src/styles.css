@@ -663,13 +663,85 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   color: var(--muted);
 }
 
+/* =========================================================================
+   CARTE DU SENTIER DU PÈLERIN (DÉFILEMENT TACTILE ET SOURIS SANS CONDENSATION)
+   ========================================================================= */
+
+.path-drag-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 16px;
+  background: rgba(7, 86, 165, 0.08);
+  border: 1px dashed rgba(7, 86, 165, 0.3);
+  border-radius: 30px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0756a5;
+  user-select: none;
+}
+.path-drag-indicator .drag-hand {
+  font-size: 15px;
+  animation: waveHand 2s infinite ease-in-out;
+}
+.path-drag-indicator .drag-arrow {
+  color: #0756a5;
+  font-weight: 800;
+  animation: slideArrow 1.5s infinite alternate ease-in-out;
+}
+@keyframes waveHand {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(12deg); }
+}
+@keyframes slideArrow {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(4px); }
+}
+
+.path-scroll-viewport {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 24px;
+  position: relative;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+  cursor: grab;
+  scrollbar-width: thin;
+  scrollbar-color: #4a9d69 rgba(220, 240, 230, 0.4);
+  box-shadow: 0 10px 30px rgba(20, 70, 50, 0.12);
+}
+.path-scroll-viewport.is-dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+.path-scroll-viewport::-webkit-scrollbar {
+  height: 8px;
+}
+.path-scroll-viewport::-webkit-scrollbar-track {
+  background: rgba(220, 240, 230, 0.6);
+  border-radius: 8px;
+}
+.path-scroll-viewport::-webkit-scrollbar-thumb {
+  background: #4a9d69;
+  border-radius: 8px;
+}
+.path-scroll-viewport::-webkit-scrollbar-thumb:hover {
+  background: #159447;
+}
+
 .path-landscape {
+  min-width: 1250px;
+  width: 100%;
   height: 480px;
   border-radius: 24px;
   position: relative;
   overflow: hidden;
   background: linear-gradient(180deg, #b7e8f3 0%, #e6f8e6 42%, #b0dba6 100%);
   box-shadow: inset 0 0 0 1px #fff;
+  flex-shrink: 0;
 }
 .path-landscape:before, .path-landscape:after {
   content: "";
@@ -709,6 +781,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   width: 100%;
   height: 100%;
   z-index: 2;
+  pointer-events: none;
 }
 .path-node {
   position: absolute;
@@ -722,6 +795,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   padding: 0;
   max-width: 220px;
   text-align: left;
+  cursor: pointer;
 }
 .node-circle {
   width: 50px;
@@ -737,7 +811,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   font: 800 16px 'Manrope', sans-serif;
   transition: all 0.2s ease;
 }
-.path-node:hover .node-circle { transform: scale(1.1); }
+.path-node:hover .node-circle { transform: scale(1.12); }
 .path-node.done .node-circle { background: #159447; color: #fff; border-color: #c7f2d6; }
 .path-node.current .node-circle {
   background: #0756a5;
@@ -747,18 +821,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 .path-node.locked .node-circle { background: #f2f6f8; color: #8295a5; border-color: #e1e9ee; }
 .node-label {
-  min-width: 120px;
+  min-width: 130px;
   padding: 9px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.94);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 6px 16px rgba(22, 76, 54, 0.15);
   display: flex;
   flex-direction: column;
   gap: 3px;
+  backdrop-filter: blur(4px);
 }
 .node-label b { font-size: 11.5px; color: #183d58; }
 .node-label small { font-size: 10px; color: #748798; }
-.node-stars { font-size: 11px; color: #e7a626; }
+.node-stars { font-size: 11px; color: #e7a626; letter-spacing: 2px; }
 .node-label em { font-style: normal; font-size: 9.5px; color: #0a8b48; font-weight: 800; }
 .path-caption {
   position: absolute;
@@ -778,9 +853,161 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
+
+/* =========================================================================
+   GAME HUD & PANNEAU DE QUÊTE (DESIGN AVENTURE & GAMING)
+   ========================================================================= */
+
+.game-hud-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.hud-badge-epoch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hud-epoch-icon {
+  font-size: 32px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+.hud-game-tag {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.hud-epoch-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text);
+}
+.hud-game-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hud-stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.hud-stat-pill .stat-star-icon { color: #f59e0b; }
+.hud-stat-pill .stat-trophy-icon { color: #10b981; }
+
+.game-quest-panel {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+.quest-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.quest-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(249, 115, 22, 0.12);
+  color: #ea580c;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.quest-rewards-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.reward-item {
+  padding: 3px 8px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.quest-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.quest-stage-title {
+  font-size: 19px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text);
+}
+.quest-meta-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.quest-chip.ref-chip {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.quest-launch-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+.quest-launch-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+}
+
 .below-path {
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
+  grid-template-columns: 1.4fr 1fr;
   gap: 16px;
   margin-top: 18px;
 }
@@ -1555,7 +1782,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   }
   .home-grid { grid-template-columns: 1fr; }
   .kindness-card { grid-column: auto; }
-  .path-landscape { height: 410px; }
+  .path-landscape { height: 460px; min-width: 1250px; }
   .below-path { grid-template-columns: 1fr; }
   .profile-layout { grid-template-columns: 1fr; }
   .footer { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
@@ -1571,7 +1798,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .stat-card { padding: 10px 8px; gap: 8px; }
   .stat-icon { width: 36px; height: 36px; border-radius: 10px; }
   .stat-card b { font-size: 16px; }
-  .path-landscape { height: 360px; }
+  .path-landscape { height: 440px; min-width: 1250px; }
   .word-slots {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
@@ -4125,6 +4352,50 @@ body.night-mode .auth-main-title {
 
 body.night-mode .auth-subtitle {
   color: #94a3b8;
+}
+
+/* ACCÈS IMMÉDIAT SANS COMPTE (ZÉRO BLOCAGE POUR LE JOUEUR) */
+.guest-quick-play-bar {
+  margin-bottom: 12px;
+}
+.guest-play-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: 0;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s ease;
+}
+.guest-play-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+.auth-alert-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.auth-play-fallback-link {
+  margin-top: 6px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
 }
 
 /* BOUTON GOOGLE ULTRA-ÉLÉGANT */

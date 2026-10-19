@@ -126,12 +126,18 @@ function App() {
   const [selectedCloze, setSelectedCloze] = useState("");
   const [exerciseFeedback, setExerciseFeedback] = useState("");
 
-  // Glisser / Déposer (Drag & Drop tactile & souris)
+  // Glisser / Déposer (Drag & Drop tactile & souris des mots)
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState(null);
   const [dragOverBank, setDragOverBank] = useState(false);
   const [touchGhost, setTouchGhost] = useState(null);
   const touchStateRef = useRef({ item: null });
+
+  // Glissement tactile et souris de la Carte du Sentier (Défilement fluide 10 étapes)
+  const pathViewportRef = useRef(null);
+  const isDraggingPathRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const scrollLeftStartRef = useRef(0);
 
   // Lampes de foi (Vies : max 5, perte sur erreurs en étapes défi, halte bienveillante à 0)
   const [lampes, setLampes] = useState(() => (typeof saved.lampes === "number" ? saved.lampes : 5));
@@ -414,6 +420,51 @@ function App() {
 
     return () => clearTimeout(timer);
   }, [profileName, saved, xp, pearls, streak, user]);
+
+  // Centrage automatique et glissement fluide vers l'étape en cours
+  useEffect(() => {
+    if (tab === "Parcours" && pathViewportRef.current) {
+      const timeout = setTimeout(() => {
+        if (!pathViewportRef.current) return;
+        const activeNodeEl = pathViewportRef.current.querySelector(".path-node.current") || pathViewportRef.current.querySelector(".path-node");
+        if (activeNodeEl) {
+          const viewportWidth = pathViewportRef.current.clientWidth;
+          const nodeLeft = activeNodeEl.offsetLeft;
+          pathViewportRef.current.scrollTo({
+            left: Math.max(0, nodeLeft - viewportWidth / 2 + 50),
+            behavior: "smooth"
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [tab, activeStageId, selectedEpochId]);
+
+  // Gestionnaires de glissement souris/tactile de la Carte du Sentier
+  const handlePathMouseDown = (e) => {
+    if (e.target.closest(".path-node")) return;
+    isDraggingPathRef.current = true;
+    dragStartXRef.current = e.pageX - (pathViewportRef.current?.offsetLeft || 0);
+    scrollLeftStartRef.current = pathViewportRef.current?.scrollLeft || 0;
+    if (pathViewportRef.current) {
+      pathViewportRef.current.classList.add("is-dragging");
+    }
+  };
+
+  const handlePathMouseMove = (e) => {
+    if (!isDraggingPathRef.current || !pathViewportRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - (pathViewportRef.current.offsetLeft || 0);
+    const walk = (x - dragStartXRef.current) * 1.4;
+    pathViewportRef.current.scrollLeft = scrollLeftStartRef.current - walk;
+  };
+
+  const handlePathMouseUpOrLeave = () => {
+    isDraggingPathRef.current = false;
+    if (pathViewportRef.current) {
+      pathViewportRef.current.classList.remove("is-dragging");
+    }
+  };
 
   // Gestion de l'authentification et du compte
   const handleAuthSuccess = async (authenticatedUser) => {
@@ -723,7 +774,8 @@ function App() {
     }
   };
 
-  const resetStageExercise = () => {
+  const resetStageExercise = (stageOverride = null) => {
+    const targetStage = stageOverride || currentStage;
     setPlacedWords([]);
     setSelectedQcmIndex(null);
     setSelectedCloze("");
@@ -734,7 +786,16 @@ function App() {
     setDragOverBank(false);
     setTouchGhost(null);
     touchStateRef.current = { item: null };
-    setupRandomExerciseContent(currentStage);
+    setupRandomExerciseContent(targetStage);
+
+    // RÉARMEMENT DU DÉCOMPTE DU TEMPS : Le chrono redémarre instantanément
+    if (targetStage?.tempsLimite && !contemplativeMode) {
+      setTimeLeft(targetStage.tempsLimite);
+      setTimerRunning(true);
+    } else {
+      setTimeLeft(null);
+      setTimerRunning(false);
+    }
   };
 
   // --- GESTIONNAIRES DU GLISSER / DÉPOSER (DRAG & DROP TACTILE & SOURIS) ---
@@ -920,36 +981,17 @@ function App() {
       return;
     }
     setActiveStageId(stageId);
-    resetStageExercise();
-
     const stageObj = currentStages.find((s) => s.id === stageId) || currentStages[0];
-    setupRandomExerciseContent(stageObj);
-
-    if (stageObj?.tempsLimite && !contemplativeMode) {
-      setTimeLeft(stageObj.tempsLimite);
-      setTimerRunning(true);
-    } else {
-      setTimeLeft(null);
-      setTimerRunning(false);
-    }
-
+    resetStageExercise(stageObj);
     setTab("Exercice");
   };
 
   const nextStage = () => {
-    resetStageExercise();
     const curIdx = currentStages.findIndex((s) => s.id === activeStageId);
     if (curIdx >= 0 && curIdx < currentStages.length - 1) {
       const nextStageObj = currentStages[curIdx + 1];
       setActiveStageId(nextStageObj.id);
-      setupRandomExerciseContent(nextStageObj);
-      if (nextStageObj?.tempsLimite && !contemplativeMode) {
-        setTimeLeft(nextStageObj.tempsLimite);
-        setTimerRunning(true);
-      } else {
-        setTimeLeft(null);
-        setTimerRunning(false);
-      }
+      resetStageExercise(nextStageObj);
     } else {
       setTimeLeft(null);
       setTimerRunning(false);
@@ -1525,14 +1567,27 @@ function App() {
               </button>
             </div>
 
-            {/* SÉLECTEUR DE CARTE DES 7 ÉPOQUES */}
+            {/* SÉLECTEUR DE CARTE DES 7 ÉPOQUES (GAME HUD ÉPURÉ) */}
             <div className="epochs-container">
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">CHOISIS TON ÉPOQUE</span>
-                  <h2>Les 7 Grandes Époques</h2>
+              <div className="game-hud-bar">
+                <div className="hud-badge-epoch">
+                  <span className="hud-epoch-icon">{activeEpoch.icon}</span>
+                  <div>
+                    <span className="hud-game-tag">MONDE EN COURS</span>
+                    <h2 className="hud-epoch-title">{activeEpoch.nom}</h2>
+                  </div>
                 </div>
-                <span style={{ fontSize: "12px", color: "var(--muted)" }}>{activeEpoch.tagline}</span>
+
+                <div className="hud-game-stats">
+                  <div className="hud-stat-pill" title="Étoiles de maîtrise accumulées">
+                    <Star size={16} className="stat-star-icon" fill="currentColor" />
+                    <span>{completedStages.filter((id) => currentStages.some((s) => s.id === id)).length * 3}</span>
+                  </div>
+                  <div className="hud-stat-pill" title="Progression de l'époque">
+                    <Trophy size={16} className="stat-trophy-icon" />
+                    <span>{completedStages.filter((id) => currentStages.some((s) => s.id === id)).length} / {currentStages.length}</span>
+                  </div>
+                </div>
               </div>
 
               <div className="epochs-scroll">
@@ -1556,13 +1611,13 @@ function App() {
               </div>
             </div>
 
-            {/* SYNTHÈSE DE L'ÉPOQUE */}
+            {/* BARRE DE PROGRESSION DU MONDE */}
             <div className="journey-summary">
-              <div className="summary-book"><BookOpen size={24} /></div>
+              <div className="summary-book"><Trophy size={22} /></div>
               <div>
-                <b>{activeEpoch.nom} ({activeEpoch.livres})</b>
+                <b>{activeEpoch.nom}</b>
                 <small>
-                  {completedStages.filter((id) => currentStages.some((s) => s.id === id)).length} sur {currentStages.length} étapes vécues · Louis Segond 1910
+                  {completedStages.filter((id) => currentStages.some((s) => s.id === id)).length} sur {currentStages.length} quêtes accomplies
                 </small>
               </div>
               <div className="summary-progress">
@@ -1570,113 +1625,138 @@ function App() {
                   <i style={{ width: `${(completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100}%` }} />
                 </div>
                 <small>
-                  {Math.round((completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100)}% accompli
+                  {Math.round((completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100)}% de maîtrise
                 </small>
               </div>
             </div>
 
-            {/* SENTIER WINDING PATH SVG */}
-            <div className="path-landscape">
-              <div className="landscape-glow" />
-              <div className="path-cloud cloud-a" />
-              <div className="path-cloud cloud-b" />
+            {/* INDICATION DE GLISSEMENT TACTILE ET SOURIS */}
+            <div className="path-drag-indicator">
+              <span className="drag-hand">👆</span>
+              <span>Glisse avec le doigt pour parcourir les 10 étapes du sentier</span>
+              <span className="drag-arrow">➔</span>
+            </div>
 
-              <svg className="winding-path" viewBox="0 0 1000 450" preserveAspectRatio="none" aria-hidden="true">
-                {currentStages.map((stage, idx) => {
-                  if (idx === 0) return null;
-                  const prev = currentStages[idx - 1];
-                  const x1 = prev.x * 10;
-                  const y1 = prev.y * 4.5;
-                  const x2 = stage.x * 10;
-                  const y2 = stage.y * 4.5;
+            {/* VIEWPORT GLISSANT AU DOIGT ET À LA SOURIS (LARGEUR AÉRÉE SANS CONDENSATION) */}
+            <div
+              className="path-scroll-viewport"
+              ref={pathViewportRef}
+              onMouseDown={handlePathMouseDown}
+              onMouseMove={handlePathMouseMove}
+              onMouseUp={handlePathMouseUpOrLeave}
+              onMouseLeave={handlePathMouseUpOrLeave}
+            >
+              <div className="path-landscape">
+                <div className="landscape-glow" />
+                <div className="path-cloud cloud-a" />
+                <div className="path-cloud cloud-b" />
+
+                <svg className="winding-path" viewBox="0 0 1000 450" preserveAspectRatio="none" aria-hidden="true">
+                  {currentStages.map((stage, idx) => {
+                    if (idx === 0) return null;
+                    const prev = currentStages[idx - 1];
+                    const x1 = prev.x * 10;
+                    const y1 = prev.y * 4.5;
+                    const x2 = stage.x * 10;
+                    const y2 = stage.y * 4.5;
+                    return (
+                      <g key={`path-${stage.id}`}>
+                        <line
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke="#fff8dc"
+                          strokeWidth="18"
+                          strokeLinecap="round"
+                        />
+                        <line
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke="#d6bd79"
+                          strokeWidth="3.5"
+                          strokeDasharray="5 9"
+                          strokeLinecap="round"
+                        />
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {currentStages.map((node) => {
+                  const isDone = completedStages.includes(node.id);
+
                   return (
-                    <g key={`path-${stage.id}`}>
-                      <line
-                        x1={x1}
-                        y1={y1}
-                        x2={x2}
-                        y2={y2}
-                        stroke="#fff8dc"
-                        strokeWidth="18"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1={x1}
-                        y1={y1}
-                        x2={x2}
-                        y2={y2}
-                        stroke="#d6bd79"
-                        strokeWidth="3.5"
-                        strokeDasharray="5 9"
-                        strokeLinecap="round"
-                      />
-                    </g>
+                    <button
+                      key={node.id}
+                      className={`path-node ${isDone ? "done" : ""} ${node.id === currentStage.id ? "current" : ""} ${node.subtile ? "subtile-node" : ""}`}
+                      style={{ left: `${node.x}%`, top: `${node.y}%` }}
+                      onClick={() => startStage(node.id)}
+                      aria-label={`${node.titre}`}
+                    >
+                      <span className="node-circle">
+                        {isDone ? <Check size={20} /> : <span>{node.id}</span>}
+                      </span>
+                      <span className="node-label">
+                        <b>{node.titre}</b>
+                        <small>{node.ref}</small>
+                        <div className="node-attributes-row">
+                          {node.subtile && <span className="attr-pill subtile">🔍 Subtile</span>}
+                          {node.tempsLimite && <span className="attr-pill timer">⏱️ {node.tempsLimite}s</span>}
+                          {node.coutVie && <span className="attr-pill lampe">🪔 Défi</span>}
+                        </div>
+                        {isDone && <span className="node-stars">★ ★ ★</span>}
+                        {node.id === currentStage.id && !isDone && <em>Étape en cours</em>}
+                      </span>
+                    </button>
                   );
                 })}
-              </svg>
 
-              {currentStages.map((node) => {
-                const isDone = completedStages.includes(node.id);
-                const isCurrent = !isDone;
-
-                return (
-                  <button
-                    key={node.id}
-                    className={`path-node ${isDone ? "done" : ""} ${node.id === currentStage.id ? "current" : ""} ${node.subtile ? "subtile-node" : ""}`}
-                    style={{ left: `${node.x}%`, top: `${node.y}%` }}
-                    onClick={() => startStage(node.id)}
-                    aria-label={`${node.titre}`}
-                  >
-                    <span className="node-circle">
-                      {isDone ? <Check size={20} /> : <span>{node.id}</span>}
-                    </span>
-                    <span className="node-label">
-                      <b>{node.titre}</b>
-                      <small>{node.ref}</small>
-                      <div className="node-attributes-row">
-                        {node.subtile && <span className="attr-pill subtile">🔍 Subtile</span>}
-                        {node.tempsLimite && <span className="attr-pill timer">⏱️ {node.tempsLimite}s</span>}
-                        {node.coutVie && <span className="attr-pill lampe">🪔 Défi</span>}
-                      </div>
-                      {isDone && <span className="node-stars">★ ★ ★</span>}
-                      {node.id === currentStage.id && !isDone && <em>Étape en cours</em>}
-                    </span>
-                  </button>
-                );
-              })}
-
-              <div className="path-caption">
-                <Sparkles size={16} />
-                <span>La Parole éclaire notre route, pas après pas.</span>
+                <div className="path-caption">
+                  <Sparkles size={16} />
+                  <span>La Parole éclaire notre route, pas après pas.</span>
+                </div>
               </div>
             </div>
 
+            {/* PANNEAU DE QUÊTE ÉPURÉ (ORIENTATION JEU VIDÉO & AVENTURE) */}
             <div className="below-path">
-              <div className="feature-card next-step">
-                <div className="round-icon"><BookOpen size={20} /></div>
-                <div>
-                  <div className="stage-meta-pills">
-                    <span className={`diff-pill diff-${currentStage.difficulte || "debutant"}`}>
-                      {currentStage.difficulte === "expert" ? "Expert & Subtil" : currentStage.difficulte === "avance" ? "Avancé" : currentStage.difficulte === "intermediaire" ? "Intermédiaire" : "Débutant"}
-                    </span>
-                    {currentStage.subtile && <span className="diff-pill subtile">🔍 Recherche biblique approfondie</span>}
-                    {currentStage.tempsLimite && <span className="diff-pill chrono">⏱️ Défi : {currentStage.tempsLimite}s</span>}
-                    {currentStage.coutVie && <span className="diff-pill cout-vie">🪔 Risque d'extinction de lampe</span>}
+              <div className="game-quest-panel">
+                <div className="quest-panel-header">
+                  <div className="quest-badge-tag">
+                    <Flame size={15} /> QUÊTE ACTUELLE · ÉTAPE {currentStage.id}
                   </div>
-                  <span className="eyebrow">ÉTAPE SÉLECTIONNÉE</span>
-                  <h3>{currentStage.titre}</h3>
-                  <p>{currentStage.ref} · {currentStage.consigne}</p>
+                  <div className="quest-rewards-badge">
+                    <span className="reward-item">+{currentStage.recompense?.xp || 25} XP</span>
+                    <span className="reward-item">💎 +{currentStage.recompense?.perles || 1}</span>
+                  </div>
                 </div>
-                <button className="primary-button" onClick={() => startStage(currentStage.id)}>
-                  Commencer l'étape <ChevronRight size={17} />
+
+                <div className="quest-panel-body">
+                  <h3 className="quest-stage-title">{currentStage.titre}</h3>
+                  <div className="quest-meta-chips">
+                    <span className="quest-chip ref-chip">📖 {currentStage.ref}</span>
+                    <span className={`diff-pill diff-${currentStage.difficulte || "debutant"}`}>
+                      {currentStage.difficulte === "expert" ? "Expert" : currentStage.difficulte === "avance" ? "Avancé" : currentStage.difficulte === "intermediaire" ? "Intermédiaire" : "Initié"}
+                    </span>
+                    {currentStage.tempsLimite && <span className="diff-pill chrono">⏱️ {currentStage.tempsLimite}s</span>}
+                    {currentStage.coutVie && <span className="diff-pill cout-vie">🪔 Défi de foi</span>}
+                  </div>
+                </div>
+
+                <button className="quest-launch-button" onClick={() => startStage(currentStage.id)}>
+                  <span>⚔️ Relever le Défi</span>
+                  <ChevronRight size={18} />
                 </button>
               </div>
 
-              <div className="treasure-card">
-                <span className="treasure-chest">🎁</span>
+              <div className="treasure-card game-treasure-card">
+                <span className="treasure-chest">💎</span>
                 <div>
-                  <b>Le coffre des perles</b>
-                  <p>Chaque étape accomplie dépose une perle de vie dans ton trésor.</p>
+                  <b>Coffre aux Trésors</b>
+                  <p>{pearls} perles spirituelles collectées</p>
                 </div>
                 <Sparkles size={18} />
               </div>

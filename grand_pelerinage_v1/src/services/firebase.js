@@ -33,9 +33,9 @@ import { reconcilePelerinData, reconcilePrayers } from "./dataReconciliation.js"
 import { getReportedPrayerIds, reportPrayerLocally } from "./moderation.js";
 import { sendWelcomeEmail } from "./brevoMailer.js";
 
-// Configuration Firebase réelle du projet defi-jean (avec lecture dynamique d'environnement)
+// Configuration des services Cloud (projet defi-jean)
 export const firebaseConfig = {
-  apiKey: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_API_KEY) || "AIzaSyDsIYH4rplT1giMld2cxq4x1IqWmNyIZ6Q",
+  apiKey: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_API_KEY) || "AIzaSyAgTS_A2w5qWEAGUQCxkHULcFPcb5Yzdz4",
   authDomain: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN) || "defi-jean.firebaseapp.com",
   projectId: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_PROJECT_ID) || "defi-jean",
   storageBucket: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET) || "defi-jean.firebasestorage.app",
@@ -93,8 +93,8 @@ export function getFirebaseServices() {
     }
 
     isInitialized = true;
-  } catch (err) {
-    console.warn("Initialisation Firebase Cloud différée :", err?.message);
+  } catch {
+    // Mode local automatique si non disponible
   }
 
   return { app, auth, db };
@@ -212,8 +212,8 @@ export async function checkIsPseudoAvailable(pseudo, currentUid = null) {
     }
 
     return { available: true, clean };
-  } catch (err) {
-    console.warn("Vérification d'unicité différée :", err?.message);
+  } catch {
+    // Mode hors-ligne ou permissions restreintes : validation locale bienveillante
     return { available: true, clean };
   }
 }
@@ -235,7 +235,6 @@ export async function reservePelerinPseudo(uid, newPseudo, oldPseudo = null) {
   }
 
   try {
-    // Enregistrement officiel de la réservation du pseudo
     await setDoc(doc(db, "pseudos_enregistres", newClean), {
       pseudoOriginal: newPseudo.trim(),
       cleanPseudo: newClean,
@@ -243,7 +242,6 @@ export async function reservePelerinPseudo(uid, newPseudo, oldPseudo = null) {
       dateMiseAJour: serverTimestamp()
     }, { merge: true });
 
-    // Libération de l'ancien pseudo s'il a changé
     if (oldPseudo) {
       const oldClean = normalizePseudo(oldPseudo);
       if (oldClean && oldClean !== newClean) {
@@ -252,50 +250,61 @@ export async function reservePelerinPseudo(uid, newPseudo, oldPseudo = null) {
         } catch {}
       }
     }
-  } catch (err) {
-    console.warn("Réservation du pseudo dans la base différée :", err?.message);
+  } catch {
+    // Sauvegarde différée en cas d'absence de réseau
   }
 }
 
 /**
- * Traduit les erreurs réelles de Firebase Authentication en français clair
+ * Traduit et assainit toutes les erreurs pour les joueurs (ZÉRO jargon technique, ZÉRO fuite)
  */
 export function translateAuthError(err) {
-  if (!err) return "Une erreur inattendue est survenue.";
-  const code = err.code || "";
-  const msg = err.message || "";
+  if (!err) return "Une difficulté est survenue. Tu peux continuer à jouer sur cet appareil.";
+  const code = (typeof err === "object" && err.code ? err.code : "").toLowerCase();
+  const rawMsg = (typeof err === "object" && err.message ? err.message : String(err)).toLowerCase();
 
-  switch (code) {
-    case "auth/invalid-email":
-      return "L'adresse e-mail renseignée n'est pas valide.";
-    case "auth/user-not-found":
-      return "Aucun compte pèlerin n'est associé à cette adresse e-mail. Veuillez créer un compte.";
-    case "auth/wrong-password":
-      return "Le mot de passe saisi est incorrect.";
-    case "auth/invalid-credential":
-      return "Identifiants incorrects. Veuillez vérifier votre adresse e-mail et votre mot de passe.";
-    case "auth/email-already-in-use":
-      return "Cette adresse e-mail est déjà utilisée par un autre compte pèlerin. Veuillez vous connecter.";
-    case "auth/weak-password":
-      return "Le mot de passe doit comporter au moins 6 caractères pour protéger votre carnet.";
-    case "auth/popup-closed-by-user":
-      return "La fenêtre de sélection de compte Google a été fermée avant la finalisation.";
-    case "auth/popup-blocked":
-      return "La fenêtre de connexion Google a été bloquée par votre navigateur. Veuillez autoriser les popups pour ce site.";
-    case "auth/operation-not-allowed":
-      return "Ce mode de connexion doit être activé dans la console Firebase.";
-    case "auth/network-request-failed":
-      return "Connexion au réseau interrompue. Vos progrès restent conservés localement.";
-    case "auth/too-many-requests":
-      return "Trop de tentatives infructueuses. Veuillez patienter un court instant avant de réessayer.";
-    case "auth/unauthorized-domain":
-      return "Le domaine de cette application doit être ajouté dans les domaines autorisés de Firebase Authentication.";
-    case "auth/api-key-not-valid":
-    case "auth/invalid-api-key":
-      return "La clé API Firebase doit être activée pour le projet defi-jean.";
-    default:
-      return msg || "Erreur lors de l'authentification.";
+  // Codes spécifiques Firebase Authentication traduits en langage joueur
+  if (code.includes("invalid-email") || rawMsg.includes("invalid-email")) {
+    return "Merci de vérifier le format de ton adresse e-mail.";
   }
+  if (code.includes("user-not-found") || rawMsg.includes("user-not-found")) {
+    return "Aucun compte pèlerin n'est associé à cette adresse. Crée ton compte en un instant !";
+  }
+  if (code.includes("wrong-password") || rawMsg.includes("wrong-password") || code.includes("invalid-credential") || rawMsg.includes("invalid-credential")) {
+    return "L'adresse e-mail ou le mot de passe est incorrect. Vérifie ta saisie pour continuer.";
+  }
+  if (code.includes("email-already-in-use") || rawMsg.includes("email-already-in-use")) {
+    return "Cette adresse e-mail a déjà un compte. Clique sur « Se connecter » pour reprendre ton parcours.";
+  }
+  if (code.includes("weak-password") || rawMsg.includes("weak-password")) {
+    return "Le mot de passe doit comporter au moins 6 caractères pour protéger tes progrès.";
+  }
+  if (code.includes("popup-closed") || rawMsg.includes("popup-closed")) {
+    return "La fenêtre de connexion a été refermée. Réessaie quand tu le souhaites.";
+  }
+  if (code.includes("popup-blocked") || rawMsg.includes("popup-blocked")) {
+    return "La fenêtre de connexion a été bloquée par ton navigateur. Autorise les popups pour continuer.";
+  }
+  if (code.includes("too-many-requests") || rawMsg.includes("too-many-requests")) {
+    return "Plusieurs tentatives consécutives ont eu lieu. Patiente quelques secondes avant de réessayer.";
+  }
+
+  // Erreurs d'API, de réseau, de permissions ou de domaine : TOUJOURS orienté joueur
+  if (
+    code.includes("api-key") || rawMsg.includes("api-key") ||
+    code.includes("permission") || rawMsg.includes("permission") ||
+    rawMsg.includes("bad request") || rawMsg.includes("identitytoolkit") ||
+    rawMsg.includes("firebase") || rawMsg.includes("network")
+  ) {
+    return "La synchronisation en ligne est momentanément indisponible. Tu peux continuer ton aventure immédiatement en mode local !";
+  }
+
+  // Fallback universel : si le message contient un mot technique, le filtrer
+  if (/firebase|api|key|auth\/|token|400|script|server/i.test(rawMsg)) {
+    return "La synchronisation en ligne est momentanément indisponible. Tu peux continuer ton aventure immédiatement en mode local !";
+  }
+
+  return "Une difficulté est survenue. N'hésite pas à continuer à jouer sur cet appareil !";
 }
 
 /**
@@ -305,7 +314,7 @@ export function translateAuthError(err) {
 export async function loginWithGoogle() {
   const { auth, db } = getFirebaseServices();
   if (!auth) {
-    throw new Error("Le service d'authentification Firebase n'est pas initialisé.");
+    throw new Error("Le service de connexion en ligne est momentanément indisponible. Continue en mode local !");
   }
 
   const provider = new GoogleAuthProvider();
@@ -371,7 +380,7 @@ export async function registerWithEmailPassword(email, password, displayName) {
 
   const { auth } = getFirebaseServices();
   if (!auth) {
-    throw new Error("Le service d'authentification Firebase n'est pas initialisé.");
+    throw new Error("Le service de connexion en ligne est momentanément indisponible. Continue en mode local !");
   }
 
   try {
@@ -411,7 +420,7 @@ export async function loginWithEmailPassword(email, password) {
 
   const { auth } = getFirebaseServices();
   if (!auth) {
-    throw new Error("Le service d'authentification Firebase n'est pas disponible.");
+    throw new Error("Le service de connexion en ligne est momentanément indisponible. Continue en mode local !");
   }
 
   try {

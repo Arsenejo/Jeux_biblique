@@ -8,7 +8,8 @@ import {
   loginWithEmailPassword,
   registerWithEmailPassword,
   sendPelerinPasswordReset,
-  checkIsPseudoAvailable
+  checkIsPseudoAvailable,
+  translateAuthError
 } from "../services/firebase";
 
 /**
@@ -43,8 +44,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
         onClose();
       }
     } catch (err) {
-      // Affiche l'erreur réelle sans AUCUNE simulation factice
-      setError(err?.message || "La connexion Google a été annulée ou n'a pas pu aboutir.");
+      setError(translateAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -108,7 +108,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
         setSuccessMsg("Un courriel de réinitialisation vous a été envoyé. Vérifiez votre boîte de réception.");
       }
     } catch (err) {
-      setError(err?.message || "Une difficulté est survenue lors de l'authentification.");
+      setError(translateAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -144,9 +144,21 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
           </h2>
           <p className="auth-subtitle">
             {mode === "login" && "Connecte-toi pour continuer ton pèlerinage là où tu t'étais arrêté."}
-            {mode === "register" && "Sauvegarde pour toujours ton parcours, tes lampes et tes versets mémorisés."}
+            {mode === "register" && "Sauvegarde ton parcours, tes lampes et tes versets mémorisés."}
             {mode === "forgot" && "Saisis ton e-mail pour recevoir un lien d'accès sécurisé."}
           </p>
+        </div>
+
+        {/* ACCÈS DIRECT JEU SANS COMPTE (ZÉRO BLOCAGE POUR LE JOUEUR) */}
+        <div className="guest-quick-play-bar">
+          <button
+            type="button"
+            className="guest-play-button"
+            onClick={onClose}
+            title="Jouer immédiatement sur cet appareil sans créer de compte"
+          >
+            🎮 Continuer sans compte (Mode Immédiat)
+          </button>
         </div>
 
         {/* BOUTON GOOGLE ONE-CLICK */}
@@ -188,11 +200,20 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
           </>
         )}
 
-        {/* ALERTE D'ERREUR ADOUCIE ET BIENVEILLANTE (CAMOUFLAGE DES LOGS TECHNIQUES) */}
+        {/* ALERTE D'ERREUR BIENVEILLANTE SANS AUCUN TERME TECHNIQUE */}
         {error && (
           <div className="auth-alert-box error" role="alert">
-            <AlertCircle size={17} className="alert-icon" />
-            <span>{error}</span>
+            <div className="auth-alert-row">
+              <AlertCircle size={17} className="alert-icon" />
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              className="auth-play-fallback-link"
+              onClick={onClose}
+            >
+              Jouer directement sur cet appareil ➔
+            </button>
           </div>
         )}
 

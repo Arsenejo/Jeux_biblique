@@ -1,8 +1,9 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { terminate } from "firebase/firestore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,7 +14,8 @@ import {
   normalizePseudo,
   checkIsPseudoAvailable,
   reservePelerinPseudo,
-  isFirebaseCloudActive
+  isFirebaseCloudActive,
+  getFirebaseServices
 } from "../src/services/firebase.js";
 import {
   isBrevoConfigured,
@@ -23,41 +25,48 @@ import {
 } from "../src/services/brevoMailer.js";
 import { reconcilePelerinData } from "../src/services/dataReconciliation.js";
 
+after(async () => {
+  try {
+    const { db } = getFirebaseServices();
+    if (db) await terminate(db);
+  } catch {}
+});
+
 // =========================================================================
 // 1. TESTS D'AUTHENTIFICATION, TRADUCTION DES ERREURS & ZÉRO SIMULATION
 // =========================================================================
-test("Auth: Traduction claire des erreurs Firebase réelles en français", () => {
+test("Auth: Traduction claire des erreurs en français sans jargon technique", () => {
   assert.equal(
     translateAuthError({ code: "auth/invalid-email" }),
-    "L'adresse e-mail renseignée n'est pas valide."
+    "Merci de vérifier le format de ton adresse e-mail."
   );
   assert.equal(
     translateAuthError({ code: "auth/user-not-found" }),
-    "Aucun compte pèlerin n'est associé à cette adresse e-mail. Veuillez créer un compte."
+    "Aucun compte pèlerin n'est associé à cette adresse. Crée ton compte en un instant !"
   );
   assert.equal(
     translateAuthError({ code: "auth/wrong-password" }),
-    "Le mot de passe saisi est incorrect."
+    "L'adresse e-mail ou le mot de passe est incorrect. Vérifie ta saisie pour continuer."
   );
   assert.equal(
     translateAuthError({ code: "auth/invalid-credential" }),
-    "Identifiants incorrects. Veuillez vérifier votre adresse e-mail et votre mot de passe."
+    "L'adresse e-mail ou le mot de passe est incorrect. Vérifie ta saisie pour continuer."
   );
   assert.equal(
     translateAuthError({ code: "auth/email-already-in-use" }),
-    "Cette adresse e-mail est déjà utilisée par un autre compte pèlerin. Veuillez vous connecter."
+    "Cette adresse e-mail a déjà un compte. Clique sur « Se connecter » pour reprendre ton parcours."
   );
   assert.equal(
     translateAuthError({ code: "auth/weak-password" }),
-    "Le mot de passe doit comporter au moins 6 caractères pour protéger votre carnet."
+    "Le mot de passe doit comporter au moins 6 caractères pour protéger tes progrès."
   );
   assert.equal(
     translateAuthError({ code: "auth/popup-closed-by-user" }),
-    "La fenêtre de sélection de compte Google a été fermée avant la finalisation."
+    "La fenêtre de connexion a été refermée. Réessaie quand tu le souhaites."
   );
   assert.equal(
     translateAuthError({ code: "auth/api-key-not-valid" }),
-    "La clé API Firebase doit être activée pour le projet defi-jean."
+    "La synchronisation en ligne est momentanément indisponible. Tu peux continuer ton aventure immédiatement en mode local !"
   );
 });
 
