@@ -17,7 +17,7 @@ import {
  * Connexion officielle Google (sélecteur de compte réel) & Email avec unicité stricte des comptes et pseudonymes.
  * Mention officielle de paternité de l'Église Évangélique Assemblée de la Grâce (Issia, Côte d'Ivoire).
  */
-export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
+export function AuthModal({ isOpen, onClose, onAuthSuccess, onPlayAsGuest, notify }) {
   const [mode, setMode] = useState("login"); // "login" | "register" | "forgot"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -154,7 +154,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
           <button
             type="button"
             className="guest-play-button"
-            onClick={onClose}
+            onClick={onPlayAsGuest || onClose}
             title="Jouer immédiatement sur cet appareil sans créer de compte"
           >
             🎮 Continuer sans compte (Mode Immédiat)
@@ -210,7 +210,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, notify }) {
             <button
               type="button"
               className="auth-play-fallback-link"
-              onClick={onClose}
+              onClick={onPlayAsGuest || onClose}
             >
               Jouer directement sur cet appareil ➔
             </button>

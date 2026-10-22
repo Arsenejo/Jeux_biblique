@@ -68,6 +68,14 @@ test("Auth: Traduction claire des erreurs en français sans jargon technique", (
     translateAuthError({ code: "auth/api-key-not-valid" }),
     "La synchronisation en ligne est momentanément indisponible. Tu peux continuer ton aventure immédiatement en mode local !"
   );
+  assert.equal(
+    translateAuthError({ code: "auth/unauthorized-domain" }),
+    "Le domaine web de l'application n'est pas encore autorisé dans Firebase. Tu peux continuer à jouer sur cet appareil !"
+  );
+  assert.equal(
+    translateAuthError({ code: "auth/operation-not-allowed" }),
+    "Ce mode de connexion doit être activé dans la console Firebase. Tu peux continuer à jouer sur cet appareil !"
+  );
 });
 
 // =========================================================================

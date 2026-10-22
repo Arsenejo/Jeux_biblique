@@ -1127,6 +1127,14 @@ function App() {
           <AuthModal
             isOpen={authModalOpen}
             onClose={() => setAuthModalOpen(false)}
+            onPlayAsGuest={() => {
+              try {
+                localStorage.setItem("pelerinage_welcomed", "true");
+              } catch {}
+              setHasSeenLanding(true);
+              setAuthModalOpen(false);
+              notify("Bienvenue sur le sentier, cher ami pèlerin 🌿");
+            }}
             onAuthSuccess={async (u) => {
               await handleAuthSuccess(u);
               try {

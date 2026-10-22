@@ -291,8 +291,19 @@ export function translateAuthError(err) {
 
   // Erreurs d'API, de réseau, de permissions ou de domaine : TOUJOURS orienté joueur
   if (
+    code.includes("unauthorized-domain") || rawMsg.includes("unauthorized-domain")
+  ) {
+    return "Le domaine web de l'application n'est pas encore autorisé dans Firebase. Tu peux continuer à jouer sur cet appareil !";
+  }
+  if (
+    code.includes("operation-not-allowed") || rawMsg.includes("operation-not-allowed")
+  ) {
+    return "Ce mode de connexion doit être activé dans la console Firebase. Tu peux continuer à jouer sur cet appareil !";
+  }
+  if (
     code.includes("api-key") || rawMsg.includes("api-key") ||
     code.includes("permission") || rawMsg.includes("permission") ||
+    code.includes("internal-error") || rawMsg.includes("internal-error") ||
     rawMsg.includes("bad request") || rawMsg.includes("identitytoolkit") ||
     rawMsg.includes("firebase") || rawMsg.includes("network")
   ) {
