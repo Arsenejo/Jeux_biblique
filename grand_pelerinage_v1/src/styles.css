@@ -5088,8 +5088,711 @@ body.night-mode .church-profile-description {
   color: #cbd5e1;
 }
 
+/* =========================================================================
+   PACK D'ÉLÉVATION : LIGUES CÉLESTES, COLOMBE, BOUTIQUE DE GRÂCE & EXERCICES
+   ========================================================================= */
 
+/* --- 1. BANNIÈRE DE LIGUE CÉLESTE --- */
+.celestial-league-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.95));
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 16px 20px;
+  margin-top: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  transition: all 0.25s ease;
+}
 
+body.night-mode .celestial-league-card {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
 
+.league-card-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+}
 
+.league-badge-icon {
+  font-size: 28px;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
 
+.league-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.league-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.league-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  opacity: 0.6;
+  text-transform: uppercase;
+}
+
+.league-name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.league-perk {
+  margin: 0 0 8px;
+  font-size: 12px;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.league-progress-track {
+  height: 7px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+body.night-mode .league-progress-track {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.league-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease-out;
+}
+
+.league-xp-status {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.league-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.elevation-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.blessing-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+}
+
+.blessing-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+}
+
+.shop-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: inherit;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.night-mode .shop-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.shop-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* --- 2. COLOMBE DE LA PAIX 🕊️ MASCOTTE --- */
+.dove-mascot-container {
+  position: relative;
+  margin-top: 12px;
+}
+
+.dove-mascot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
+}
+
+body.night-mode .dove-mascot-btn {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dove-mascot-btn:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+}
+
+.dove-mascot-avatar {
+  font-size: 18px;
+}
+
+.dove-speech-bubble {
+  margin-top: 10px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  border: 1.5px solid #bfdbfe;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+  animation: pop 0.25s ease-out;
+  cursor: pointer;
+}
+
+body.night-mode .dove-speech-bubble {
+  background: linear-gradient(135deg, #1e293b 0%, #064e3b 100%);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.dove-bubble-text {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
+body.night-mode .dove-bubble-text {
+  color: #e0f2fe;
+}
+
+.dove-bubble-tip {
+  display: block;
+  font-size: 11px;
+  opacity: 0.65;
+  font-style: italic;
+}
+
+/* --- 3. FORMAT PAIRES BIBLIQUES --- */
+.pairs-container {
+  margin-top: 14px;
+}
+
+.pairs-header-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.pairs-counter {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+body.night-mode .pairs-counter {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+
+.pairs-columns-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pairs-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pair-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 60px;
+  box-sizing: border-box;
+}
+
+body.night-mode .pair-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.pair-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.pair-card.selected {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+  transform: scale(1.02);
+}
+
+body.night-mode .pair-card.selected {
+  background: #451a03;
+  border-color: #f59e0b;
+}
+
+.pair-card.matched {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+  opacity: 0.85;
+  cursor: default;
+}
+
+body.night-mode .pair-card.matched {
+  background: #064e3b;
+  border-color: #10b981;
+  color: #a7f3d0;
+}
+
+.pair-bullet {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+body.night-mode .pair-bullet {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pair-card.matched .pair-bullet {
+  background: #10b981;
+  color: #fff;
+}
+
+.pair-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+/* --- 4. FORMAT VRAI / FAUX CHRONO --- */
+.tf-container {
+  margin-top: 14px;
+}
+
+.tf-statement-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.95));
+  border: 1.5px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 22px 20px;
+  text-align: center;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+body.night-mode .tf-statement-card {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-color: #334155;
+}
+
+.tf-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.12);
+  padding: 4px 12px;
+  border-radius: 99px;
+  margin-bottom: 12px;
+}
+
+.tf-text {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.tf-buttons-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tf-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 22px 16px;
+  border-radius: 18px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.22s ease;
+}
+
+.tf-true {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+body.night-mode .tf-true {
+  background: #052e16;
+  border-color: #15803d;
+  color: #86efac;
+}
+
+.tf-true.active {
+  background: #22c55e;
+  border-color: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.35);
+  transform: scale(1.03);
+}
+
+.tf-false {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+body.night-mode .tf-false {
+  background: #450a0a;
+  border-color: #b91c1c;
+  color: #fca5a5;
+}
+
+.tf-false.active {
+  background: #ef4444;
+  border-color: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35);
+  transform: scale(1.03);
+}
+
+.tf-icon {
+  font-size: 32px;
+}
+
+.tf-label {
+  letter-spacing: 1px;
+}
+
+/* --- 5. FORMAT QUI A DIT ? --- */
+.whosaid-container {
+  margin-top: 14px;
+}
+
+.whosaid-quote-card {
+  position: relative;
+  background: linear-gradient(135deg, #fdfbf7 0%, #fef3c7 100%);
+  border: 1.5px solid #fde68a;
+  border-radius: 18px;
+  padding: 24px 22px;
+  text-align: center;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.08);
+}
+
+body.night-mode .whosaid-quote-card {
+  background: linear-gradient(135deg, #1e1b4b, #312e81);
+  border-color: #4338ca;
+}
+
+.quote-ornament {
+  font-size: 54px;
+  line-height: 1;
+  color: #d97706;
+  opacity: 0.3;
+  display: block;
+  margin-bottom: -15px;
+}
+
+.whosaid-quote-text {
+  margin: 0 0 10px;
+  font-size: 17.5px;
+  font-weight: 600;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.whosaid-instruction {
+  font-size: 12.5px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.whosaid-speakers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.whosaid-speaker-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+body.night-mode .whosaid-speaker-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.whosaid-speaker-card:hover:not(:disabled) {
+  border-color: #f59e0b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.whosaid-speaker-card.selected {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+  transform: scale(1.02);
+}
+
+body.night-mode .whosaid-speaker-card.selected {
+  background: #451a03;
+  border-color: #f59e0b;
+}
+
+.speaker-avatar {
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.04);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+body.night-mode .speaker-avatar {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.speaker-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.speaker-name {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.speaker-role {
+  display: block;
+  font-size: 11.5px;
+  opacity: 0.7;
+  line-height: 1.35;
+}
+
+.speaker-check {
+  color: #f59e0b;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* --- 6. BOUTIQUE DE GRÂCE MODAL --- */
+.grace-shop-modal {
+  max-width: 520px;
+}
+
+.grace-shop-body {
+  padding: 16px 20px;
+}
+
+.shop-balance-banner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(217, 119, 6, 0.08));
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.shop-balance-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shop-balance-item .balance-icon {
+  font-size: 26px;
+}
+
+.shop-balance-item small {
+  display: block;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.shop-balance-item b {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.shop-offers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shop-offer-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  transition: all 0.2s;
+}
+
+body.night-mode .shop-offer-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.shop-offer-card:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.offer-icon {
+  font-size: 28px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #ffffff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+body.night-mode .offer-icon {
+  background: #1e293b;
+}
+
+.offer-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.offer-details h4 {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.offer-details p {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.7;
+  line-height: 1.4;
+}
+
+.shop-buy-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* --- 7. RESPONSIVE ADAPTATIONS --- */
+@media (max-width: 640px) {
+  .celestial-league-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .league-actions {
+    flex-direction: row;
+  }
+  .league-actions .elevation-btn {
+    flex: 1;
+  }
+  .pairs-columns-grid {
+    grid-template-columns: 1fr;
+  }
+  .whosaid-speakers-grid {
+    grid-template-columns: 1fr;
+  }
+}

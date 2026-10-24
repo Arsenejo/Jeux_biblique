@@ -6,13 +6,14 @@ import {
   Lightbulb, Users, Leaf, MapPinned, BookMarked, Send, MessageCircleHeart,
   Award, ShieldCheck, Smile, Moon, Sun, Search, Flag, LogIn, LogOut, Globe,
   AlertCircle, MailCheck, RefreshCw, Timer, Clock, UserPlus, Info, AlertTriangle,
-  Shuffle, Wifi, WifiOff, Download, Smartphone
+  Shuffle, Wifi, WifiOff, Download, Smartphone, X
 } from "lucide-react";
 
 import "./styles.css";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { AuthModal } from "./components/AuthModal";
 import InviteShareModal from "./components/InviteShareModal";
+import BlessingShareModal from "./components/BlessingShareModal";
 import WelcomeLanding from "./components/WelcomeLanding";
 import {
   initPelerinAuth,
@@ -40,13 +41,27 @@ import {
   BIBLE_CHAPTERS,
   BIBLE_EPOCHS,
   EPOCH_STAGES,
+  BONUS_STAGES,
   PATH_STAGES,
   THEMATIC_VERSES,
   FRATERNAL_BLESSINGS,
   INITIAL_COMMUNITY_PRAYERS,
-  LEITNER_BOXES
+  LEITNER_BOXES,
+  CELESTIAL_LEAGUES,
+  getCurrentLeague,
+  DOVE_BLESSINGS
 } from "./data/bibleData";
-import { playSpeech, stopSpeech, triggerHaptic, playDivineChime, playPeaceTone } from "./services/audioSpeech";
+import {
+  playSpeech,
+  stopSpeech,
+  triggerHaptic,
+  playDivineChime,
+  playPeaceTone,
+  playPairSuccessChime,
+  playLeagueFanfare,
+  playLampRestoreSound,
+  playErrorGentleTone
+} from "./services/audioSpeech";
 
 // Utilitaire de mélange aléatoire pour renouveler les questions et susciter le suspense
 function shuffleArray(arr) {
@@ -193,6 +208,23 @@ function App() {
   const [leitnerModalOpen, setLeitnerModalOpen] = useState(false);
   const [leitnerReviewIndex, setLeitnerReviewIndex] = useState(0);
   const [leitnerCardRevealed, setLeitnerCardRevealed] = useState(false);
+
+  // Exercices d'Élévation : Paires, Vrai/Faux, Qui a dit ?
+  const [pairsSelected, setPairsSelected] = useState([]);
+  const [pairsMatched, setPairsMatched] = useState([]);
+  const [tfAnswer, setTfAnswer] = useState(null);
+  const [whosaidSelected, setWhosaidSelected] = useState(null);
+  const [shuffledWhosaidSpeakers, setShuffledWhosaidSpeakers] = useState([]);
+  const [shuffledPairsRight, setShuffledPairsRight] = useState([]);
+
+  // Bénédiction WhatsApp & Boutique de Grâce
+  const [blessingModalOpen, setBlessingModalOpen] = useState(false);
+  const [graceShopModalOpen, setGraceShopModalOpen] = useState(false);
+
+  // Colombe de la Paix 🕊️ Mascotte
+  const [doveVisible, setDoveVisible] = useState(false);
+  const [doveMessage, setDoveMessage] = useState("");
+  const doveTimeoutRef = useRef(null);
 
   const leitnerCards = useMemo(() => {
     const cards = saved.leitnerCards;
@@ -673,10 +705,31 @@ function App() {
     triggerHaptic([30, 30]);
   };
 
-  // Logique de validation d'un atelier d'étape
-  const currentStage = currentStages.find((s) => s.id === activeStageId) || currentStages[0];
+  // Liste globale de toutes les étapes (72 étapes de base + 9 étapes bonus d'élévation)
+  const allKnownStages = useMemo(() => {
+    const list = Object.values(EPOCH_STAGES).flat();
+    return [...list, ...BONUS_STAGES];
+  }, []);
 
-  // Préparation du contenu aléatoire (Banque de mots, options QCM, options Cloze mélangées)
+  // Logique de validation d'un atelier d'étape
+  const currentStage = allKnownStages.find((s) => s.id === activeStageId) || currentStages[0];
+
+  // Affichage de la Colombe de la Paix 🕊️ avec message bienveillant
+  const showDove = useCallback((customMsg = null, category = "success") => {
+    let msg = customMsg;
+    if (!msg) {
+      const pool = DOVE_BLESSINGS[category] || DOVE_BLESSINGS.success;
+      msg = pool[Math.floor(Math.random() * pool.length)];
+    }
+    setDoveMessage(msg);
+    setDoveVisible(true);
+    if (doveTimeoutRef.current) clearTimeout(doveTimeoutRef.current);
+    doveTimeoutRef.current = setTimeout(() => {
+      setDoveVisible(false);
+    }, 6000);
+  }, []);
+
+  // Préparation du contenu aléatoire (Banque de mots, options QCM, Cloze, Paires, Qui a dit)
   const setupRandomExerciseContent = useCallback((stageObj) => {
     if (!stageObj) return;
     if (stageObj.type === "order" && Array.isArray(stageObj.motsBanque)) {
@@ -688,11 +741,58 @@ function App() {
     if (stageObj.type === "cloze" && Array.isArray(stageObj.options)) {
       setShuffledClozeOptions(shuffleArray(stageObj.options));
     }
+    if (stageObj.type === "pairs" && Array.isArray(stageObj.pairs)) {
+      setPairsSelected([]);
+      setPairsMatched([]);
+      const rightItems = stageObj.pairs.map((p, idx) => ({ text: p.right, origIndex: idx }));
+      setShuffledPairsRight(shuffleArray(rightItems));
+    }
+    if (stageObj.type === "truefalse") {
+      setTfAnswer(null);
+    }
+    if (stageObj.type === "whosaid") {
+      setWhosaidSelected(null);
+      if (Array.isArray(stageObj.speakers)) {
+        setShuffledWhosaidSpeakers(shuffleArray(stageObj.speakers));
+      }
+    }
   }, []);
 
   useEffect(() => {
     setupRandomExerciseContent(currentStage);
   }, [activeStageId, selectedEpochId, setupRandomExerciseContent]);
+
+  // Gestion de la sélection interactive des Paires bibliques
+  const handlePairCardClick = (origIndex, side) => {
+    if (exerciseFeedback || pairsMatched.includes(origIndex)) return;
+
+    setPairsSelected((prev) => {
+      const existingSameSide = prev.find((p) => p.side === side);
+      const otherSide = prev.find((p) => p.side !== side);
+
+      if (!otherSide) {
+        // Premier choix ou changement de choix sur le même côté
+        if (existingSameSide && existingSameSide.origIndex === origIndex) {
+          return []; // Désélectionner
+        }
+        return [{ origIndex, side }];
+      }
+
+      // On a déjà un élément de l'autre côté !
+      if (otherSide.origIndex === origIndex) {
+        // MATCH PARFAIT !
+        playPairSuccessChime();
+        triggerHaptic([10, 40, 10]);
+        setPairsMatched((pm) => [...pm, origIndex]);
+        return [];
+      } else {
+        // Discordance douce
+        playErrorGentleTone();
+        triggerHaptic([30, 20]);
+        return [{ origIndex, side }];
+      }
+    });
+  };
 
   const validateExercise = () => {
     let isSuccess = false;
@@ -717,6 +817,25 @@ function App() {
         return;
       }
       isSuccess = selectedCloze === currentStage.motCorrect;
+    } else if (currentStage.type === "pairs") {
+      const totalPairs = (currentStage.pairs || []).length;
+      if (pairsMatched.length < totalPairs) {
+        setExerciseFeedback("Relie toutes les paires pour valider l'étape 🌿");
+        return;
+      }
+      isSuccess = true;
+    } else if (currentStage.type === "truefalse") {
+      if (tfAnswer === null) {
+        setExerciseFeedback("Choisis Vrai ou Faux pour continuer 🌿");
+        return;
+      }
+      isSuccess = (tfAnswer === currentStage.isTrue);
+    } else if (currentStage.type === "whosaid") {
+      if (!whosaidSelected) {
+        setExerciseFeedback("Qui a dit cette parole ? Choisis une personne 🌿");
+        return;
+      }
+      isSuccess = (whosaidSelected === currentStage.correctSpeaker);
     }
 
     if (isSuccess) {
@@ -725,6 +844,18 @@ function App() {
       triggerHaptic([20, 60, 20]);
       setConfettiActive(true);
       setExerciseFeedback("Bravo ! Ton cœur accueille la Parole avec joie ✨");
+
+      // Vérification promotion de Ligue Céleste
+      const prevLeague = getCurrentLeague(saved.xp || 0).league;
+      const nextXp = (saved.xp || 0) + (currentStage.recompense?.xp || 20);
+      const newLeague = getCurrentLeague(nextXp).league;
+
+      if (newLeague.id !== prevLeague.id) {
+        playLeagueFanfare();
+        showDove(`🎉 Gloire à Dieu ! Tu accèdes à la Ligue ${newLeague.nom} ${newLeague.icon} ! Continue d'honorer la Parole céleste ✨`, "leagueUp");
+      } else {
+        showDove(null, "success");
+      }
 
       // Mise à jour de la progression et enracinement dans le Jardin de la Mémoire
       const nextCompleted = Array.from(new Set([...completedStages, currentStage.id]));
@@ -740,10 +871,10 @@ function App() {
           [currentStage.ref]: {
             ref: currentStage.ref,
             titre: currentStage.titre,
-            texte: currentStage.motsCorrects ? currentStage.motsCorrects.join(" ") : currentStage.titre,
+            texte: currentStage.motsCorrects ? currentStage.motsCorrects.join(" ") : (currentStage.quote || currentStage.titre),
             box: nextBox,
             stageId: currentStage.id,
-            epochId: selectedEpochId,
+            epochId: currentStage.epoch || selectedEpochId,
             lastReviewed: Date.now(),
             nextReview
           }
@@ -752,14 +883,26 @@ function App() {
         return {
           ...prev,
           completedStages: nextCompleted,
-          xp: (prev.xp || 0) + (currentStage.recompense?.xp || 20),
+          xp: nextXp,
           pearls: (prev.pearls || 0) + (currentStage.recompense?.perles || 1),
           leitnerCards: updatedCards
         };
       });
     } else {
       triggerHaptic([40, 20]);
-      if (currentStage.coutVie) {
+      playErrorGentleTone();
+
+      // Retour pédagogique spécifique pour Vrai/Faux
+      if (currentStage.type === "truefalse") {
+        const feedbackDetail = tfAnswer ? currentStage.explicationVrai : currentStage.explicationFaux;
+        if (feedbackDetail) {
+          setExerciseFeedback(`Pas tout à fait. ${feedbackDetail} 🌿`);
+        } else {
+          setExerciseFeedback("Ce n'est pas tout à fait cela. Médite l'indice et réessaie 🌿");
+        }
+      } else if (currentStage.type === "whosaid") {
+        setExerciseFeedback(`Ce n'était pas ${whosaidSelected}. Relis bien la citation et laisse parler l'Esprit 🌿`);
+      } else if (currentStage.coutVie) {
         setLampes((prev) => {
           const nextLampes = Math.max(0, prev - 1);
           if (nextLampes === 0) {
@@ -786,6 +929,13 @@ function App() {
     setDragOverBank(false);
     setTouchGhost(null);
     touchStateRef.current = { item: null };
+
+    // Réinitialisation des formats d'élévation
+    setPairsSelected([]);
+    setPairsMatched([]);
+    setTfAnswer(null);
+    setWhosaidSelected(null);
+
     setupRandomExerciseContent(targetStage);
 
     // RÉARMEMENT DU DÉCOMPTE DU TEMPS : Le chrono redémarre instantanément
@@ -981,7 +1131,10 @@ function App() {
       return;
     }
     setActiveStageId(stageId);
-    const stageObj = currentStages.find((s) => s.id === stageId) || currentStages[0];
+    const stageObj = allKnownStages.find((s) => s.id === stageId) || currentStages[0];
+    if (stageObj && stageObj.epoch && stageObj.epoch !== selectedEpochId) {
+      setSelectedEpochId(stageObj.epoch);
+    }
     resetStageExercise(stageObj);
     setTab("Exercice");
   };
@@ -990,8 +1143,7 @@ function App() {
     const curIdx = currentStages.findIndex((s) => s.id === activeStageId);
     if (curIdx >= 0 && curIdx < currentStages.length - 1) {
       const nextStageObj = currentStages[curIdx + 1];
-      setActiveStageId(nextStageObj.id);
-      resetStageExercise(nextStageObj);
+      startStage(nextStageObj.id);
     } else {
       setTimeLeft(null);
       setTimerRunning(false);
@@ -1000,18 +1152,21 @@ function App() {
     }
   };
 
-  // Défi Providenciel : Sélectionne une étape surprise au hasard parmi les 72 étapes
+  // Défi Providenciel : Sélectionne une étape surprise au hasard parmi les 81 étapes (base + bonus)
   const handleRandomStageSurprise = () => {
-    const allStages = Object.entries(EPOCH_STAGES).flatMap(([epochId, stages]) =>
+    const allEpochStages = Object.entries(EPOCH_STAGES).flatMap(([epochId, stages]) =>
       stages.map((st) => ({ ...st, epochId }))
     );
+    const bonusStagesWithEpoch = BONUS_STAGES.map((b) => ({ ...b, epochId: b.epoch }));
+    const allStages = [...allEpochStages, ...bonusStagesWithEpoch];
+
     // Priorité aux étapes non encore franchies
     const uncompleted = allStages.filter((s) => !completedStages.includes(s.id));
     const pool = uncompleted.length > 0 ? uncompleted : allStages;
     const picked = pool[Math.floor(Math.random() * pool.length)];
 
     if (picked) {
-      setSelectedEpochId(picked.epochId);
+      if (picked.epochId) setSelectedEpochId(picked.epochId);
       startStage(picked.id);
       playPeaceTone();
       triggerHaptic([20, 40]);
@@ -1414,6 +1569,80 @@ function App() {
                 value={`${completedStages.length} découvertes`}
                 tone="rose"
               />
+            </div>
+
+            {/* BANNIÈRE DE LIGUE CÉLESTE & PROGRESSION */}
+            {(() => {
+              const { league, nextLeague, progress } = getCurrentLeague(xp);
+              return (
+                <div className="celestial-league-card" style={{ borderColor: league.color }}>
+                  <div className="league-card-left">
+                    <span className="league-badge-icon" style={{ background: `${league.color}22`, border: `2px solid ${league.color}` }}>
+                      {league.icon}
+                    </span>
+                    <div className="league-info">
+                      <div className="league-title-row">
+                        <span className="league-eyebrow">LIGUE CÉLESTE</span>
+                        <h4 className="league-name" style={{ color: league.color }}>
+                          Ligue {league.nom}
+                        </h4>
+                      </div>
+                      <p className="league-perk">{league.perks}</p>
+                      <div className="league-progress-track">
+                        <div
+                          className="league-progress-fill"
+                          style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${league.color}, #f59e0b)` }}
+                        />
+                      </div>
+                      <div className="league-xp-status">
+                        <span>{xp} XP accumulés</span>
+                        <span>{nextLeague ? `${nextLeague.minXp - xp} XP avant la Ligue ${nextLeague.nom}` : "Rang d'Excellence Céleste 👑"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="league-actions">
+                    <button
+                      type="button"
+                      className="elevation-btn blessing-btn"
+                      onClick={() => setBlessingModalOpen(true)}
+                      title="Créer une carte biblique personnalisée"
+                    >
+                      <Share2 size={16} />
+                      <span>Carte Bénédiction</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="elevation-btn shop-btn"
+                      onClick={() => setGraceShopModalOpen(true)}
+                      title="Boutique de Grâce et restauration de lampes"
+                    >
+                      <span>🪔 Boutique de Grâce</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* MASCOTTE INTERACTIVE : LA COLOMBE DE LA PAIX 🕊️ */}
+            <div className="dove-mascot-container">
+              <button
+                type="button"
+                className="dove-mascot-btn"
+                onClick={() => showDove()}
+                aria-label="Recevoir une parole de bénédiction de la Colombe"
+              >
+                <span className="dove-mascot-avatar">🕊️</span>
+                <span className="dove-mascot-label">Colombe de la Paix</span>
+              </button>
+
+              {doveVisible && (
+                <div className="dove-speech-bubble" onClick={() => setDoveVisible(false)}>
+                  <p className="dove-bubble-text">{doveMessage}</p>
+                  <span className="dove-bubble-tip">Toucher pour refermer 🌿</span>
+                </div>
+              )}
             </div>
 
             <div className="section-heading">
@@ -2013,6 +2242,134 @@ function App() {
                   </>
                 )}
 
+                {/* FORMAT 4 : PAIRES BIBLIQUES */}
+                {currentStage.type === "pairs" && (
+                  <div className="pairs-container">
+                    <div className="pairs-header-status">
+                      <span>🕊️ Relie chaque élément de gauche à sa correspondance à droite</span>
+                      <span className="pairs-counter">
+                        {pairsMatched.length} / {(currentStage.pairs || []).length} relié(s)
+                      </span>
+                    </div>
+
+                    <div className="pairs-columns-grid">
+                      {/* Colonne Gauche */}
+                      <div className="pairs-col">
+                        {(currentStage.pairs || []).map((p, idx) => {
+                          const isMatched = pairsMatched.includes(idx);
+                          const isSelected = pairsSelected.some((s) => s.origIndex === idx && s.side === "left");
+                          return (
+                            <button
+                              key={`left-${idx}`}
+                              type="button"
+                              className={`pair-card left-card ${isMatched ? "matched" : ""} ${isSelected ? "selected" : ""}`}
+                              disabled={isMatched || !!exerciseFeedback}
+                              onClick={() => handlePairCardClick(idx, "left")}
+                            >
+                              <span className="pair-bullet">{isMatched ? "✓" : idx + 1}</span>
+                              <span className="pair-text">{p.left}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Colonne Droite (mélangée aléatoirement) */}
+                      <div className="pairs-col">
+                        {shuffledPairsRight.map((item, rIdx) => {
+                          const isMatched = pairsMatched.includes(item.origIndex);
+                          const isSelected = pairsSelected.some((s) => s.origIndex === item.origIndex && s.side === "right");
+                          return (
+                            <button
+                              key={`right-${rIdx}`}
+                              type="button"
+                              className={`pair-card right-card ${isMatched ? "matched" : ""} ${isSelected ? "selected" : ""}`}
+                              disabled={isMatched || !!exerciseFeedback}
+                              onClick={() => handlePairCardClick(item.origIndex, "right")}
+                            >
+                              <span className="pair-bullet">{isMatched ? "✓" : String.fromCharCode(65 + rIdx)}</span>
+                              <span className="pair-text">{item.text}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* FORMAT 5 : VRAI / FAUX CHRONO */}
+                {currentStage.type === "truefalse" && (
+                  <div className="tf-container">
+                    <div className="tf-statement-card">
+                      <span className="tf-badge">DÉFI VRAI OU FAUX</span>
+                      <p className="tf-text">« {currentStage.consigne} »</p>
+                    </div>
+
+                    <div className="tf-buttons-row">
+                      <button
+                        type="button"
+                        className={`tf-button tf-true ${tfAnswer === true ? "active" : ""}`}
+                        disabled={!!exerciseFeedback}
+                        onClick={() => {
+                          setTfAnswer(true);
+                          triggerHaptic(20);
+                        }}
+                      >
+                        <span className="tf-icon">✅</span>
+                        <span className="tf-label">VRAI</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`tf-button tf-false ${tfAnswer === false ? "active" : ""}`}
+                        disabled={!!exerciseFeedback}
+                        onClick={() => {
+                          setTfAnswer(false);
+                          triggerHaptic(20);
+                        }}
+                      >
+                        <span className="tf-icon">❌</span>
+                        <span className="tf-label">FAUX</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* FORMAT 6 : QUI A DIT ? */}
+                {currentStage.type === "whosaid" && (
+                  <div className="whosaid-container">
+                    <div className="whosaid-quote-card">
+                      <span className="quote-ornament">“</span>
+                      <p className="whosaid-quote-text">{currentStage.quote}</p>
+                      <span className="whosaid-instruction">Qui a prononcé cette parole dans les Saintes Écritures ?</span>
+                    </div>
+
+                    <div className="whosaid-speakers-grid">
+                      {(shuffledWhosaidSpeakers.length > 0 ? shuffledWhosaidSpeakers : (currentStage.speakers || [])).map((sp, idx) => {
+                        const isSelected = whosaidSelected === sp.nom;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            className={`whosaid-speaker-card ${isSelected ? "selected" : ""}`}
+                            disabled={!!exerciseFeedback}
+                            onClick={() => {
+                              setWhosaidSelected(sp.nom);
+                              triggerHaptic(20);
+                            }}
+                          >
+                            <span className="speaker-avatar">{sp.avatar || "👤"}</span>
+                            <div className="speaker-info">
+                              <span className="speaker-name">{sp.nom}</span>
+                              <span className="speaker-role">{sp.role}</span>
+                            </div>
+                            {isSelected && <span className="speaker-check">✦</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* ENCART DE RETOUR PEDAGOGIQUE ET DISTINCTION ÉCRITURE / MÉDITATION */}
                 {exerciseFeedback && (
                   <div className={`feedback ${exerciseFeedback.startsWith("Bravo") ? "success" : "try-again"}`}>
@@ -2027,7 +2384,7 @@ function App() {
                                 <BookOpen size={12} /> {currentStage.ref} · Texte Biblique (Louis Segond 1910)
                               </div>
                               <p style={{ margin: 0, fontStyle: "italic", fontSize: "14px", lineHeight: "1.6" }}>
-                                « {currentStage.motsCorrects ? currentStage.motsCorrects.join(" ") : (currentStage.phraseAvant ? `${currentStage.phraseAvant}${currentStage.motCorrect}${currentStage.phraseApres}` : currentStage.titre)} »
+                                « {currentStage.motsCorrects ? currentStage.motsCorrects.join(" ") : (currentStage.quote || (currentStage.phraseAvant ? `${currentStage.phraseAvant}${currentStage.motCorrect}${currentStage.phraseApres}` : currentStage.titre))} »
                               </p>
                             </div>
                           )}
@@ -2959,6 +3316,127 @@ function App() {
         onAuthSuccess={handleAuthSuccess}
         notify={notify}
       />
+
+      {/* MODAL DE CARTE DE BÉNÉDICTION WHATSAPP */}
+      <BlessingShareModal
+        isOpen={blessingModalOpen}
+        onClose={() => setBlessingModalOpen(false)}
+        profileName={profileName}
+        leagueName={getCurrentLeague(xp).league.nom}
+        notify={notify}
+      />
+
+      {/* MODAL BOUTIQUE DE GRÂCE (LAMPES & PERLES) */}
+      {graceShopModalOpen && (
+        <div className="modal-backdrop" onClick={() => setGraceShopModalOpen(false)}>
+          <div className="modal-card grace-shop-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "24px" }}>🪔</span>
+                <div>
+                  <h3 style={{ margin: 0 }}>Boutique de Grâce</h3>
+                  <p style={{ margin: 0, fontSize: "13px", opacity: 0.8 }}>
+                    Restaure tes lampes de foi et cultive la paix
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="icon-button close-button"
+                onClick={() => setGraceShopModalOpen(false)}
+                aria-label="Fermer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grace-shop-body">
+              <div className="shop-balance-banner">
+                <div className="shop-balance-item">
+                  <span className="balance-icon">🪔</span>
+                  <div>
+                    <small>Lampes de foi</small>
+                    <b>{lampes} / 5 allumées</b>
+                  </div>
+                </div>
+                <div className="shop-balance-item">
+                  <span className="balance-icon">💎</span>
+                  <div>
+                    <small>Perles de vie</small>
+                    <b>{pearls} perles</b>
+                  </div>
+                </div>
+              </div>
+
+              <div className="shop-offers-list">
+                <div className="shop-offer-card">
+                  <div className="offer-icon">🕯️</div>
+                  <div className="offer-details">
+                    <h4>Rallumer 1 Lampe de Foi</h4>
+                    <p>Donne une nouvelle clarté pour continuer tes défis bibliques.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary-button shop-buy-btn"
+                    disabled={pearls < 15 || lampes >= 5}
+                    onClick={() => {
+                      if (pearls < 15 || lampes >= 5) return;
+                      setSaved((prev) => ({ ...prev, pearls: (prev.pearls || 0) - 15 }));
+                      setLampes((prev) => Math.min(5, prev + 1));
+                      playLampRestoreSound();
+                      triggerHaptic([20, 50, 20]);
+                      notify("Gloire à Dieu ! Une lampe de foi a été rallumée 🪔✨");
+                    }}
+                  >
+                    {lampes >= 5 ? "Plein (5/5)" : "15 Perles"}
+                  </button>
+                </div>
+
+                <div className="shop-offer-card">
+                  <div className="offer-icon">🪔</div>
+                  <div className="offer-details">
+                    <h4>Restauration Complète (5 Lampes)</h4>
+                    <p>Fais le plein de lumière divine pour tes marches spirituelles.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary-button shop-buy-btn"
+                    disabled={pearls < 50 || lampes >= 5}
+                    onClick={() => {
+                      if (pearls < 50 || lampes >= 5) return;
+                      setSaved((prev) => ({ ...prev, pearls: (prev.pearls || 0) - 50 }));
+                      setLampes(5);
+                      playLampRestoreSound();
+                      triggerHaptic([30, 60, 30]);
+                      notify("Merveilleux ! Tes 5 lampes de foi brillent à nouveau 🪔🕊️");
+                    }}
+                  >
+                    {lampes >= 5 ? "Plein (5/5)" : "50 Perles"}
+                  </button>
+                </div>
+
+                <div className="shop-offer-card">
+                  <div className="offer-icon">🕊️</div>
+                  <div className="offer-details">
+                    <h4>Halte au Puits de Jacob (Gratuit)</h4>
+                    <p>Médite la parole vivante de Jésus pour renouveler tes forces sans perles.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary-button shop-buy-btn"
+                    onClick={() => {
+                      setGraceShopModalOpen(false);
+                      setSpiritualHaltModal(true);
+                    }}
+                  >
+                    Méditer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TOAST DE NOTIFICATION BIENVEILLANT */}
       {toast && (

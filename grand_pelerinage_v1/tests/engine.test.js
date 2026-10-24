@@ -16,7 +16,11 @@ import {
 import {
   BIBLE_CHAPTERS,
   EPOCH_STAGES,
-  BIBLE_BOOKS
+  BIBLE_BOOKS,
+  BONUS_STAGES,
+  CELESTIAL_LEAGUES,
+  getCurrentLeague,
+  DOVE_BLESSINGS
 } from "../src/data/bibleData.js";
 
 // =========================================================================
@@ -288,4 +292,72 @@ test("Atelier du Cœur: Mécanisme de glisser/déposer, placement direct, permut
   assert.equal(placed.filter(Boolean).length, 3);
   assert.equal(placed.includes("de bénédiction."), false);
 });
+
+// =========================================================================
+// PACK D'ÉLÉVATION : NOUVEAUX EXERCICES, LIGUES CÉLESTES & COLOMBE
+// =========================================================================
+test("Pack d'Élévation 1: Intégrité des 9 étapes bonus (IDs 73-81) et diversité des formats", () => {
+  assert.equal(BONUS_STAGES.length, 9, "Il doit y avoir exactement 9 étapes bonus");
+
+  // Vérification des types d'exercices
+  const pairsStages = BONUS_STAGES.filter((s) => s.type === "pairs");
+  const tfStages = BONUS_STAGES.filter((s) => s.type === "truefalse");
+  const whosaidStages = BONUS_STAGES.filter((s) => s.type === "whosaid");
+
+  assert.equal(pairsStages.length, 3, "Il doit y avoir 3 étapes de paires");
+  assert.equal(tfStages.length, 3, "Il doit y avoir 3 étapes vrai/faux");
+  assert.equal(whosaidStages.length, 3, "Il doit y avoir 3 étapes qui a dit");
+
+  // Chaque étape doit avoir id, titre, ref, explication, recompense
+  BONUS_STAGES.forEach((stage) => {
+    assert.ok(stage.id >= 73 && stage.id <= 81, `ID valide pour étape ${stage.id}`);
+    assert.ok(stage.titre && stage.titre.length > 5, `Titre valide pour ${stage.id}`);
+    assert.ok(stage.ref, `Référence requise pour ${stage.id}`);
+    assert.ok(stage.explication, `Explication requise pour ${stage.id}`);
+    assert.ok(stage.recompense?.xp > 0, `XP requis pour ${stage.id}`);
+  });
+});
+
+test("Pack d'Élévation 2: Système de Ligues Célestes et calcul de promotion", () => {
+  assert.equal(CELESTIAL_LEAGUES.length, 6, "6 Ligues célestes définies");
+
+  // Vérification de la ligue de départ (0 XP -> Airain)
+  const start = getCurrentLeague(0);
+  assert.equal(start.league.id, "airain");
+  assert.equal(start.league.nom, "Airain");
+  assert.equal(start.nextLeague?.id, "argent");
+
+  // Vérification à 100 XP -> Argent
+  const argent = getCurrentLeague(100);
+  assert.equal(argent.league.id, "argent");
+  assert.equal(argent.league.nom, "Argent");
+
+  // Vérification à 350 XP -> Or avec progression calculée
+  const orLeague = getCurrentLeague(350);
+  assert.equal(orLeague.league.id, "or");
+  assert.ok(orLeague.progress >= 0 && orLeague.progress <= 100);
+
+  // Vérification Diamant Céleste (1500+ XP)
+  const diamant = getCurrentLeague(2000);
+  assert.equal(diamant.league.id, "diamant");
+  assert.equal(diamant.nextLeague, null);
+  assert.equal(diamant.progress, 100);
+});
+
+test("Pack d'Élévation 3: Logique de validation des Paires, Vrai/Faux et Qui a dit ?", () => {
+  // Test Paires (Étape 73)
+  const stagePairs = BONUS_STAGES.find((s) => s.id === 73);
+  assert.equal(stagePairs.pairs.length, 4);
+  assert.equal(stagePairs.pairs[0].left, "Noé");
+
+  // Test Vrai/Faux (Étape 76)
+  const stageTf = BONUS_STAGES.find((s) => s.id === 76);
+  assert.equal(stageTf.isTrue, true);
+
+  // Test Qui a dit (Étape 79)
+  const stageWhosaid = BONUS_STAGES.find((s) => s.id === 79);
+  assert.equal(stageWhosaid.correctSpeaker, "Siméon");
+  assert.ok(stageWhosaid.speakers.some((sp) => sp.nom === "Siméon"));
+});
+
 

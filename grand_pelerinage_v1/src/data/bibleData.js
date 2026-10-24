@@ -323,6 +323,253 @@ export const BIBLE_CHAPTERS = {
 };
 
 // =========================================================================
+// SYSTÈME DE LIGUES CÉLESTES (XP → PROMOTION)
+// =========================================================================
+export const CELESTIAL_LEAGUES = [
+  { id: "airain",  nom: "Airain",          icon: "🪵", color: "#a16207", minXp: 0,    maxXp: 99,   perks: "Accès au Parcours de base et au Jardin de la Mémoire" },
+  { id: "argent",  nom: "Argent",          icon: "🥈", color: "#94a3b8", minXp: 100,  maxXp: 299,  perks: "Déblocage des exercices Vrai/Faux et Qui a dit ?" },
+  { id: "or",      nom: "Or",             icon: "🥇", color: "#ca8a04", minXp: 300,  maxXp: 599,  perks: "Déblocage des exercices de Paires bibliques" },
+  { id: "saphir",  nom: "Saphir",         icon: "💎", color: "#1d4ed8", minXp: 600,  maxXp: 999,  perks: "Défi Providenciel débloqué et bannière de profil" },
+  { id: "rubis",   nom: "Rubis",          icon: "🍷", color: "#be123c", minXp: 1000, maxXp: 1499, perks: "Carte de Bénédiction WhatsApp activée" },
+  { id: "diamant", nom: "Diamant Céleste", icon: "👑", color: "#7c3aed", minXp: 1500, maxXp: Infinity, perks: "Toutes les grâces. Pèlerin d'Excellence. Gloire à Dieu !" }
+];
+
+export function getCurrentLeague(xp = 0) {
+  const league = CELESTIAL_LEAGUES.findLast((l) => xp >= l.minXp) || CELESTIAL_LEAGUES[0];
+  const nextLeague = CELESTIAL_LEAGUES[CELESTIAL_LEAGUES.indexOf(league) + 1] || null;
+  const progress = nextLeague
+    ? Math.min(100, Math.round(((xp - league.minXp) / (nextLeague.minXp - league.minXp)) * 100))
+    : 100;
+  return { league, nextLeague, progress };
+}
+
+// =========================================================================
+// BÉNÉDICTIONS DE LA COLOMBE (messages contextualels de la mascotte 🕊️)
+// =========================================================================
+export const DOVE_BLESSINGS = {
+  welcome: [
+    "Bienvenue pèlerin ! Que chaque étape te rapproche du Père des lumières 🌟",
+    "La Parole est une lampe à tes pieds et une lumière sur ton sentier. En avant ! 🕊️",
+    "Chaque mot de la Bible est un souffle de vie. Commence avec confiance !"
+  ],
+  streak: [
+    "Quelle fidélité ! Tu marches avec constance — Dieu voit ton cœur 🔥",
+    "Ta flamme brille ! Continue ce beau chemin de la Parole jour après jour.",
+    "La persévérance porte du fruit. Tu es une inspiration pour toute la communauté ! 🌿"
+  ],
+  lowLamps: [
+    "Quelques lampes se sont éteintes, mais ton Père veille. Prends un temps de prière 🙏",
+    "Ne te décourage pas. Même Pierre est tombé, et Jésus l'a relevé. Tu peux continuer !",
+    "La Boutique de Grâce peut rallumer tes lampes. 15 perles = 1 lampe restaurée 🪔"
+  ],
+  leagueUp: [
+    "Tu viens de monter de ligue ! Dieu couronne ta fidélité ✨",
+    "Nouvelle ligue, nouvelles grâces ! Avance dans l'excellence de la Parole 👑",
+    "La promotion vient de Dieu ! Continue d'honorer sa Parole avec tout ton cœur 🌟"
+  ],
+  success: [
+    "Excellent ! La Parole s'ancre dans ton cœur comme un arbre planté au bord des eaux 🌳",
+    "Bien joué ! Chaque verset mémorisé est un trésor que personne ne peut te voler ✨",
+    "Bravo ! Tu grandis dans la connaissance et la grâce du Seigneur Jésus-Christ 🌿"
+  ],
+  verse: [
+    { ref: "Psaume 119:105", texte: "Ta parole est une lampe à mes pieds, et une lumière sur mon sentier." },
+    { ref: "Josué 1:8", texte: "Ce livre de la loi ne s'éloignera point de ta bouche." },
+    { ref: "Matthieu 4:4", texte: "L'homme ne vivra pas de pain seulement, mais de toute parole qui sort de la bouche de Dieu." },
+    { ref: "2 Timothée 3:16", texte: "Toute Écriture est inspirée de Dieu, et utile pour enseigner." },
+    { ref: "Hébreux 4:12", texte: "La parole de Dieu est vivante et efficace." }
+  ]
+};
+
+// =========================================================================
+// NOUVELLES ÉTAPES — PAIRES, VRAI/FAUX, QUI A DIT ? (9 étapes bonus 73-81)
+// =========================================================================
+export const BONUS_STAGES = [
+  // --- PAIRES BIBLIQUES (type: "pairs") ---
+  {
+    id: 73,
+    titre: "Les Patriarches et leurs Alliances",
+    ref: "Genèse 15 – Exode 3",
+    epoch: "racines",
+    difficulte: "intermediaire",
+    tempsLimite: 60,
+    coutVie: false,
+    type: "pairs",
+    consigne: "Relie chaque patriarche ou prophète à l'alliance ou l'événement qui lui correspond.",
+    pairs: [
+      { left: "Noé",    right: "L'arc dans la nue (alliance de paix)" },
+      { left: "Abraham",right: "La promesse d'une descendance comme les étoiles" },
+      { left: "Jacob",  right: "La lutte avec l'ange à Peniel" },
+      { left: "Moïse", right: "Le buisson ardent et le Nom Éternel" }
+    ],
+    conseilRecherche: "📖 Lis Genèse 9, 15, 32 et Exode 3. Chaque alliance révèle un aspect du caractère de Dieu.",
+    explication: "Dieu adapte son langage à chaque époque et à chaque homme, mais son amour et sa fidélité restent immuables à travers toutes les générations.",
+    recompense: { xp: 55, perles: 3 }
+  },
+  {
+    id: 74,
+    titre: "Rois et Royaumes d'Israël",
+    ref: "1 Samuel – 1 Rois",
+    epoch: "courage",
+    difficulte: "intermediaire",
+    tempsLimite: 55,
+    coutVie: false,
+    type: "pairs",
+    consigne: "Associe chaque roi à l'acte ou la parole qui le définit dans les Écritures.",
+    pairs: [
+      { left: "Saül",   right: "Le premier roi, rejeté pour sa désobéissance" },
+      { left: "David",  right: "L'homme selon le cœur de Dieu, auteur des Psaumes" },
+      { left: "Salomon",right: "Le bâtisseur du Temple et le roi sage" },
+      { left: "Élie",   right: "Le prophète de feu, traduit au ciel dans un tourbillon" }
+    ],
+    conseilRecherche: "📖 Consulte 1 Samuel 15, 2 Samuel 7, 1 Rois 6 et 2 Rois 2. Compare les règnes et leurs héritages spirituels.",
+    explication: "Les rois d'Israël nous enseignent que la vraie grandeur n'est pas dans la puissance ou la sagesse humaine, mais dans l'humilité et l'obéissance à Dieu.",
+    recompense: { xp: 55, perles: 3 }
+  },
+  {
+    id: 75,
+    titre: "Apôtres et leurs Villes d'Action",
+    ref: "Actes des Apôtres",
+    epoch: "eglise",
+    difficulte: "avance",
+    tempsLimite: 50,
+    coutVie: true,
+    type: "pairs",
+    consigne: "Relie chaque apôtre à la ville ou région centrale de son ministère dans les Actes.",
+    pairs: [
+      { left: "Pierre",  right: "Jérusalem et Antioche" },
+      { left: "Paul",    right: "Corinthe et Éphèse" },
+      { left: "Philippe",right: "Samarie et Azot" },
+      { left: "Barnabas",right: "Chypre et Antioche de Pisidie" }
+    ],
+    conseilRecherche: "📖 Lis Actes 8, 9, 11-14. Trace les voyages sur une carte biblique pour mieux ancrer ces noms.",
+    explication: "L'Évangile s'est répandu de ville en ville non par la force, mais par la puissance de l'Esprit à travers des hommes ordinaires consacrés au Seigneur.",
+    recompense: { xp: 65, perles: 3 }
+  },
+
+  // --- VRAI / FAUX CHRONO (type: "truefalse") ---
+  {
+    id: 76,
+    titre: "Vrai ou Faux : La Résurrection",
+    ref: "1 Corinthiens 15:4-6",
+    epoch: "evangiles",
+    difficulte: "debutant",
+    tempsLimite: 30,
+    coutVie: false,
+    type: "truefalse",
+    consigne: "Est-il vrai que Jésus est apparu après sa résurrection à plus de cinq cents frères à la fois, selon la Louis Segond 1910 ?",
+    isTrue: true,
+    explicationVrai: "Oui ! Paul l'atteste en 1 Corinthiens 15:6 : « Il est apparu à plus de cinq cents frères à la fois, dont la plupart sont encore vivants. »",
+    explicationFaux: "C'est pourtant vrai ! Paul mentionne cette apparition collective comme preuve irréfutable de la résurrection en 1 Corinthiens 15:6.",
+    conseilRecherche: "📖 Lis 1 Corinthiens 15:1-8. Paul liste les témoins oculaires de la résurrection comme preuves vivantes de la foi.",
+    explication: "La résurrection est le fondement de notre foi. Sans elle, notre foi serait vaine. Mais Christ est réellement ressuscité, prémices de ceux qui sont morts.",
+    recompense: { xp: 35, perles: 2 }
+  },
+  {
+    id: 77,
+    titre: "Vrai ou Faux : Les Béatitudes",
+    ref: "Matthieu 5:5",
+    epoch: "evangiles",
+    difficulte: "intermediaire",
+    tempsLimite: 25,
+    coutVie: false,
+    type: "truefalse",
+    consigne: "Jésus dit-il dans les Béatitudes : « Heureux les doux, car ils hériteront la terre » (Matthieu 5:5, LSG 1910) ?",
+    isTrue: true,
+    explicationVrai: "Exact ! « Heureux les débonnaires (ou doux), car ils hériteront la terre. » — Matthieu 5:5 (Louis Segond 1910).",
+    explicationFaux: "Si, c'est bien écrit ! Matthieu 5:5 dit précisément que les doux (débonnaires) hériteront la terre, non les forts.",
+    conseilRecherche: "📖 Ouvre Matthieu 5:3-12. Les Béatitudes renversent la logique du monde : les humbles, les purs et les pacifiques sont élevés.",
+    explication: "La douceur du chrétien n'est pas faiblesse mais force maîtrisée. Ceux qui s'abaissent devant Dieu sont ceux que Dieu élèvera.",
+    recompense: { xp: 40, perles: 2 }
+  },
+  {
+    id: 78,
+    titre: "Vrai ou Faux : Moïse a traversé la mer Rouge à la nage",
+    ref: "Exode 14:21-22",
+    epoch: "racines",
+    difficulte: "debutant",
+    tempsLimite: 25,
+    coutVie: false,
+    type: "truefalse",
+    consigne: "Moïse et les Israélites ont-ils traversé la mer Rouge à la nage selon Exode 14 ?",
+    isTrue: false,
+    explicationVrai: "Non, Dieu a ouvert la mer ! Exode 14:21-22 dit que l'Éternel fit souffler un vent fort, les eaux se fendirent et les Israélites passèrent à sec.",
+    explicationFaux: "Bien vu ! Ils n'ont pas nagé — ils ont marché sur la terre ferme au milieu de la mer, les eaux formant comme des murailles à droite et à gauche.",
+    conseilRecherche: "📖 Lis Exode 14:15-30. Ce miracle montre que Dieu ouvre le chemin là où il n'y en a pas. Il est le Dieu de l'impossible.",
+    explication: "La traversée de la mer Rouge est une image du salut : Dieu agit, et nous marchons dans sa délivrance par la foi.",
+    recompense: { xp: 35, perles: 2 }
+  },
+
+  // --- QUI A DIT ? (type: "whosaid") ---
+  {
+    id: 79,
+    titre: "Qui a dit : « Mes yeux ont vu ta délivrance » ?",
+    ref: "Luc 2:30",
+    epoch: "evangiles",
+    difficulte: "intermediaire",
+    tempsLimite: 40,
+    coutVie: false,
+    type: "whosaid",
+    consigne: "Qui a prononcé ces mots en tenant l'enfant Jésus dans ses bras au Temple ?",
+    quote: "« Mes yeux ont vu ton salut, que tu as préparé devant tous les peuples. »",
+    correctSpeaker: "Siméon",
+    speakers: [
+      { nom: "Siméon",    role: "Juste et craignant Dieu, attendant la consolation d'Israël", avatar: "🧓" },
+      { nom: "Zacharie",  role: "Père de Jean-Baptiste, sacrificateur de la tribu de Lévi", avatar: "⚗️" },
+      { nom: "Anne",      role: "Prophétesse veuve, consacrée au jeûne et à la prière", avatar: "🕯️" },
+      { nom: "Joseph",    role: "Charpentier de Nazareth, père nourricier de Jésus", avatar: "🪚" }
+    ],
+    conseilRecherche: "📖 Lis Luc 2:25-35. Siméon avait reçu la promesse qu'il ne mourrait pas avant d'avoir vu le Christ du Seigneur.",
+    explication: "Siméon est le symbole de l'espérance patiente : Dieu accomplit toujours ses promesses, même quand l'attente semble longue.",
+    recompense: { xp: 50, perles: 3 }
+  },
+  {
+    id: 80,
+    titre: "Qui a dit : « L'Éternel est mon berger » ?",
+    ref: "Psaume 23:1",
+    epoch: "sagesse",
+    difficulte: "debutant",
+    tempsLimite: 30,
+    coutVie: false,
+    type: "whosaid",
+    consigne: "Quel auteur a écrit ces paroles célèbres qui ouvrent le Psaume 23 ?",
+    quote: "« L'Éternel est mon berger : je ne manquerai de rien. »",
+    correctSpeaker: "David",
+    speakers: [
+      { nom: "David",   role: "Roi et psalmiste, homme selon le cœur de Dieu", avatar: "👑" },
+      { nom: "Salomon", role: "Fils de David, roi sage et bâtisseur du Temple", avatar: "🏛️" },
+      { nom: "Moïse",   role: "Législateur d'Israël et prophète de Dieu", avatar: "📜" },
+      { nom: "Asaph",   role: "Chef des musiciens du Temple, auteur de psaumes", avatar: "🎶" }
+    ],
+    conseilRecherche: "📖 Le Psaume 23 est attribué à David dans son titre. David, lui-même berger de troupeaux, a compris la sollicitude divine.",
+    explication: "David parle avec l'expérience du berger qu'il fut. Il sait que l'Éternel guide, protège, restaure et accompagne jusqu'à la maison du Père.",
+    recompense: { xp: 35, perles: 2 }
+  },
+  {
+    id: 81,
+    titre: "Qui a dit : « Seigneur, si tu veux, tu peux me rendre pur » ?",
+    ref: "Matthieu 8:2",
+    epoch: "evangiles",
+    difficulte: "intermediaire",
+    tempsLimite: 40,
+    coutVie: false,
+    type: "whosaid",
+    consigne: "Qui s'est prosterné devant Jésus en prononçant ces mots de foi et d'humilité ?",
+    quote: "« Seigneur, si tu le veux, tu peux me rendre pur. »",
+    correctSpeaker: "Un lépreux",
+    speakers: [
+      { nom: "Un lépreux",   role: "Exclu de la société, frappé d'une maladie incurable", avatar: "🙇" },
+      { nom: "Un centenier", role: "Officier romain dont le serviteur était paralysé", avatar: "⚔️" },
+      { nom: "Pierre",       role: "Pêcheur de Galilée, apôtre choisi par Jésus", avatar: "⚓" },
+      { nom: "Nicodème",     role: "Pharisien et chef des Juifs, venu de nuit", avatar: "🌙" }
+    ],
+    conseilRecherche: "📖 Lis Matthieu 8:1-4. Cet homme, guéri et renvoyé vers le sacrificateur, annonce la purification que Jésus apporte à tous.",
+    explication: "« Si tu le veux » — cette humilité est la clé de toute prière. Non pas imposer notre agenda à Dieu, mais s'en remettre à sa volonté souveraine et aimante.",
+    recompense: { xp: 50, perles: 3 }
+  }
+];
+
+// =========================================================================
 // ÉTAPES DU SENTIER PAR ÉPOQUE (ENRICHISSEMENT MAJEUR : 72 ÉTAPES)
 // =========================================================================
 export const EPOCH_STAGES = {

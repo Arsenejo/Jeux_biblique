@@ -118,3 +118,115 @@ export function playPeaceTone() {
   });
 }
 
+// Carillon cristallin pour connexion réussie d'une paire (Mi5 -> La5 -> Do6)
+export function playPairSuccessChime() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const notes = [659.25, 880.0, 1046.5];
+  const now = ctx.currentTime;
+
+  notes.forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+
+    gain.gain.setValueAtTime(0, now + idx * 0.06);
+    gain.gain.linearRampToValueAtTime(0.12, now + idx * 0.06 + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.06 + 0.45);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now + idx * 0.06);
+    osc.stop(now + idx * 0.06 + 0.5);
+  });
+}
+
+// Fanfare céleste triomphale pour promotion de ligue (Do4 - Sol4 - Do5 - Mi5 - Sol5)
+export function playLeagueFanfare() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const notes = [
+    { freq: 261.63, delay: 0, dur: 0.35 },    // Do4
+    { freq: 392.00, delay: 0.08, dur: 0.35 }, // Sol4
+    { freq: 523.25, delay: 0.16, dur: 0.45 }, // Do5
+    { freq: 659.25, delay: 0.26, dur: 0.5 },  // Mi5
+    { freq: 783.99, delay: 0.38, dur: 0.9 },  // Sol5
+    { freq: 1046.5, delay: 0.38, dur: 0.9 }   // Do6 (octave éclatante)
+  ];
+  const now = ctx.currentTime;
+
+  notes.forEach(({ freq, delay, dur }) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq, now + delay);
+
+    gain.gain.setValueAtTime(0, now + delay);
+    gain.gain.linearRampToValueAtTime(0.15, now + delay + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + dur);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now + delay);
+    osc.stop(now + delay + dur + 0.05);
+  });
+}
+
+// Son d'illumination sacrée pour la restauration d'une lampe dans la boutique (329Hz -> 587Hz)
+export function playLampRestoreSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(329.63, now); // Mi4
+  osc.frequency.exponentialRampToValueAtTime(587.33, now + 0.35); // Ré5
+  osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.6); // La5
+
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.18, now + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.9);
+}
+
+// Tonalité douce de méditation en cas d'erreur (jamais agressive, invite au calme)
+export function playErrorGentleTone() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const notes = [311.13, 261.63]; // Mib4 -> Do4
+  const now = ctx.currentTime;
+
+  notes.forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+
+    gain.gain.setValueAtTime(0, now + idx * 0.12);
+    gain.gain.linearRampToValueAtTime(0.08, now + idx * 0.12 + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.12 + 0.4);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now + idx * 0.12);
+    osc.stop(now + idx * 0.12 + 0.45);
+  });
+}
