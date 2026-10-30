@@ -3,7 +3,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Règles pour le classement mondial du Défi Jean
+    // Plafonds alignés sur src/services/progression.js :
+    // 150 XP et 5 perles par étape validée, bonus de révision 8000 / 500, 400 étapes max.
+
+    function stageCountOk(n) {
+      return n is int && n >= 0 && n <= 400;
+    }
+
+    function scoreWithinCeiling(xp, pearls, stages) {
+      return xp is number && pearls is number
+        && xp >= 0 && pearls >= 0
+        && stageCountOk(stages)
+        && xp <= stages * 150 + 8000
+        && pearls <= stages * 5 + 500;
+    }
+
     match /classement_defi_jean/{joueurId} {
       allow read: if true;
       allow create, update: if request.resource.data.pseudo is string
@@ -21,23 +35,30 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // =======================================================================
-    // LE GRAND PÈLERINAGE DE LA BIBLE (RÈGLES DE SÉCURITÉ & VIE PRIVÉE)
-    // =======================================================================
-
-    // 1. Profil privé du pèlerin (progression, données personnelles, paramètres)
-    // STRICTEMENT PRIVÉ : Aucun visiteur tiers ou bot ne peut lire le document
     match /pelerins/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
 
-      // Carnet spirituel intime & réflexions personnelles : strictement privé
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && !('email' in request.resource.data)
+                            && !('telephone' in request.resource.data)
+                            && !('phone' in request.resource.data)
+                            && (
+                              !('xp' in request.resource.data)
+                              || scoreWithinCeiling(
+                                request.resource.data.xp,
+                                request.resource.data.get('pearls', 0),
+                                request.resource.data.get('saved', {}).get('completedStages', []).size()
+                              )
+                            );
+
+      allow delete: if request.auth != null && request.auth.uid == uid;
+
       match /carnet/{noteId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
     }
 
-    // 2. Classement fraternel public (ZÉRO PII, ZÉRO EMAIL, ZÉRO COORDONNÉES)
-    // Collection publique optimisée pour le podium sans aucune fuite de données personnelles
     match /classement_pelerins/{uid} {
       allow read: if true;
       allow create, update: if request.auth != null
@@ -45,18 +66,18 @@ service cloud.firestore {
                             && request.resource.data.pseudo is string
                             && request.resource.data.pseudo.size() >= 2
                             && request.resource.data.pseudo.size() <= 30
-                            && request.resource.data.xp is number
-                            && request.resource.data.xp >= 0
-                            && request.resource.data.pearls is number
-                            && request.resource.data.pearls >= 0
-                            // Interdiction stricte de fuite de données personnelles
+                            && request.resource.data.stagesValidees is int
+                            && scoreWithinCeiling(
+                              request.resource.data.xp,
+                              request.resource.data.pearls,
+                              request.resource.data.stagesValidees
+                            )
                             && !('email' in request.resource.data)
                             && !('telephone' in request.resource.data)
                             && !('phone' in request.resource.data);
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
-    // 3. Mur communautaire de prières & gratitudes
     match /prieres/{prayerId} {
       allow read: if true;
       allow create: if request.auth != null
@@ -67,30 +88,38 @@ service cloud.firestore {
                     && request.resource.data.auteur is string
                     && request.resource.data.auteur.size() >= 2
                     && request.resource.data.auteur.size() <= 40
-                    && request.resource.data.soutiens is number
-                    && request.resource.data.soutiens >= 0
-                    // Interdiction formelle de stocker des coordonnées privées
+                    && request.resource.data.soutiens == 1
+                    && request.resource.data.signaux == 0
+                    && request.resource.data.masque == false
                     && !('email' in request.resource.data)
                     && !('telephone' in request.resource.data);
       allow update: if request.auth != null
                     && (
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['soutiens'])
-                      || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signaux', 'masque'])
+                      (
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['soutiens'])
+                        && request.resource.data.soutiens == resource.data.soutiens + 1
+                      )
+                      || (
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signaux', 'masque'])
+                        && request.resource.data.signaux == resource.data.signaux + 1
+                        && request.resource.data.masque == (request.resource.data.signaux >= 3)
+                      )
                     );
       allow delete: if request.auth != null
                     && resource.data.auteurId == request.auth.uid;
     }
 
-    // 4. Registre d'unicité des pseudonymes de joueurs (ZÉRO DOUBLON)
     match /pseudos_enregistres/{cleanPseudo} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow create: if request.auth != null
                     && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.cleanPseudo == cleanPseudo
                     && request.resource.data.cleanPseudo is string
                     && request.resource.data.cleanPseudo.size() >= 2
                     && request.resource.data.cleanPseudo.size() <= 30;
       allow update: if request.auth != null
-                    && (resource.data.uid == request.auth.uid || request.resource.data.uid == request.auth.uid);
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == resource.data.uid;
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
   }

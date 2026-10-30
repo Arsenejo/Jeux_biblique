@@ -32,6 +32,7 @@ import {
 import { reconcilePelerinData, reconcilePrayers } from "./dataReconciliation.js";
 import { getReportedPrayerIds, reportPrayerLocally } from "./moderation.js";
 import { sendWelcomeEmail } from "./brevoMailer.js";
+import { clampScore } from "./progression.js";
 
 // Configuration des services Cloud (projet defi-jean)
 export const firebaseConfig = {
@@ -491,10 +492,19 @@ export async function syncPelerinProfile(uid, profileData) {
   const { db } = getFirebaseServices();
   if (!db || !uid) return;
 
+  const completedCount = Array.isArray(profileData.saved?.completedStages)
+    ? profileData.saved.completedStages.length
+    : 0;
+  const capped = typeof profileData.xp === "number"
+    ? clampScore(completedCount, profileData.xp, profileData.pearls)
+    : null;
+  const { email, telephone, phone, ...safeProfile } = profileData;
+
   try {
     const ref = doc(db, "pelerins", uid);
     await setDoc(ref, {
-      ...profileData,
+      ...safeProfile,
+      ...(capped ? capped : {}),
       derniereMiseAJour: serverTimestamp()
     }, { merge: true });
 
@@ -510,12 +520,14 @@ export async function syncPelerinProfile(uid, profileData) {
     // Publication sécurisée dans le classement public sans PII (zéro email, zéro données personnelles)
     try {
       const publicRef = doc(db, "classement_pelerins", uid);
+      if (!capped) return;
       await setDoc(publicRef, {
         pseudo: String(profileData.profileName || "Pèlerin").slice(0, 30),
-        xp: Number(profileData.xp) || 0,
-        pearls: Number(profileData.pearls) || 0,
+        xp: capped.xp,
+        pearls: capped.pearls,
+        stagesValidees: completedCount,
         avatar: profileData.avatar || "🌿",
-        niveau: profileData.niveau || ((profileData.xp || 0) >= 300 ? "Pèlerin zélé" : "Pèlerin de la Parole"),
+        niveau: profileData.niveau || (capped.xp >= 300 ? "Pèlerin zélé" : "Pèlerin de la Parole"),
         derniereMiseAJour: serverTimestamp()
       }, { merge: true });
     } catch {}

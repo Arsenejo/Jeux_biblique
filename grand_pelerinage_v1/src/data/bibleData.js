@@ -1,50 +1,11 @@
 // Données Pan-Bibliques et Thématiques pour Le Grand Pèlerinage de la Bible
+import { BIBLE_66_BOOKS } from "./bible66Books.js";
+import { EXTENDED_STAGES } from "./extendedStages.js";
+import { JEAN_STAGES_BY_EPOCH } from "./jeanStages.js";
 
-export const BIBLE_BOOKS = [
-  // ANCIEN TESTAMENT
-  { id: "gen", nom: "Genèse", testament: "AT", section: "Pentateuque", chapitres: 50 },
-  { id: "exo", nom: "Exode", testament: "AT", section: "Pentateuque", chapitres: 40 },
-  { id: "lev", nom: "Lévitique", testament: "AT", section: "Pentateuque", chapitres: 27 },
-  { id: "nom", nom: "Nombres", testament: "AT", section: "Pentateuque", chapitres: 36 },
-  { id: "deu", nom: "Deutéronome", testament: "AT", section: "Pentateuque", chapitres: 34 },
-  { id: "jos", nom: "Josué", testament: "AT", section: "Histoire", chapitres: 24 },
-  { id: "jug", nom: "Juges", testament: "AT", section: "Histoire", chapitres: 21 },
-  { id: "rut", nom: "Ruth", testament: "AT", section: "Histoire", chapitres: 4 },
-  { id: "1sa", nom: "1 Samuel", testament: "AT", section: "Histoire", chapitres: 31 },
-  { id: "2sa", nom: "2 Samuel", testament: "AT", section: "Histoire", chapitres: 24 },
-  { id: "1ro", nom: "1 Rois", testament: "AT", section: "Histoire", chapitres: 22 },
-  { id: "2ro", nom: "2 Rois", testament: "AT", section: "Histoire", chapitres: 25 },
-  { id: "job", nom: "Job", testament: "AT", section: "Poésie & Sagesse", chapitres: 42 },
-  { id: "psa", nom: "Psaumes", testament: "AT", section: "Poésie & Sagesse", chapitres: 150 },
-  { id: "pro", nom: "Proverbes", testament: "AT", section: "Poésie & Sagesse", chapitres: 31 },
-  { id: "ecc", nom: "Ecclésiaste", testament: "AT", section: "Poésie & Sagesse", chapitres: 12 },
-  { id: "esa", nom: "Ésaïe", testament: "AT", section: "Prophètes", chapitres: 66 },
-  { id: "jer", nom: "Jérémie", testament: "AT", section: "Prophètes", chapitres: 52 },
-  { id: "eze", nom: "Ézéchiel", testament: "AT", section: "Prophètes", chapitres: 48 },
-  { id: "dan", nom: "Daniel", testament: "AT", section: "Prophètes", chapitres: 12 },
-  { id: "mic", nom: "Michée", testament: "AT", section: "Petits Prophètes", chapitres: 7 },
-  { id: "hab", nom: "Habacuc", testament: "AT", section: "Petits Prophètes", chapitres: 3 },
+export { BIBLE_66_BOOKS };
+export const BIBLE_BOOKS = BIBLE_66_BOOKS;
 
-  // NOUVEAU TESTAMENT
-  { id: "mat", nom: "Matthieu", testament: "NT", section: "Évangiles", chapitres: 28 },
-  { id: "mar", nom: "Marc", testament: "NT", section: "Évangiles", chapitres: 16 },
-  { id: "luc", nom: "Luc", testament: "NT", section: "Évangiles", chapitres: 24 },
-  { id: "jea", nom: "Jean", testament: "NT", section: "Évangiles", chapitres: 21 },
-  { id: "act", nom: "Actes", testament: "NT", section: "Histoire", chapitres: 28 },
-  { id: "rom", nom: "Romains", testament: "NT", section: "Épîtres", chapitres: 16 },
-  { id: "1co", nom: "1 Corinthiens", testament: "NT", section: "Épîtres", chapitres: 16 },
-  { id: "2co", nom: "2 Corinthiens", testament: "NT", section: "Épîtres", chapitres: 13 },
-  { id: "gal", nom: "Galates", testament: "NT", section: "Épîtres", chapitres: 6 },
-  { id: "eph", nom: "Éphésiens", testament: "NT", section: "Épîtres", chapitres: 6 },
-  { id: "phi", nom: "Philippiens", testament: "NT", section: "Épîtres", chapitres: 4 },
-  { id: "col", nom: "Colossiens", testament: "NT", section: "Épîtres", chapitres: 4 },
-  { id: "1th", nom: "1 Thessaloniciens", testament: "NT", section: "Épîtres", chapitres: 5 },
-  { id: "heb", nom: "Hébreux", testament: "NT", section: "Épîtres", chapitres: 13 },
-  { id: "jac", nom: "Jacques", testament: "NT", section: "Épîtres", chapitres: 5 },
-  { id: "1pi", nom: "1 Pierre", testament: "NT", section: "Épîtres", chapitres: 5 },
-  { id: "1je", nom: "1 Jean", testament: "NT", section: "Épîtres", chapitres: 5 },
-  { id: "apo", nom: "Apocalypse", testament: "NT", section: "Révélation", chapitres: 22 }
-];
 
 // LES 7 GRANDES ÉPOQUES BIBLIQUES (CARTE PAN-BIBLIQUE)
 export const BIBLE_EPOCHS = [
@@ -606,7 +567,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "« Que la lumière soit ! »", correct: true },
         { text: "« Que la terre fleurisse ! »", correct: false },
-        { text: "« Que les étoiles brillent ! »", correct: false }
+        { text: "« Que les étoiles brillent ! »", correct: false },
+        { text: "« Que l'homme paraisse ! »", correct: false }
       ],
       conseilRecherche: "📖 Ouvre Genèse 1:3. Avant le soleil et la lune créés au 4e jour, Dieu appelle la lumière par sa Parole !",
       explication: "Avant même toute création matérielle, Dieu apporte la clarté. Sa Parole a le pouvoir d'illuminer nos obscurités les plus profondes.",
@@ -662,7 +624,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Yahvé Nissi (L'Éternel mon étendard)", correct: true },
         { text: "Yahvé Shalom (L'Éternel ma paix)", correct: false },
-        { text: "Yahvé Jiré (L'Éternel pourvoira)", correct: false }
+        { text: "Yahvé Jiré (L'Éternel pourvoira)", correct: false },
+        { text: "Yahvé Rapha (L'Éternel qui guérit)", correct: false }
       ],
       conseilRecherche: "📖 Lis Exode 17:8-16. Moïse gardait les bras élevés soutenu par Aaron et Hur.",
       explication: "Dans nos combats quotidiens, notre bannière et notre force reposent en Dieu seul.",
@@ -743,7 +706,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "« JE SUIS CELUI QUI SUIS » (Ehyeh Asher Ehyeh)", correct: true },
         { text: "« Le Juge Suprême de toutes les nations »", correct: false },
-        { text: "« Le Dieu du tonnerre et des éclairs »", correct: false }
+        { text: "« Le Dieu du tonnerre et des éclairs »", correct: false },
+        { text: "« Le Créateur du ciel seulement »", correct: false }
       ],
       conseilRecherche: "📖 Ouvre Exode 3:13-15. Dieu affirme son existence autonome, éternelle et fidèle par-delà les générations.",
       explication: "Le Nom ineffable révèle un Dieu vivant, présent et agissant dans l'Histoire, qui s'engage lui-même pour délivrer son peuple de l'oppression.",
@@ -801,7 +765,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Au nom de l'Éternel des armées, le Dieu d'Israël", correct: true },
         { text: "Au nom de l'armée du roi Saül", correct: false },
-        { text: "Au nom de sa propre adresse et de sa fronde", correct: false }
+        { text: "Au nom de sa propre adresse et de sa fronde", correct: false },
+        { text: "Au nom de son père Isaï", correct: false }
       ],
       conseilRecherche: "📖 Consulte 1 Samuel 17:40-50. Remarque le contraste saisissant entre l'armure de fer et la foi nue en l'Éternel.",
       explication: "La foi renverse les forteresses les plus intimidantes quand Dieu est au centre de notre combat.",
@@ -841,7 +806,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Un cordon de fil écarlate", correct: true },
         { text: "Une branche d'olivier blanc", correct: false },
-        { text: "Une bannière brodée d'or", correct: false }
+        { text: "Une bannière brodée d'or", correct: false },
+        { text: "Un linge de lin blanc", correct: false }
       ],
       conseilRecherche: "📖 Ouvre Josué 2:17-21 et Hébreux 11:31. Le cordon rouge à la fenêtre rappelle le sang de la Pâque sur les linteaux.",
       explication: "Par sa foi et son accueil courageux des envoyés, Rahab la Cananéenne est sauvée et intégrée dans la généalogie du Messie (Matthieu 1:5).",
@@ -898,7 +864,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "L'holocauste, le bois, les pierres, la poussière et l'eau du fossé", correct: true },
         { text: "Seulement l'holocauste sur le bois", correct: false },
-        { text: "Les armes des quatre cent cinquante faux prophètes", correct: false }
+        { text: "Les armes des quatre cent cinquante faux prophètes", correct: false },
+        { text: "Uniquement l'eau versée dans le fossé", correct: false }
       ],
       conseilRecherche: "📖 Ouvre 1 Rois 18:30-39. Remarque comment la ferveur de la prière d'Élie démontre la toute-puissance de l'Éternel.",
       explication: "La souveraineté de Dieu consume jusqu'au doute : le peuple s'écria aussitôt : 'C'est l'Éternel qui est Dieu !'.",
@@ -1015,7 +982,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "À une lampe à nos pieds et une lumière sur notre sentier", correct: true },
         { text: "À un fleuve tumultueux", correct: false },
-        { text: "À une forteresse de pierres", correct: false }
+        { text: "À une forteresse de pierres", correct: false },
+        { text: "À une épée à deux tranchants", correct: false }
       ],
       conseilRecherche: "📖 Ouvre le Psaume 119:105. Une lampe à huile antique n'éclairait qu'un seul pas à la fois !",
       explication: "La Bible n'éclaire pas d'un coup tout l'avenir, mais éclaire fidèlement le prochain pas que nous devons poser.",
@@ -1186,7 +1154,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Notre Dieu peut nous délivrer, et Il nous délivrera de ta main", correct: true },
         { text: "Nous renoncerons à notre foi pour avoir la vie sauve", correct: false },
-        { text: "Nous ferons appel aux soldats pour nous défendre", correct: false }
+        { text: "Nous ferons appel aux soldats pour nous défendre", correct: false },
+        { text: "Nous demanderons un délai de trois jours", correct: false }
       ],
       conseilRecherche: "📖 Lis Daniel 3:13-25. Dans la fournaise, Nebucadnetsar aperçoit un quatrième homme semblable à un fils des dieux !",
       explication: "Même au milieu des flammes de l'épreuve, le Seigneur marche aux côtés de ceux qui lui demeurent fidèles.",
@@ -1263,7 +1232,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Mettre fin aux péchés et amener la justice éternelle", correct: true },
         { text: "Rebâtir la tour de Babel", correct: false },
-        { text: "Détruire toutes les bibliothèques perses", correct: false }
+        { text: "Détruire toutes les bibliothèques perses", correct: false },
+        { text: "Couronner un roi perse à Babylone", correct: false }
       ],
       conseilRecherche: "📖 Ouvre Daniel 9:20-27. Gabriel annonce l'expiation de l'iniquité et l'avènement du Messie le Prince.",
       explication: "Cette prophétie capitale balise l'Histoire jusqu'à la venue du Sauveur qui accomplit le salut définitif.",
@@ -1321,7 +1291,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "« Le juste vivra par sa foi »", correct: true },
         { text: "« Le fort triomphera par ses armes »", correct: false },
-        { text: "« Le riche dominera par son or »", correct: false }
+        { text: "« Le riche dominera par son or »", correct: false },
+        { text: "« Le sage prospérera par sa prudence »", correct: false }
       ],
       conseilRecherche: "📖 Consulte Habacuc 2:1-4, Romains 1:17 et Galates 3:11.",
       explication: "La foi vivante et fidèle en Dieu est le secret de la persévérance et de la justification devant le trône divin.",
@@ -1379,7 +1350,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Par amour, pour que quiconque croit ait la vie éternelle", correct: true },
         { text: "Pour juger et condamner le monde", correct: false },
-        { text: "Pour éprouver la force des hommes", correct: false }
+        { text: "Pour éprouver la force des hommes", correct: false },
+        { text: "Pour établir un royaume politique immédiat", correct: false }
       ],
       conseilRecherche: "📖 Lis Jean 3:16-17. Le don du Fils est un acte de pure grâce et d'amour inconditionnel.",
       explication: "Le cœur de l'Évangile est un amour pur, sans condition. Jésus est venu pour sauver et restaurer.",
@@ -1490,7 +1462,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Moïse et Élie (La Loi et les Prophètes)", correct: true },
         { text: "Abraham et David", correct: false },
-        { text: "Noé et Daniel", correct: false }
+        { text: "Noé et Daniel", correct: false },
+        { text: "Samuel et Isaïe", correct: false }
       ],
       conseilRecherche: "📖 Consulte Matthieu 17:1-8 et Luc 9:28-36. Ils parlaient de son départ prochain à Jérusalem.",
       explication: "Moïse et Élie attestent que toute la Loi et tous les Prophètes trouvent leur accomplissement en Jésus.",
@@ -1548,7 +1521,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "« Pourquoi cherchez-vous parmi les morts celui qui est vivant ? Il n'est point ici, mais il est ressuscité »", correct: true },
         { text: "« Pourquoi avez-vous apporté ces aromates sans les gardes ? »", correct: false },
-        { text: "« Attendez le soir pour voir paraître la lumière »", correct: false }
+        { text: "« Attendez le soir pour voir paraître la lumière »", correct: false },
+        { text: "« Qui a roulé la pierre pendant la nuit ? »", correct: false }
       ],
       conseilRecherche: "📖 Ouvre Luc 24:1-12. Le tombeau est vide : la mort est vaincue pour l'éternité !",
       explication: "La résurrection de Jésus est le pilier inébranlable de notre foi : Il est vivant pour toujours.",
@@ -1625,7 +1599,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Plus que vainqueurs par celui qui nous a aimés", correct: true },
         { text: "Épuisés et sans espérance", correct: false },
-        { text: "Condamnés à lutter seuls", correct: false }
+        { text: "Condamnés à lutter seuls", correct: false },
+        { text: "Protégés seulement si nous ne péchons plus", correct: false }
       ],
       conseilRecherche: "📖 Consulte Romains 8:31-39. Si Dieu est pour nous, qui sera contre nous ?",
       explication: "Rien ne peut nous séparer de l'amour de Dieu manifesté en Jésus-Christ notre Seigneur.",
@@ -1665,7 +1640,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "« À un dieu inconnu »", correct: true },
         { text: "« Au souverain de l'Olympe »", correct: false },
-        { text: "« À la sagesse éternelle des philosophes »", correct: false }
+        { text: "« À la sagesse éternelle des philosophes »", correct: false },
+        { text: "« Aux douze dieux de la cité »", correct: false }
       ],
       conseilRecherche: "📖 Lis Actes 17:22-31. Paul part de leur quête spirituelle pour révéler le Dieu en qui nous avons la vie, le mouvement et l'être.",
       explication: "La sagesse de Paul montre comment dialoguer avec respect et vérité pour éclairer la recherche de Dieu chez chacun.",
@@ -1686,7 +1662,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Céphas (l'apôtre Pierre)", correct: true },
         { text: "Barnabas", correct: false },
-        { text: "Apollos", correct: false }
+        { text: "Apollos", correct: false },
+        { text: "Jacques, frère du Seigneur", correct: false }
       ],
       conseilRecherche: "📖 Ouvre Galates 2:11-14. Pierre s'était retiré de la table des croyants non-juifs par crainte de certains partisans.",
       explication: "Dans l'Église du Christ, il n'y a plus de barrière ethnique ou rituelle : la grâce unit tous les croyants dans une égale dignité.",
@@ -1817,7 +1794,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "« Oui, je viens bientôt. — Amen ! Viens, Seigneur Jésus ! »", correct: true },
         { text: "« Préparez vos glaives et vos armes »", correct: false },
-        { text: "« Il faudra attendre mille générations »", correct: false }
+        { text: "« Il faudra attendre mille générations »", correct: false },
+        { text: "« Le livre est désormais scellé pour toujours »", correct: false }
       ],
       conseilRecherche: "📖 Ouvre Apocalypse 22:16-21. C'est le dialogue d'amour final entre l'Époux divin et l'Épouse.",
       explication: "Toute l'Écriture se clôt sur un cri d'espérance, de confiance et d'amour.",
@@ -1897,7 +1875,8 @@ export const EPOCH_STAGES = {
       options: [
         { text: "Aux deux oliviers et aux deux chandeliers debout devant le Seigneur", correct: true },
         { text: "Aux deux cèdres du Liban inébranlables", correct: false },
-        { text: "Aux deux lions rugissants du désert", correct: false }
+        { text: "Aux deux lions rugissants du désert", correct: false },
+        { text: "Aux deux aigles qui volent au milieu du ciel", correct: false }
       ],
       conseilRecherche: "📖 Consulte Apocalypse 11:3-4 et Zacharie 4:1-14. L'huile de l'olivier alimente la lumière du chandelier.",
       explication: "Les témoins de Dieu sont alimentés en continu par l'huile de l'Esprit pour briller dans les ténèbres les plus épaisses.",
@@ -1971,6 +1950,48 @@ export const LEITNER_BOXES = [
 ];
 
 // SENTIER PAR DÉFAUT (Pour compatibilité)
+const usedStageIds = new Set();
+for (const list of Object.values(EPOCH_STAGES)) {
+  for (const stage of list) usedStageIds.add(stage.id);
+}
+
+function placeExtraStage(stage, epochId) {
+  let id = stage.id;
+  if (usedStageIds.has(id)) {
+    id = 4000;
+    while (usedStageIds.has(id)) id += 1;
+  }
+  usedStageIds.add(id);
+  return {
+    ...stage,
+    id,
+    epoch: stage.epoch || epochId
+  };
+}
+
+function layoutMissingCoordinates(list) {
+  return list.map((stage, index) => {
+    if (typeof stage.x === "number" && typeof stage.y === "number") return stage;
+    const col = index % 6;
+    return {
+      ...stage,
+      x: 8 + col * 15,
+      y: col % 2 === 0 ? 24 : 70
+    };
+  });
+}
+
+for (const epochId of Object.keys(EPOCH_STAGES)) {
+  const extras = [
+    ...(EXTENDED_STAGES[epochId] || []),
+    ...(JEAN_STAGES_BY_EPOCH[epochId] || [])
+  ];
+  for (const stage of extras) {
+    EPOCH_STAGES[epochId].push(placeExtraStage(stage, epochId));
+  }
+  EPOCH_STAGES[epochId] = layoutMissingCoordinates(EPOCH_STAGES[epochId]);
+}
+
 export const PATH_STAGES = EPOCH_STAGES.racines;
 
 // RECHERCHE THÉMATIQUE (LES BESOINS DU CŒUR)

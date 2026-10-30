@@ -4,7 +4,7 @@
  */
 
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDsIYH4rplT1giMld2cxq4x1IqWmNyIZ6Q",
+  apiKey: "AIzaSyAgTS_A2w5qWEAGUQCxkHULcFPcb5Yzdz4",
   authDomain: "defi-jean.firebaseapp.com",
   projectId: "defi-jean",
   storageBucket: "defi-jean.firebasestorage.app",

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import "./styles.css";
+import "./styles/reduced-motion.css";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { AuthModal } from "./components/AuthModal";
 import InviteShareModal from "./components/InviteShareModal";
@@ -34,7 +35,9 @@ import {
   normalizePseudo
 } from "./services/firebase";
 import { reconcilePelerinData } from "./services/dataReconciliation";
-import { sendProgressSummaryEmail, isBrevoConfigured } from "./services/brevoMailer";
+import { sendProgressSummaryEmail } from "./services/brevoMailer";
+import { awardStageCompletion, clampScore, dueLeitnerCards, motionAllowed, reviewLeitnerCard } from "./services/progression";
+import ChurchGroupCard from "./components/ChurchGroupCard";
 import { validatePrayerContent } from "./services/moderation";
 import {
   BIBLE_BOOKS,
@@ -228,34 +231,23 @@ function App() {
 
   const leitnerCards = useMemo(() => {
     const cards = saved.leitnerCards;
-    if (cards && Object.keys(cards).length > 0) {
-      return Object.values(cards);
-    }
-    // Cartes d'inspiration initiales pour découvrir immédiatement le Jardin
-    return [
-      {
-        ref: "Genèse 1:1",
-        titre: "La Création du monde",
-        texte: "Au commencement, Dieu créa les cieux et la terre.",
-        box: 1,
-        lastReviewed: Date.now() - 86400000,
-        nextReview: Date.now() - 1000
-      },
-      {
-        ref: "Psaume 23:1",
-        titre: "Le Berger bienveillant",
-        texte: "L'Éternel est mon berger : je ne manquerai de rien.",
-        box: 2,
-        lastReviewed: Date.now() - 86400000 * 3,
-        nextReview: Date.now() - 1000
-      }
-    ];
+    if (!cards || typeof cards !== "object" || Array.isArray(cards)) return [];
+    return Object.values(cards);
   }, [saved.leitnerCards]);
 
-  const xp = saved.xp || 0;
-  const pearls = saved.pearls || 0;
-  const streak = saved.streak || 1;
-  const completedStages = useMemo(() => saved.completedStages || [1], [saved.completedStages]);
+  const leitnerDueCards = useMemo(
+    () => dueLeitnerCards(saved.leitnerCards),
+    [saved.leitnerCards]
+  );
+
+  const completedStages = useMemo(
+    () => (Array.isArray(saved.completedStages) ? saved.completedStages : []),
+    [saved.completedStages]
+  );
+  const visibleScore = clampScore(completedStages.length, saved.xp || 0, saved.pearls || 0);
+  const xp = visibleScore.xp;
+  const pearls = visibleScore.pearls;
+  const streak = Number.isFinite(saved.streak) ? saved.streak : 0;
 
   const notify = (message) => {
     setToast(message);
@@ -574,7 +566,7 @@ function App() {
         versesCount: leitnerCards.length
       });
       if (res.simulated) {
-        notify("Bilan simulé avec succès ! (Renseigne VITE_BREVO_API_KEY dans .env pour l'envoi réel) ✉️");
+        notify("Bilan préparé. Ajoute BREVO_API_KEY sur le serveur pour l'envoi réel.");
       } else if (res.success) {
         notify("Ton bilan spirituel a été envoyé avec succès par e-mail via Brevo 🕊️");
       } else {
@@ -705,7 +697,7 @@ function App() {
     triggerHaptic([30, 30]);
   };
 
-  // Liste globale de toutes les étapes (72 étapes de base + 9 étapes bonus d'élévation)
+  // Sentier actif : étapes de base, extension et questions du Défi Jean, plus les bonus.
   const allKnownStages = useMemo(() => {
     const list = Object.values(EPOCH_STAGES).flat();
     return [...list, ...BONUS_STAGES];
@@ -840,54 +832,28 @@ function App() {
 
     if (isSuccess) {
       setTimerRunning(false);
-      playDivineChime();
-      triggerHaptic([20, 60, 20]);
-      setConfettiActive(true);
-      setExerciseFeedback("Bravo ! Ton cœur accueille la Parole avec joie ✨");
+      const reward = awardStageCompletion(saved, currentStage, Date.now(), selectedEpochId);
+      if (motionAllowed()) {
+        playDivineChime();
+        triggerHaptic([20, 60, 20]);
+        setConfettiActive(true);
+      }
+      setExerciseFeedback(
+        reward.alreadyDone
+          ? "Cette étape est déjà accomplie. Tu peux la méditer à nouveau, sans nouveau point."
+          : "Bravo ! Ton cœur accueille la Parole avec joie ✨"
+      );
 
-      // Vérification promotion de Ligue Céleste
       const prevLeague = getCurrentLeague(saved.xp || 0).league;
-      const nextXp = (saved.xp || 0) + (currentStage.recompense?.xp || 20);
-      const newLeague = getCurrentLeague(nextXp).league;
-
-      if (newLeague.id !== prevLeague.id) {
-        playLeagueFanfare();
-        showDove(`🎉 Gloire à Dieu ! Tu accèdes à la Ligue ${newLeague.nom} ${newLeague.icon} ! Continue d'honorer la Parole céleste ✨`, "leagueUp");
-      } else {
+      const newLeague = getCurrentLeague(reward.saved.xp || 0).league;
+      if (!reward.alreadyDone && newLeague.id !== prevLeague.id) {
+        if (motionAllowed()) playLeagueFanfare();
+        showDove(`Gloire à Dieu ! Tu accèdes à la Ligue ${newLeague.nom} ${newLeague.icon} !`, "leagueUp");
+      } else if (!reward.alreadyDone) {
         showDove(null, "success");
       }
 
-      // Mise à jour de la progression et enracinement dans le Jardin de la Mémoire
-      const nextCompleted = Array.from(new Set([...completedStages, currentStage.id]));
-      setSaved((prev) => {
-        const prevCards = prev.leitnerCards || {};
-        const existingCard = prevCards[currentStage.ref];
-        const nextBox = existingCard ? Math.min(5, (existingCard.box || 1) + 1) : 1;
-        const intervalsDays = [0, 1, 3, 7, 30, 90];
-        const nextReview = Date.now() + (intervalsDays[nextBox] || 1) * 24 * 3600 * 1000;
-
-        const updatedCards = {
-          ...prevCards,
-          [currentStage.ref]: {
-            ref: currentStage.ref,
-            titre: currentStage.titre,
-            texte: currentStage.motsCorrects ? currentStage.motsCorrects.join(" ") : (currentStage.quote || currentStage.titre),
-            box: nextBox,
-            stageId: currentStage.id,
-            epochId: currentStage.epoch || selectedEpochId,
-            lastReviewed: Date.now(),
-            nextReview
-          }
-        };
-
-        return {
-          ...prev,
-          completedStages: nextCompleted,
-          xp: nextXp,
-          pearls: (prev.pearls || 0) + (currentStage.recompense?.perles || 1),
-          leitnerCards: updatedCards
-        };
-      });
+      setSaved((prev) => awardStageCompletion(prev, currentStage, Date.now(), selectedEpochId).saved);
     } else {
       triggerHaptic([40, 20]);
       playErrorGentleTone();
@@ -1176,43 +1142,22 @@ function App() {
 
   // Gestion de la réponse en révision Leitner
   const handleReviewAnswer = (cardRef, isSuccess) => {
-    setSaved((prev) => {
-      const prevCards = prev.leitnerCards || {};
-      const card = prevCards[cardRef] || { ref: cardRef, box: 1 };
-      let newBox = card.box || 1;
-      if (isSuccess) {
-        newBox = Math.min(5, newBox + 1);
-        playDivineChime();
-        triggerHaptic([20, 60, 20]);
-        setConfettiActive(true);
-        notify(`« ${cardRef} » monte au Niveau ${newBox} ! Gloire à Dieu ✨`);
-      } else {
-        newBox = 1;
-        playPeaceTone();
-        triggerHaptic([30]);
-        notify(`« ${cardRef} » sera consolidé demain avec douceur 🌿`);
-      }
-
-      const intervalsDays = [0, 1, 3, 7, 30, 90];
-      const nextReview = Date.now() + (intervalsDays[newBox] || 1) * 24 * 3600 * 1000;
-
-      const updatedCards = {
-        ...prevCards,
-        [cardRef]: {
-          ...card,
-          box: newBox,
-          lastReviewed: Date.now(),
-          nextReview
-        }
-      };
-
-      return {
-        ...prev,
-        xp: (prev.xp || 0) + (isSuccess ? 15 : 5),
-        pearls: (prev.pearls || 0) + (isSuccess ? 1 : 0),
-        leitnerCards: updatedCards
-      };
-    });
+    const preview = reviewLeitnerCard(saved, cardRef, isSuccess, Date.now());
+    if (preview.waiting) {
+      notify("Ce verset n'est pas encore échu. Reviens à la date prévue.");
+      return;
+    }
+    if (isSuccess && preview.awarded && motionAllowed()) {
+      playDivineChime();
+      triggerHaptic([20, 60, 20]);
+      setConfettiActive(true);
+      notify(`« ${cardRef} » monte au Niveau ${preview.newBox}.`);
+    } else if (!isSuccess) {
+      playPeaceTone();
+      if (motionAllowed()) triggerHaptic([30]);
+      notify(`« ${cardRef} » repart au premier niveau et reviendra demain.`);
+    }
+    setSaved((prev) => reviewLeitnerCard(prev, cardRef, isSuccess, Date.now()).saved);
 
     setLeitnerCardRevealed(false);
     setLeitnerReviewIndex((idx) => idx + 1);
@@ -1539,7 +1484,7 @@ function App() {
                     type="button"
                     className="secondary-button surprise-stage-btn"
                     onClick={handleRandomStageSurprise}
-                    title="Lancer une étape aléatoire parmi les 72 étapes pour tester votre foi et vos connaissances"
+                    title="Lancer une étape aléatoire sur tout le sentier pour tester votre foi et vos connaissances"
                   >
                     <Shuffle size={17} />
                     <span>🎲 Défi Providenciel</span>
@@ -1737,7 +1682,7 @@ function App() {
                     setLeitnerModalOpen(true);
                   }}
                 >
-                  Lancer la révision ({leitnerCards.length}) <ChevronRight size={16} />
+                  Lancer la révision ({leitnerDueCards.length}) <ChevronRight size={16} />
                 </button>
               </div>
 
@@ -1768,7 +1713,7 @@ function App() {
                       setLeitnerModalOpen(true);
                     }}
                   >
-                    <Sparkles size={17} /> Réviser mes versets ({leitnerCards.length})
+                    <Sparkles size={17} /> Réviser mes versets ({leitnerDueCards.length})
                   </button>
                 </div>
               </div>
@@ -1870,7 +1815,7 @@ function App() {
             {/* INDICATION DE GLISSEMENT TACTILE ET SOURIS */}
             <div className="path-drag-indicator">
               <span className="drag-hand">👆</span>
-              <span>Glisse avec le doigt pour parcourir les 10 étapes du sentier</span>
+              <span>Glisse avec le doigt pour parcourir les {currentStages.length} étapes du sentier</span>
               <span className="drag-arrow">➔</span>
             </div>
 
@@ -1922,7 +1867,7 @@ function App() {
                   })}
                 </svg>
 
-                {currentStages.map((node) => {
+                {currentStages.map((node, nodeIndex) => {
                   const isDone = completedStages.includes(node.id);
 
                   return (
@@ -1934,7 +1879,7 @@ function App() {
                       aria-label={`${node.titre}`}
                     >
                       <span className="node-circle">
-                        {isDone ? <Check size={20} /> : <span>{node.id}</span>}
+                        {isDone ? <Check size={20} /> : <span>{nodeIndex + 1}</span>}
                       </span>
                       <span className="node-label">
                         <b>{node.titre}</b>
@@ -2433,8 +2378,8 @@ function App() {
           <section className="page">
             <div className="page-intro">
               <span className="eyebrow"><BookOpen size={14} /> LA PAROLE EN TOUT TEMPS</span>
-              <h1>La Bible Intégrée</h1>
-              <p>Lis, écoute et garde une perle de sagesse dans ton carnet personnel.</p>
+              <h1>Extraits de la Bible</h1>
+              <p>Quelques passages clés de la Louis Segond 1910, à lire, écouter et garder dans ton carnet. Ce n'est pas encore le texte intégral des 66 livres.</p>
             </div>
 
             <div className="bible-layout">
@@ -2677,42 +2622,7 @@ function App() {
               <p>Marcher ensemble, prier les uns pour les autres et s'édifier mutuellement.</p>
             </div>
 
-            {/* CARTE GROUPE BIBLIQUE */}
-            <div className="group-hero-card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <span className="pill" style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}>
-                    GROUPE ACTIF
-                  </span>
-                  <h3>Église de la Paix & Amis</h3>
-                  <p>« Un seul cœur, une seule foi, un même pèlerinage. »</p>
-                </div>
-                <span style={{ fontSize: "36px" }}>⛪</span>
-              </div>
-
-              <div style={{ marginTop: "16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
-                  <span>Défi du mois : Découverte des Évangiles</span>
-                  <b>85% franchis ensemble !</b>
-                </div>
-                <div className="progress-track" style={{ height: "10px", background: "rgba(255,255,255,0.25)" }}>
-                  <i style={{ width: "85%", background: "#fff" }} />
-                </div>
-              </div>
-
-              <div style={{ marginTop: "18px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                <button
-                  className="secondary-button"
-                  style={{ background: "#fff", color: "#0756a5", border: "0" }}
-                  onClick={() => {
-                    notify("Encouragement envoyé au groupe : « Que Dieu vous fortifie ! » 🕊️");
-                    triggerHaptic([30]);
-                  }}
-                >
-                  <Send size={16} /> Envoyer un encouragement (1 clic)
-                </button>
-              </div>
-            </div>
+            <ChurchGroupCard />
 
             {/* LE MUR DE PRIÈRES FRATERNELLES */}
             <div style={{ margin: "28px 0" }}>
@@ -3142,18 +3052,23 @@ function App() {
             {leitnerCards.length === 0 ? (
               <div className="leitner-empty-state">
                 <p>Aucun verset n'est encore semé dans ton jardin.</p>
-                <small>Accomplis des étapes sur le Sentier ou ancre un verset depuis la Bible !</small>
+                <small>Accomplis des étapes sur le Sentier ou ancre un verset depuis la Bible.</small>
+              </div>
+            ) : leitnerDueCards.length === 0 ? (
+              <div className="leitner-empty-state">
+                <p>Tes versets prennent racine.</p>
+                <small>Aucune carte n'est échue aujourd'hui. Reviens à la prochaine échéance.</small>
               </div>
             ) : (
               <div className="leitner-review-content">
-                {leitnerReviewIndex < leitnerCards.length ? (
+                {leitnerReviewIndex < leitnerDueCards.length ? (
                   (() => {
-                    const card = leitnerCards[leitnerReviewIndex];
+                    const card = leitnerDueCards[leitnerReviewIndex];
                     const boxInfo = LEITNER_BOXES.find((b) => b.level === (card.box || 1)) || LEITNER_BOXES[0];
                     return (
                       <div className="leitner-card-view">
                         <div className="leitner-card-progress">
-                          <span>Verset {leitnerReviewIndex + 1} sur {leitnerCards.length}</span>
+                          <span>Verset {leitnerReviewIndex + 1} sur {leitnerDueCards.length}</span>
                           <span className="leitner-badge" style={{ backgroundColor: boxInfo.color + "22", color: boxInfo.color }}>
                             {boxInfo.icon} Niveau {boxInfo.level} · {boxInfo.nom}
                           </span>

@@ -123,7 +123,7 @@ export default function InviteShareModal({
       setEmailStatus({
         type: "success",
         message: res.simulated
-          ? "Invitation simulée avec succès ! (Configurez VITE_BREVO_API_KEY pour l'envoi réel)"
+          ? "Invitation préparée. Ajoute BREVO_API_KEY sur le serveur pour l'envoi réel."
           : `Invitation envoyée avec succès à ${emailTrim} ! 🌿`
       });
       notify("Invitation envoyée ! Que ce partage porte du fruit ✨");

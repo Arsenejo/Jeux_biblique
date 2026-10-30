@@ -3,12 +3,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Règles pour le classement mondial du Défi Jean
-    match /classement_defi_jean/{joueurId} {
-      // Tout le monde peut consulter le classement
-      allow read: if true;
+    // Plafonds alignés sur src/services/progression.js :
+    // 150 XP et 5 perles par étape validée, bonus de révision 8000 / 500, 400 étapes max.
 
-      // Tout joueur peut enregistrer ou mettre à jour son score
+    function stageCountOk(n) {
+      return n is int && n >= 0 && n <= 400;
+    }
+
+    function scoreWithinCeiling(xp, pearls, stages) {
+      return xp is number && pearls is number
+        && xp >= 0 && pearls >= 0
+        && stageCountOk(stages)
+        && xp <= stages * 150 + 8000
+        && pearls <= stages * 5 + 500;
+    }
+
+    match /classement_defi_jean/{joueurId} {
+      allow read: if true;
       allow create, update: if request.resource.data.pseudo is string
                             && request.resource.data.pseudo.size() >= 2
                             && request.resource.data.pseudo.size() <= 25
@@ -21,62 +32,95 @@ service cloud.firestore {
                             && request.resource.data.niveauxDebloques is number
                             && request.resource.data.niveauxDebloques >= 1
                             && request.resource.data.niveauxDebloques <= 10;
-
-      // Interdiction de suppression pour préserver l'historique
       allow delete: if false;
     }
 
-    // =======================================================================
-    // LE GRAND PÈLERINAGE DE LA BIBLE (RÈGLES DE SÉCURITÉ & VIE PRIVÉE)
-    // =======================================================================
-
-    // Profil du pèlerin : Lecture publique pour le classement fraternel,
-    // modification STRICTEMENT réservée au propriétaire authentifié.
     match /pelerins/{uid} {
-      allow read: if true;
+      allow read: if request.auth != null && request.auth.uid == uid;
+
       allow create, update: if request.auth != null
                             && request.auth.uid == uid
-                            && request.resource.data.xp is number
-                            && request.resource.data.xp >= 0
-                            && request.resource.data.pearls is number
-                            && request.resource.data.pearls >= 0;
+                            && !('email' in request.resource.data)
+                            && !('telephone' in request.resource.data)
+                            && !('phone' in request.resource.data)
+                            && (
+                              !('xp' in request.resource.data)
+                              || scoreWithinCeiling(
+                                request.resource.data.xp,
+                                request.resource.data.get('pearls', 0),
+                                request.resource.data.get('saved', {}).get('completedStages', []).size()
+                              )
+                            );
+
       allow delete: if request.auth != null && request.auth.uid == uid;
 
-      // CARNET SPIRITUEL PERSONNEL : STRICTEMENT PRIVÉ
-      // Aucun pèlerin ne peut lire ou écrire dans le carnet intime d'un autre.
       match /carnet/{noteId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
     }
 
-    // MUR COMMUNAUTAIRE DE PRIÈRES & GRATITUDES
-    // Contrôle d'accès, protection des données et signalement d'abus
-    match /prieres/{prayerId} {
-      // Lecture autorisée pour toute la communauté fraternelle
+    match /classement_pelerins/{uid} {
       allow read: if true;
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && request.resource.data.pseudo is string
+                            && request.resource.data.pseudo.size() >= 2
+                            && request.resource.data.pseudo.size() <= 30
+                            && request.resource.data.stagesValidees is int
+                            && scoreWithinCeiling(
+                              request.resource.data.xp,
+                              request.resource.data.pearls,
+                              request.resource.data.stagesValidees
+                            )
+                            && !('email' in request.resource.data)
+                            && !('telephone' in request.resource.data)
+                            && !('phone' in request.resource.data);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
 
-      // Création réservée aux utilisateurs authentifiés avec validation de longueur
+    match /prieres/{prayerId} {
+      allow read: if true;
       allow create: if request.auth != null
+                    && request.resource.data.auteurId == request.auth.uid
                     && request.resource.data.texte is string
                     && request.resource.data.texte.size() >= 5
                     && request.resource.data.texte.size() <= 600
                     && request.resource.data.auteur is string
                     && request.resource.data.auteur.size() >= 2
                     && request.resource.data.auteur.size() <= 40
-                    && request.resource.data.soutiens is number
-                    && request.resource.data.soutiens >= 0;
-
-      // Mise à jour restreinte : uniquement pour soutenir (« Je prie avec toi »)
-      // ou pour signaler un abus, SANS pouvoir modifier le texte d'origine d'autrui
+                    && request.resource.data.soutiens == 1
+                    && request.resource.data.signaux == 0
+                    && request.resource.data.masque == false
+                    && !('email' in request.resource.data)
+                    && !('telephone' in request.resource.data);
       allow update: if request.auth != null
                     && (
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['soutiens'])
-                      || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signaux', 'masque'])
+                      (
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['soutiens'])
+                        && request.resource.data.soutiens == resource.data.soutiens + 1
+                      )
+                      || (
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signaux', 'masque'])
+                        && request.resource.data.signaux == resource.data.signaux + 1
+                        && request.resource.data.masque == (request.resource.data.signaux >= 3)
+                      )
                     );
-
-      // Suppression réservée à l'auteur de l'intention
       allow delete: if request.auth != null
                     && resource.data.auteurId == request.auth.uid;
+    }
+
+    match /pseudos_enregistres/{cleanPseudo} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.cleanPseudo == cleanPseudo
+                    && request.resource.data.cleanPseudo is string
+                    && request.resource.data.cleanPseudo.size() >= 2
+                    && request.resource.data.cleanPseudo.size() <= 30;
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == resource.data.uid;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
   }
 }

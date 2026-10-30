@@ -49,9 +49,10 @@ test("Scénario 1: Démarrage instantané d'un nouveau pèlerin sans formulaire 
   // 1. Le joueur a un nom bienveillant par défaut, sans obligation de saisir un formulaire
   assert.equal(profileName, "Ami pèlerin");
 
-  // 2. L'accès au premier stage est immédiat (Étape 1 toujours débloquée par défaut)
-  const completedStages = saved.completedStages || [1];
-  assert.ok(completedStages.includes(1), "L'étape 1 doit être accessible immédiatement");
+  // 2. Une partie neuve ne marque aucune étape comme déjà franchie.
+  // L'étape 1 reste ouvrable : le sentier ne verrouille pas la première case.
+  const completedStages = Array.isArray(saved.completedStages) ? saved.completedStages : [];
+  assert.deepEqual(completedStages, []);
   assert.equal(saved.xp || 0, 0);
   assert.equal(saved.pearls || 0, 0);
 

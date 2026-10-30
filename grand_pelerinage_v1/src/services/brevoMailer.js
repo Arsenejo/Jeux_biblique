@@ -1,10 +1,8 @@
 /**
- * SERVICE D'ENVOI DE COURRIELS TRANSACTIONNELS — BREVO (EX-SENDINBLUE)
- * Permet l'envoi de courriels d'accueil, récapitulatifs spirituels,
- * et notifications fraternelles pour les pèlerins.
+ * SERVICE D'ENVOI DE COURRIELS TRANSACTIONNELS — BREVO
+ * Le navigateur demande /api/send-email. La clé reste sur le serveur.
+ * Mention conservée pour les courriels : Église Évangélique Assemblée de la Grâce, Issia.
  */
-
-const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 import { validateCommunityMessage } from "./moderation.js";
 
@@ -20,7 +18,6 @@ export function escapeHtml(str = "") {
     .replace(/'/g, "&#39;");
 }
 
-// Limiteur de débit côté client pour prévenir les attaques de spam automatisé
 const inviteTimestamps = [];
 const RATE_LIMIT_MAX = 3;
 const RATE_LIMIT_WINDOW_MS = 60000;
@@ -41,218 +38,67 @@ export function checkInviteRateLimit() {
   return { allowed: true };
 }
 
-// Récupération de la clé API Brevo depuis les variables d'environnement Vite ou le stockage local
+const EMAIL_FOOTER = "Église Évangélique Assemblée de la Grâce, Issia (Côte d'Ivoire).";
+
+/** La clé Brevo ne vit plus dans le navigateur. */
 export function getBrevoApiKey() {
-  if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_BREVO_API_KEY) {
-    return import.meta.env.VITE_BREVO_API_KEY;
-  }
-  try {
-    return localStorage.getItem("pelerinage_brevo_api_key") || "";
-  } catch {
-    return "";
-  }
+  return "";
 }
 
-export function setBrevoApiKey(apiKey) {
+export function setBrevoApiKey() {
   try {
-    if (apiKey) {
-      localStorage.setItem("pelerinage_brevo_api_key", apiKey.trim());
-    } else {
-      localStorage.removeItem("pelerinage_brevo_api_key");
-    }
-  } catch {}
+    localStorage.removeItem("pelerinage_brevo_api_key");
+  } catch {
+    /* stockage indisponible */
+  }
 }
 
 export function isBrevoConfigured() {
-  const key = getBrevoApiKey();
-  return typeof key === "string" && key.length > 10;
+  return false;
 }
 
 /**
- * Envoi d'un courriel via l'API Brevo v3
+ * Demande au serveur d'envoyer un courriel.
+ * Hors réseau (tests, fichier ouvert en local), l'envoi est simulé.
  */
-export async function sendBrevoEmail({ toEmail, toName = "Pèlerin", subject, htmlContent, textContent }) {
-  const apiKey = getBrevoApiKey();
-
-  if (!apiKey) {
-    console.info(
-      `[Brevo Mailer Simulation] Courriel simulé pour ${toEmail} (${subject}). Configurez VITE_BREVO_API_KEY dans votre fichier .env pour l'envoi réel.`
-    );
+export async function sendBrevoEmail(payload) {
+  try {
+    const response = await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, error: data.error || "Envoi impossible." };
+    }
+    return data;
+  } catch {
     return {
       success: true,
       simulated: true,
-      message: "Envoi simulé avec succès (clé Brevo non configurée)."
-    };
-  }
-
-  const senderEmail = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_BREVO_SENDER_EMAIL) || "contact@legrandpelerinage.fr";
-  const senderName = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_BREVO_SENDER_NAME) || "Le Grand Pèlerinage de la Bible";
-
-  const payload = {
-    sender: {
-      name: senderName,
-      email: senderEmail
-    },
-    to: [
-      {
-        email: toEmail,
-        name: toName || "Pèlerin"
-      }
-    ],
-    subject,
-    htmlContent,
-    textContent: textContent || subject
-  };
-
-  try {
-    const response = await fetch(BREVO_API_URL, {
-      method: "POST",
-      headers: {
-        "accept": "application/json",
-        "api-key": apiKey,
-        "content-type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMsg = errorData.message || `Erreur Brevo (${response.status})`;
-      throw new Error(errorMsg);
-    }
-
-    const data = await response.json().catch(() => ({}));
-    return {
-      success: true,
-      messageId: data.messageId,
-      simulated: false
-    };
-  } catch (err) {
-    console.warn("Échec de l'envoi de courriel Brevo :", err.message);
-    return {
-      success: false,
-      error: err.message
+      message: `Envoi simulé. Le serveur utilisera BREVO_API_KEY. ${EMAIL_FOOTER}`
     };
   }
 }
 
-/**
- * Envoie un courriel de bienvenue après l'inscription
- */
 export async function sendWelcomeEmail(toEmail, pilgrimName = "Pèlerin") {
-  const safePilgrimName = escapeHtml(pilgrimName || "Pèlerin");
-  const subject = "Bienvenue dans Le Grand Pèlerinage de la Bible 🌿";
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7fafc; color: #1a202c; padding: 24px; }
-        .card { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
-        .header { background: linear-gradient(135deg, #12532c, #1a743e); color: #ffffff; padding: 32px 24px; text-align: center; }
-        .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-        .header p { margin: 8px 0 0; opacity: 0.9; font-size: 14px; }
-        .content { padding: 28px 24px; line-height: 1.6; }
-        .quote { background: #eef8f2; border-left: 4px solid #1a743e; padding: 14px 18px; margin: 20px 0; border-radius: 0 8px 8px 0; font-style: italic; color: #165630; }
-        .features { margin: 20px 0; padding: 0; list-style: none; }
-        .features li { padding: 8px 0; display: flex; align-items: center; }
-        .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #edf2f7; }
-        .badge { display: inline-block; background: #e8f5ff; color: #0756a5; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="header">
-          <span class="badge" style="background: rgba(255,255,255,0.2); color: #fff; margin-bottom: 8px;">COMPTE PÈLERIN ACTIVÉ</span>
-          <h1>Paix et grâce sur ton chemin, ${safePilgrimName} !</h1>
-          <p>Ton carnet de route et ta progression sont désormais synchronisés.</p>
-        </div>
-        <div class="content">
-          <p>Bonjour <strong>${safePilgrimName}</strong>,</p>
-          <p>Nous sommes très heureux de t'accueillir dans <strong>Le Grand Pèlerinage de la Bible</strong>. Désormais, quel que soit l'appareil (ordinateur, tablette ou smartphone) ou le navigateur sur lequel tu te connectes, tu retrouveras automatiquement :</p>
-          <ul class="features">
-            <li>🌱 <strong>Ton parcours complet</strong> sans jamais perdre aucune étape ni aucun point d'XP.</li>
-            <li>🌿 <strong>Ton Jardin de la Parole</strong> (système Leitner) pour ancrer les Écritures dans ton cœur par révision espacée.</li>
-            <li>📖 <strong>Ton carnet spirituel privé</strong> avec toutes tes réflexions et méditations.</li>
-          </ul>
-          <div class="quote">
-            « Ta parole est une lampe à mes pieds, et une lumière sur mon sentier. »<br>
-            <small style="font-weight: 700; font-style: normal;">— Psaume 119:105 (Louis Segond 1910)</small>
-          </div>
-          <p>Que ce voyage nourrisse ton esprit, ravive ta foi et fortifie tes liens avec la communauté.</p>
-        </div>
-        <div class="footer">
-          Le Grand Pèlerinage de la Bible • Propriété de l'Église Évangélique Assemblée de la Grâce, sise à Issia (Côte d'Ivoire).
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
   return sendBrevoEmail({
+    kind: "welcome",
     toEmail,
-    toName: pilgrimName,
-    subject,
-    htmlContent
+    pilgrimName
   });
 }
 
-/**
- * Envoie un récapitulatif spirituel de la progression
- */
 export async function sendProgressSummaryEmail(toEmail, pilgrimName, stats = {}) {
-  const safePilgrimName = escapeHtml(pilgrimName || "Pèlerin");
-  const xp = Number(stats.xp) || 0;
-  const pearls = Number(stats.pearls) || 0;
-  const stagesCount = Number(stats.stagesCount) || 0;
-  const versesCount = Number(stats.versesCount) || 0;
-
-  const subject = `Ton récapitulatif spirituel — ${stagesCount} étape(s) franchie(s) 🌟`;
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f7fafc; padding: 24px; color: #2d3748; }
-        .card { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 24px; }
-        .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 20px 0; }
-        .stat-box { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 14px; border-radius: 10px; text-align: center; }
-        .stat-box b { display: block; font-size: 20px; color: #166534; }
-        .stat-box small { color: #15803d; font-size: 12px; font-weight: 600; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <h2 style="color: #14532d; margin-top: 0;">Trace de ton pèlerinage, ${safePilgrimName} 🌿</h2>
-        <p>Voici l'état actuel de ton cheminement dans les Saintes Écritures :</p>
-        <div class="stat-grid">
-          <div class="stat-box"><b>${stagesCount}</b><small>Étapes accomplies</small></div>
-          <div class="stat-box"><b>${versesCount}</b><small>Versets mémorisés</small></div>
-          <div class="stat-box"><b>${xp}</b><small>Points de joie (XP)</small></div>
-          <div class="stat-box"><b>${pearls}</b><small>Perles célestes</small></div>
-        </div>
-        <p style="font-size: 13px; color: #4a5568;">Continue avec persévérance et paix. Chaque verset médité est une semence d'espérance.</p>
-        <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 20px; border-top: 1px solid #edf2f7; padding-top: 12px;">
-          Le Grand Pèlerinage de la Bible • Propriété de l'Église Évangélique Assemblée de la Grâce, sise à Issia (Côte d'Ivoire).
-        </p>
-      </div>
-    </body>
-    </html>
-  `;
-
   return sendBrevoEmail({
+    kind: "progress",
     toEmail,
-    toName: pilgrimName,
-    subject,
-    htmlContent
+    pilgrimName,
+    stats
   });
 }
 
-/**
- * Envoie une invitation fraternelle avec partage du score et lien du pèlerinage
- */
 export async function sendInviteEmail({
   toEmail,
   friendName = "Mon ami(e)",
@@ -261,16 +107,11 @@ export async function sendInviteEmail({
   customMessage = "",
   inviteUrl = ""
 }) {
-  // 1. Contrôle anti-spam (Rate Limiting)
   const rateLimit = checkInviteRateLimit();
   if (!rateLimit.allowed) {
-    return {
-      success: false,
-      error: rateLimit.error
-    };
+    return { success: false, error: rateLimit.error };
   }
 
-  // 2. Modération du message personnalisé si fourni
   if (customMessage) {
     const modCheck = validateCommunityMessage(customMessage);
     if (!modCheck.valid) {
@@ -281,98 +122,18 @@ export async function sendInviteEmail({
     }
   }
 
-  // 3. Assainissement strict contre injection HTML et XSS mail
-  const safeFriendName = escapeHtml(friendName || "Mon ami(e)");
-  const safeInviterName = escapeHtml(inviterName || "Un ami pèlerin");
-  const safeCustomMessage = escapeHtml(customMessage || "");
-
-  const xp = Number(inviterStats.xp) || 0;
-  const pearls = Number(inviterStats.pearls) || 0;
-  const stagesCount = Number(inviterStats.stagesCount) || 0;
-
   const rawUrl = inviteUrl || (typeof window !== "undefined" ? window.location.href : "https://legrandpelerinage.fr");
-  const isUrlSafe = rawUrl.startsWith("http://") || rawUrl.startsWith("https://");
-  const safeUrl = isUrlSafe ? escapeHtml(rawUrl) : "https://legrandpelerinage.fr";
-
-  const subject = `${safeInviterName} t'invite à marcher dans Le Grand Pèlerinage de la Bible 🌿`;
-
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f8fc; color: #17324d; padding: 24px; margin: 0; }
-        .card { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 18px; border: 1px solid #e2ebf3; overflow: hidden; box-shadow: 0 10px 30px rgba(7, 55, 99, 0.08); }
-        .header { background: linear-gradient(135deg, #073763, #159447); color: #ffffff; padding: 36px 24px; text-align: center; }
-        .header h1 { margin: 8px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-        .badge { display: inline-block; background: rgba(255, 255, 255, 0.22); color: #fff; padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-        .content { padding: 32px 28px; line-height: 1.6; }
-        .inviter-box { display: flex; align-items: center; gap: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin: 20px 0; }
-        .score-pill { background: #eaf5ff; border: 1px solid #bfdbfe; color: #0756a5; font-weight: 700; padding: 3px 10px; border-radius: 12px; font-size: 12px; margin-right: 6px; display: inline-block; }
-        .quote { background: #fff8e8; border-left: 4px solid #f4b942; padding: 14px 18px; margin: 20px 0; border-radius: 0 10px 10px 0; font-style: italic; color: #855305; font-size: 13px; }
-        .cta-container { text-align: center; margin: 30px 0 10px; }
-        .cta-btn { display: inline-block; background: #159447; color: #ffffff !important; text-decoration: none; font-weight: 800; font-size: 15px; padding: 14px 28px; border-radius: 14px; box-shadow: 0 4px 14px rgba(21, 148, 71, 0.35); }
-        .personal-msg { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 14px; margin: 18px 0; font-style: italic; color: #475569; font-size: 13px; }
-        .footer { background: #f8fafc; padding: 22px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #edf2f7; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="header">
-          <span class="badge">INVITATION FRATERNELLE</span>
-          <h1>${safeInviterName} t'invite à marcher avec lui</h1>
-          <p style="margin: 6px 0 0; opacity: 0.9; font-size: 14px;">Une aventure biblique vivante, bienveillante et profonde</p>
-        </div>
-        <div class="content">
-          <p>Bonjour <strong>${safeFriendName}</strong>,</p>
-          <p><strong>${safeInviterName}</strong> a commencé son voyage dans <strong>Le Grand Pèlerinage de la Bible</strong> et souhaite partager ce chemin de foi et d'édification avec toi !</p>
-
-          <div class="inviter-box">
-            <span style="font-size: 32px;">🎒</span>
-            <div>
-              <b style="color: #14532d; font-size: 14px;">La marche de ${safeInviterName} :</b><br>
-              <div style="margin-top: 5px;">
-                <span class="score-pill">✨ ${xp} XP</span>
-                <span class="score-pill">💎 ${pearls} perles</span>
-                <span class="score-pill">🌿 ${stagesCount} étapes franchies</span>
-              </div>
-            </div>
-          </div>
-
-          ${safeCustomMessage ? `
-            <div class="personal-msg">
-              <strong>Mot personnel de ${safeInviterName} :</strong><br>
-              « ${safeCustomMessage} »
-            </div>
-          ` : ""}
-
-          <div class="quote">
-            « Venez, et montons à la montagne de l'Éternel... afin qu'il nous enseigne ses voies, et que nous marchions dans ses sentiers. »<br>
-            <small style="font-weight: 700; font-style: normal;">— Ésaïe 2:3 (Louis Segond 1910)</small>
-          </div>
-
-          <div class="cta-container">
-            <a href="${safeUrl}" class="cta-btn" target="_blank" rel="noopener noreferrer">
-              Rejoindre le pèlerinage maintenant →
-            </a>
-          </div>
-          <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 10px;">
-            Accessible instantanément, sans inscription obligatoire, sur mobile, tablette ou ordinateur.
-          </p>
-        </div>
-        <div class="footer">
-          Le Grand Pèlerinage de la Bible • Propriété de l'Église Évangélique Assemblée de la Grâce, sise à Issia (Côte d'Ivoire).
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+  const safeUrl = rawUrl.startsWith("http://") || rawUrl.startsWith("https://")
+    ? rawUrl
+    : "https://legrandpelerinage.fr";
 
   return sendBrevoEmail({
+    kind: "invite",
     toEmail,
-    toName: friendName,
-    subject,
-    htmlContent
+    friendName,
+    inviterName,
+    inviterStats,
+    customMessage,
+    inviteUrl: safeUrl
   });
 }

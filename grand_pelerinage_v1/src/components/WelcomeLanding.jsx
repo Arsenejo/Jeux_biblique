@@ -78,7 +78,7 @@ export default function WelcomeLanding({
 
           <p className="landing-description">
             Plus qu'un simple jeu biblique, <b>Le Grand Pèlerinage</b> est une retraite vivante
-            à travers 72 étapes pan-bibliques, des défis de foi avec vos lampes, des questions aléatoires,
+            à travers plus de 270 étapes pan-bibliques, les questions du Défi Jean, des défis de foi avec vos lampes,
             la mémorisation par répétition espacée et une fraternité bienveillante.
           </p>
 
@@ -132,7 +132,7 @@ export default function WelcomeLanding({
               <div className="pillar-icon-box orange">
                 <Compass size={24} />
               </div>
-              <h3>7 Époques & 72 Étapes</h3>
+              <h3>7 Époques & plus de 270 étapes</h3>
               <p>
                 De la Création du monde jusqu'à la Nouvelle Jérusalem, progressez le long d'un sentier panoramique
                 respectant fidèlement le texte de la Louis Segond 1910.
