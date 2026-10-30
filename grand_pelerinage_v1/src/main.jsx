@@ -37,6 +37,7 @@ import {
 import { reconcilePelerinData } from "./services/dataReconciliation";
 import { sendProgressSummaryEmail } from "./services/brevoMailer";
 import { awardStageCompletion, clampScore, dueLeitnerCards, motionAllowed, reviewLeitnerCard } from "./services/progression";
+import { firstOpenStage, isBonusPlayable, isEpochUnlocked, isStagePlayable } from "./services/pathProgress";
 import ChurchGroupCard from "./components/ChurchGroupCard";
 import { validatePrayerContent } from "./services/moderation";
 import {
@@ -153,9 +154,6 @@ function App() {
 
   // Glissement tactile et souris de la Carte du Sentier (Défilement fluide 10 étapes)
   const pathViewportRef = useRef(null);
-  const isDraggingPathRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const scrollLeftStartRef = useRef(0);
 
   // Lampes de foi (Vies : max 5, perte sur erreurs en étapes défi, halte bienveillante à 0)
   const [lampes, setLampes] = useState(() => (typeof saved.lampes === "number" ? saved.lampes : 5));
@@ -245,6 +243,10 @@ function App() {
     [saved.completedStages]
   );
   const visibleScore = clampScore(completedStages.length, saved.xp || 0, saved.pearls || 0);
+  const frontierStage = useMemo(
+    () => firstOpenStage(currentStages, completedStages) || currentStages[0],
+    [currentStages, completedStages]
+  );
   const xp = visibleScore.xp;
   const pearls = visibleScore.pearls;
   const streak = Number.isFinite(saved.streak) ? saved.streak : 0;
@@ -452,43 +454,12 @@ function App() {
         if (!pathViewportRef.current) return;
         const activeNodeEl = pathViewportRef.current.querySelector(".path-node.current") || pathViewportRef.current.querySelector(".path-node");
         if (activeNodeEl) {
-          const viewportWidth = pathViewportRef.current.clientWidth;
-          const nodeLeft = activeNodeEl.offsetLeft;
-          pathViewportRef.current.scrollTo({
-            left: Math.max(0, nodeLeft - viewportWidth / 2 + 50),
-            behavior: "smooth"
-          });
+          activeNodeEl.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
         }
       }, 100);
       return () => clearTimeout(timeout);
     }
   }, [tab, activeStageId, selectedEpochId]);
-
-  // Gestionnaires de glissement souris/tactile de la Carte du Sentier
-  const handlePathMouseDown = (e) => {
-    if (e.target.closest(".path-node")) return;
-    isDraggingPathRef.current = true;
-    dragStartXRef.current = e.pageX - (pathViewportRef.current?.offsetLeft || 0);
-    scrollLeftStartRef.current = pathViewportRef.current?.scrollLeft || 0;
-    if (pathViewportRef.current) {
-      pathViewportRef.current.classList.add("is-dragging");
-    }
-  };
-
-  const handlePathMouseMove = (e) => {
-    if (!isDraggingPathRef.current || !pathViewportRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - (pathViewportRef.current.offsetLeft || 0);
-    const walk = (x - dragStartXRef.current) * 1.4;
-    pathViewportRef.current.scrollLeft = scrollLeftStartRef.current - walk;
-  };
-
-  const handlePathMouseUpOrLeave = () => {
-    isDraggingPathRef.current = false;
-    if (pathViewportRef.current) {
-      pathViewportRef.current.classList.remove("is-dragging");
-    }
-  };
 
   // Gestion de l'authentification et du compte
   const handleAuthSuccess = async (authenticatedUser) => {
@@ -1096,6 +1067,16 @@ function App() {
       setSpiritualHaltModal(true);
       return;
     }
+    const stageObjPreview = allKnownStages.find((s) => s.id === stageId) || currentStages[0];
+    const bonus = BONUS_STAGES.find((item) => item.id === stageId);
+    const epochId = stageObjPreview?.epoch || selectedEpochId;
+    const allowed = bonus
+      ? isBonusPlayable(bonus, BIBLE_EPOCHS, EPOCH_STAGES, completedStages)
+      : isStagePlayable(stageId, epochId, BIBLE_EPOCHS, EPOCH_STAGES, completedStages);
+    if (!allowed) {
+      notify("Franchis l'étape précédente pour ouvrir celle-ci.");
+      return;
+    }
     setActiveStageId(stageId);
     const stageObj = allKnownStages.find((s) => s.id === stageId) || currentStages[0];
     if (stageObj && stageObj.epoch && stageObj.epoch !== selectedEpochId) {
@@ -1127,8 +1108,13 @@ function App() {
     const allStages = [...allEpochStages, ...bonusStagesWithEpoch];
 
     // Priorité aux étapes non encore franchies
-    const uncompleted = allStages.filter((s) => !completedStages.includes(s.id));
-    const pool = uncompleted.length > 0 ? uncompleted : allStages;
+    const uncompleted = allStages.filter((stage) => {
+      if (completedStages.includes(stage.id)) return false;
+      const bonus = BONUS_STAGES.find((item) => item.id === stage.id);
+      if (bonus) return isBonusPlayable(bonus, BIBLE_EPOCHS, EPOCH_STAGES, completedStages);
+      return isStagePlayable(stage.id, stage.epochId || stage.epoch, BIBLE_EPOCHS, EPOCH_STAGES, completedStages);
+    });
+    const pool = uncompleted.length > 0 ? uncompleted : allStages.filter((stage) => completedStages.includes(stage.id));
     const picked = pool[Math.floor(Math.random() * pool.length)];
 
     if (picked) {
@@ -1612,8 +1598,8 @@ function App() {
                 <div className="feature-body">
                   <div className="card-title-row">
                     <div>
-                      <h3>{currentStage.titre}</h3>
-                      <p>{currentStage.ref} · Découvre la lumière du récit divin.</p>
+                      <h3>{frontierStage?.titre}</h3>
+                      <p>{frontierStage?.ref} · La prochaine étape ouverte sur ton sentier.</p>
                     </div>
                     <span className="round-icon"><Compass size={18} /></span>
                   </div>
@@ -1624,7 +1610,7 @@ function App() {
                   <div className="progress-track">
                     <i style={{ width: `${(completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100}%` }} />
                   </div>
-                  <button className="primary-button full" onClick={() => startStage(currentStage.id)}>
+                  <button className="primary-button full" onClick={() => startStage(frontierStage?.id)}>
                     Continuer l'aventure <ChevronRight size={17} />
                   </button>
                 </div>
@@ -1773,23 +1759,35 @@ function App() {
               </div>
 
               <div className="epochs-scroll">
-                {BIBLE_EPOCHS.map((epoch) => (
+                {BIBLE_EPOCHS.map((epoch, epochIndex) => {
+                  const epochOpen = isEpochUnlocked(epoch.id, BIBLE_EPOCHS, EPOCH_STAGES, completedStages);
+                  const previousEpoch = epochIndex > 0 ? BIBLE_EPOCHS[epochIndex - 1] : null;
+                  return (
                   <button
                     key={epoch.id}
-                    className={`epoch-card ${selectedEpochId === epoch.id ? "active" : ""}`}
+                    className={`epoch-card ${selectedEpochId === epoch.id ? "active" : ""} ${epochOpen ? "" : "locked"}`}
+                    aria-disabled={!epochOpen}
                     onClick={() => {
+                      if (!epochOpen) {
+                        notify(previousEpoch
+                          ? `Achève « ${previousEpoch.nom} » pour ouvrir ${epoch.nom}.`
+                          : "Ce monde n'est pas encore ouvert.");
+                        return;
+                      }
                       setSelectedEpochId(epoch.id);
-                      const firstStage = (EPOCH_STAGES[epoch.id] || EPOCH_STAGES.racines)[0];
-                      setActiveStageId(firstStage.id);
+                      const stages = EPOCH_STAGES[epoch.id] || EPOCH_STAGES.racines;
+                      const nextStage = firstOpenStage(stages, completedStages);
+                      if (nextStage) setActiveStageId(nextStage.id);
                       resetStageExercise();
                       notify(`Sentier : ${epoch.nom} ✨`);
                     }}
                   >
-                    <div className="epoch-icon">{epoch.icon}</div>
+                    <div className="epoch-icon">{epochOpen ? epoch.icon : "🔒"}</div>
                     <div className="epoch-name">{epoch.nom}</div>
-                    <div className="epoch-books">{epoch.livres}</div>
+                    <div className="epoch-books">{epochOpen ? epoch.livres : "Se débloque ensuite"}</div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1815,71 +1813,40 @@ function App() {
             {/* INDICATION DE GLISSEMENT TACTILE ET SOURIS */}
             <div className="path-drag-indicator">
               <span className="drag-hand">👆</span>
-              <span>Glisse avec le doigt pour parcourir les {currentStages.length} étapes du sentier</span>
+              <span>Les étapes s'ouvrent une par une, dans l'ordre du récit.</span>
               <span className="drag-arrow">➔</span>
             </div>
 
             {/* VIEWPORT GLISSANT AU DOIGT ET À LA SOURIS (LARGEUR AÉRÉE SANS CONDENSATION) */}
-            <div
-              className="path-scroll-viewport"
-              ref={pathViewportRef}
-              onMouseDown={handlePathMouseDown}
-              onMouseMove={handlePathMouseMove}
-              onMouseUp={handlePathMouseUpOrLeave}
-              onMouseLeave={handlePathMouseUpOrLeave}
-            >
+            <div className="path-scroll-viewport" ref={pathViewportRef}>
               <div className="path-landscape">
                 <div className="landscape-glow" />
                 <div className="path-cloud cloud-a" />
                 <div className="path-cloud cloud-b" />
 
-                <svg className="winding-path" viewBox="0 0 1000 450" preserveAspectRatio="none" aria-hidden="true">
-                  {currentStages.map((stage, idx) => {
-                    if (idx === 0) return null;
-                    const prev = currentStages[idx - 1];
-                    const x1 = prev.x * 10;
-                    const y1 = prev.y * 4.5;
-                    const x2 = stage.x * 10;
-                    const y2 = stage.y * 4.5;
-                    return (
-                      <g key={`path-${stage.id}`}>
-                        <line
-                          x1={x1}
-                          y1={y1}
-                          x2={x2}
-                          y2={y2}
-                          stroke="#fff8dc"
-                          strokeWidth="18"
-                          strokeLinecap="round"
-                        />
-                        <line
-                          x1={x1}
-                          y1={y1}
-                          x2={x2}
-                          y2={y2}
-                          stroke="#d6bd79"
-                          strokeWidth="3.5"
-                          strokeDasharray="5 9"
-                          strokeLinecap="round"
-                        />
-                      </g>
-                    );
-                  })}
-                </svg>
-
+                <ol className="path-trail">
                 {currentStages.map((node, nodeIndex) => {
                   const isDone = completedStages.includes(node.id);
+                  const unlocked = isStagePlayable(node.id, selectedEpochId, BIBLE_EPOCHS, EPOCH_STAGES, completedStages);
+                  const isCurrent = frontierStage?.id === node.id && !isDone;
 
                   return (
+                    <li key={node.id}>
                     <button
-                      key={node.id}
-                      className={`path-node ${isDone ? "done" : ""} ${node.id === currentStage.id ? "current" : ""} ${node.subtile ? "subtile-node" : ""}`}
-                      style={{ left: `${node.x}%`, top: `${node.y}%` }}
-                      onClick={() => startStage(node.id)}
-                      aria-label={`${node.titre}`}
+                      type="button"
+                      className={`path-node ${isDone ? "done" : ""} ${isCurrent ? "current" : ""} ${unlocked ? "" : "locked"} ${node.subtile ? "subtile-node" : ""}`}
+                      onClick={() => {
+                        if (!unlocked) {
+                          notify("Franchis l'étape précédente pour ouvrir celle-ci.");
+                          return;
+                        }
+                        startStage(node.id);
+                      }}
+                      aria-label={unlocked ? node.titre : `${node.titre}, verrouillée`}
+                      aria-disabled={!unlocked}
                     >
                       <span className="node-circle">
-                        {isDone ? <Check size={20} /> : <span>{nodeIndex + 1}</span>}
+                        {isDone ? <Check size={20} /> : unlocked ? <span>{nodeIndex + 1}</span> : <LockKeyhole size={16} />}
                       </span>
                       <span className="node-label">
                         <b>{node.titre}</b>
@@ -1890,11 +1857,14 @@ function App() {
                           {node.coutVie && <span className="attr-pill lampe">🪔 Défi</span>}
                         </div>
                         {isDone && <span className="node-stars">★ ★ ★</span>}
-                        {node.id === currentStage.id && !isDone && <em>Étape en cours</em>}
+                        {isCurrent && <em>Prochaine étape</em>}
+                        {!unlocked && <em className="node-lock-note">Verrouillée</em>}
                       </span>
                     </button>
+                    </li>
                   );
                 })}
+                </ol>
 
                 <div className="path-caption">
                   <Sparkles size={16} />
@@ -1908,27 +1878,27 @@ function App() {
               <div className="game-quest-panel">
                 <div className="quest-panel-header">
                   <div className="quest-badge-tag">
-                    <Flame size={15} /> QUÊTE ACTUELLE · ÉTAPE {currentStage.id}
+                    <Flame size={15} /> QUÊTE ACTUELLE · ÉTAPE {Math.max(1, currentStages.findIndex((stage) => stage.id === frontierStage?.id) + 1)}
                   </div>
                   <div className="quest-rewards-badge">
-                    <span className="reward-item">+{currentStage.recompense?.xp || 25} XP</span>
-                    <span className="reward-item">💎 +{currentStage.recompense?.perles || 1}</span>
+                    <span className="reward-item">+{frontierStage?.recompense?.xp || 25} XP</span>
+                    <span className="reward-item">💎 +{frontierStage?.recompense?.perles || 1}</span>
                   </div>
                 </div>
 
                 <div className="quest-panel-body">
-                  <h3 className="quest-stage-title">{currentStage.titre}</h3>
+                  <h3 className="quest-stage-title">{frontierStage?.titre}</h3>
                   <div className="quest-meta-chips">
-                    <span className="quest-chip ref-chip">📖 {currentStage.ref}</span>
-                    <span className={`diff-pill diff-${currentStage.difficulte || "debutant"}`}>
-                      {currentStage.difficulte === "expert" ? "Expert" : currentStage.difficulte === "avance" ? "Avancé" : currentStage.difficulte === "intermediaire" ? "Intermédiaire" : "Initié"}
+                    <span className="quest-chip ref-chip">📖 {frontierStage?.ref}</span>
+                    <span className={`diff-pill diff-${frontierStage?.difficulte || "debutant"}`}>
+                      {frontierStage?.difficulte === "expert" ? "Expert" : frontierStage?.difficulte === "avance" ? "Avancé" : frontierStage?.difficulte === "intermediaire" ? "Intermédiaire" : "Initié"}
                     </span>
-                    {currentStage.tempsLimite && <span className="diff-pill chrono">⏱️ {currentStage.tempsLimite}s</span>}
-                    {currentStage.coutVie && <span className="diff-pill cout-vie">🪔 Défi de foi</span>}
+                    {frontierStage?.tempsLimite && <span className="diff-pill chrono">⏱️ {frontierStage.tempsLimite}s</span>}
+                    {frontierStage?.coutVie && <span className="diff-pill cout-vie">🪔 Défi de foi</span>}
                   </div>
                 </div>
 
-                <button className="quest-launch-button" onClick={() => startStage(currentStage.id)}>
+                <button className="quest-launch-button" onClick={() => startStage(frontierStage?.id)}>
                   <span>⚔️ Relever le Défi</span>
                   <ChevronRight size={18} />
                 </button>
