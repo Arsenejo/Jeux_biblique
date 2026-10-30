@@ -3,7 +3,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
 const require = createRequire(import.meta.url);
-const { processMail } = require("../api/mailCore.cjs");
+const { processMail } = require("./api/mailCore.cjs");
 
 function mailApiPlugin() {
   return {
