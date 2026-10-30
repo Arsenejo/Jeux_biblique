@@ -36,7 +36,7 @@ import { clampScore } from "./progression.js";
 
 // Configuration des services Cloud (projet defi-jean)
 export const firebaseConfig = {
-  apiKey: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_API_KEY) || "AIzaSyAgTS_A2w5qWEAGUQCxkHULcFPcb5Yzdz4",
+  apiKey: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_API_KEY) || "AIzaSyDsIYH4rplT1giMld2cxq4x1IqWMnyIZ6Q",
   authDomain: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN) || "defi-jean.firebaseapp.com",
   projectId: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_PROJECT_ID) || "defi-jean",
   storageBucket: (typeof import.meta !== "undefined" && import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET) || "defi-jean.firebasestorage.app",
