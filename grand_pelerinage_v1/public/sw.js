@@ -1,4 +1,4 @@
-const CACHE_NAME = "grand-pelerinage-v2";
+const CACHE_NAME = "grand-pelerinage-v3";
 const PRECACHE_ASSETS = [
   "/",
   "/index.html",
