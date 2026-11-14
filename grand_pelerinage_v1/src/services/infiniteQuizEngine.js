@@ -260,7 +260,12 @@ function generateTrueFalseArenaQuestion(difficulty, seedIndex) {
     return {
       ...s,
       id: `arena-tf-${Date.now()}-${seedIndex}`,
-      titre: `Arène · ${s.titre}`
+      titre: `Arène · ${s.titre}`,
+      options: [
+        { text: "Vrai", correct: Boolean(s.isTrue) },
+        { text: "Faux", correct: !s.isTrue }
+      ],
+      explication: s.explication || (s.isTrue ? s.explicationVrai : s.explicationFaux) || ""
     };
   }
   return generateBookSectionQuestion(difficulty, seedIndex);
@@ -274,10 +279,16 @@ function generateWhoSaidArenaQuestion(difficulty, seedIndex) {
   const wsStages = allStages.filter(s => s.type === "whosaid");
   if (wsStages.length > 0) {
     const s = wsStages[Math.floor(Math.random() * wsStages.length)];
+    const normalizedSpeakers = (s.speakers || []).map((sp) =>
+      typeof sp === "string"
+        ? { nom: sp, role: "Personnage biblique", avatar: "📜" }
+        : { nom: sp.nom, role: sp.role || "Personnage biblique", avatar: sp.avatar || "📜" }
+    );
     return {
       ...s,
       id: `arena-ws-${Date.now()}-${seedIndex}`,
-      titre: `Arène · ${s.titre}`
+      titre: `Arène · ${s.titre}`,
+      speakers: shuffle(normalizedSpeakers)
     };
   }
   return generateBookAuthorQuestion(difficulty, seedIndex);

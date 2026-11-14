@@ -5836,3 +5836,715 @@ body.night-mode .offer-icon {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================================
+   ATELIERS BONUS DU SENTIER, ARÈNE INFINIE & TRÉSOR DES 66 LIVRES
+   ========================================================================= */
+.page-intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.arena-launch-btn {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%) !important;
+  color: #c2410c !important;
+  border-color: #fdba74 !important;
+}
+
+.books-launch-btn {
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%) !important;
+  color: #3730a3 !important;
+  border-color: #a5b4fc !important;
+}
+
+body.night-mode .arena-launch-btn {
+  background: linear-gradient(135deg, #431407 0%, #7c2d12 100%) !important;
+  color: #fed7aa !important;
+  border-color: #c2410c !important;
+}
+
+body.night-mode .books-launch-btn {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%) !important;
+  color: #c7d2fe !important;
+  border-color: #4f46e5 !important;
+}
+
+.bonus-stages-section {
+  margin-top: 28px;
+  padding: 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--line);
+}
+
+body.night-mode .bonus-stages-section {
+  background: rgba(13, 33, 56, 0.85);
+  border-color: #1a3c63;
+}
+
+.bonus-stages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.bonus-stage-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  color: var(--text);
+}
+
+.bonus-stage-card.unlocked:hover {
+  transform: translateY(-2px);
+  border-color: #159447;
+  box-shadow: 0 8px 20px rgba(21, 148, 71, 0.12);
+}
+
+.bonus-stage-card.done {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.bonus-stage-card.locked {
+  opacity: 0.72;
+  background: #f8fafc;
+}
+
+body.night-mode .bonus-stage-card {
+  background: #102a43;
+  border-color: #244b75;
+}
+
+body.night-mode .bonus-stage-card.done {
+  background: #064e3b;
+  border-color: #10b981;
+}
+
+.bonus-card-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bonus-format-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.bonus-reward-pill {
+  color: #b45309;
+}
+
+.bonus-card-title {
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.bonus-card-ref {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bonus-card-status {
+  margin-top: auto;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-done, .status-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #159447;
+}
+
+.status-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+}
+
+/* ARÈNE INFINIE & ENCYCLOPÉDIE DES 66 LIVRES */
+.modal-panel {
+  width: min(100%, 820px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(0, 23, 44, 0.35);
+  box-sizing: border-box;
+  animation: pop 0.25s ease-out;
+  color: var(--text);
+}
+
+body.night-mode .modal-panel {
+  background: #0d2138;
+  border: 1px solid #1a3c63;
+  color: #f0f6fc;
+}
+
+.modal-close-btn {
+  border: 0;
+  background: rgba(148, 163, 184, 0.16);
+  color: inherit;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.arena-modal-header, .books-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+
+.arena-title-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #c2410c;
+  margin-bottom: 8px;
+}
+
+.arena-streak-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.arena-flame-badge, .arena-tier-badge, .arena-pot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #f1f5f9;
+}
+
+body.night-mode .arena-flame-badge,
+body.night-mode .arena-tier-badge,
+body.night-mode .arena-pot-badge {
+  background: #173557;
+}
+
+.arena-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.arena-cashout-btn, .arena-next-btn, .arena-claim-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #159447, #0e7a3a);
+  color: #ffffff;
+}
+
+.arena-question-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.arena-type-pill, .arena-ref-pill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+body.night-mode .arena-type-pill,
+body.night-mode .arena-ref-pill {
+  background: #1e3a5f;
+  color: #93c5fd;
+}
+
+.arena-consigne {
+  margin: 0 0 16px;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.arena-cloze-card, .arena-quote-box {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+body.night-mode .arena-cloze-card,
+body.night-mode .arena-quote-box {
+  background: #132d4a;
+}
+
+.cloze-gap-slot {
+  display: inline-block;
+  padding: 0 6px;
+  font-weight: 800;
+  color: #0756a5;
+}
+
+.arena-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.arena-opt-btn, .quiz-opt-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: var(--text);
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+body.night-mode .arena-opt-btn,
+body.night-mode .quiz-opt-btn {
+  background: #132d4a;
+  border-color: #2c527a;
+}
+
+.arena-opt-btn.correct, .quiz-opt-btn.correct {
+  border-color: #16a34a;
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.arena-opt-btn.incorrect, .quiz-opt-btn.incorrect {
+  border-color: #dc2626;
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.opt-marker, .opt-letter {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #334155;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.opt-role {
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.arena-feedback-card, .quiz-feedback-box {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1.5px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #14532d;
+}
+
+.arena-feedback-card.feedback-lost, .quiz-feedback-box.feedback-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #7f1d1d;
+}
+
+.arena-cashout-screen {
+  text-align: center;
+  padding: 18px 8px;
+}
+
+.cashout-stats-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.cashout-stat-col {
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+body.night-mode .cashout-stat-col {
+  background: #132d4a;
+}
+
+.cashout-stat-val {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.cashout-stat-lbl {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.books-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.books-header-title h2 {
+  margin: 0 0 2px;
+  font-size: 20px;
+}
+
+.books-header-title p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.books-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #ecfdf5;
+  color: #159447;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.canon-progress-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+body.night-mode .canon-progress-card {
+  background: #132d4a;
+}
+
+.canon-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.canon-stat-num {
+  font-size: 18px;
+  font-weight: 800;
+  margin-right: 8px;
+}
+
+.canon-stat-lbl {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.canon-stat-pill {
+  font-size: 12px;
+  font-weight: 700;
+  color: #159447;
+}
+
+.canon-progress-bar-bg {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.canon-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #159447, #f59e0b);
+}
+
+.books-filters-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.books-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.books-search-wrapper .search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+}
+
+.books-search-input {
+  width: 100%;
+  padding: 10px 36px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--text);
+}
+
+body.night-mode .books-search-input {
+  background: #132d4a;
+  color: #f0f6fc;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.books-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-pill.active {
+  background: #159447;
+  border-color: #159447;
+  color: #ffffff;
+}
+
+.books-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.book-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.book-card.mastered {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+body.night-mode .book-card {
+  background: #132d4a;
+}
+
+body.night-mode .book-card.mastered {
+  background: #064e3b;
+}
+
+.book-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.book-num-badge {
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.book-badges-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.book-testament-badge, .book-section-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.book-mastered-badge {
+  color: #159447;
+}
+
+.book-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.book-meta-line {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.book-theme-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.book-gold-verse {
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(21, 148, 71, 0.06);
+  font-size: 12px;
+}
+
+.gold-verse-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  color: #159447;
+  margin-bottom: 4px;
+}
+
+.gold-verse-text {
+  margin: 0;
+  font-style: italic;
+}
+
+.book-challenge-btn, .quiz-done-btn {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 0;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  background: #159447;
+  color: #ffffff;
+}
+
+.book-challenge-btn.btn-replay {
+  background: #0f766e;
+}
+
+.book-quiz-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 29, 49, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 90;
+}
+
+.book-quiz-modal {
+  width: min(100%, 500px);
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 20px;
+  color: var(--text);
+}
+
+body.night-mode .book-quiz-modal {
+  background: #0d2138;
+  color: #f0f6fc;
+}
+
+.book-quiz-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.quiz-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: #159447;
+}
+
+.book-quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+@media (max-width: 640px) {
+  .cashout-stats-card {
+    grid-template-columns: 1fr;
+  }
+}

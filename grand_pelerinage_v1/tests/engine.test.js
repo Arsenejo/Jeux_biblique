@@ -1,11 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   reconcilePelerinData,
   reconcileCarnetNotes,
   reconcilePrayers
 } from "../src/services/dataReconciliation.js";
+
+import { awardStageCompletion, updateDailyStreak } from "../src/services/progression.js";
+import { generateArenaQuestion, getComboTier } from "../src/services/infiniteQuizEngine.js";
 
 import {
   validatePrayerContent,
@@ -358,6 +364,78 @@ test("Pack d'Élévation 3: Logique de validation des Paires, Vrai/Faux et Qui a
   const stageWhosaid = BONUS_STAGES.find((s) => s.id === 79);
   assert.equal(stageWhosaid.correctSpeaker, "Siméon");
   assert.ok(stageWhosaid.speakers.some((sp) => sp.nom === "Siméon"));
+});
+
+// =========================================================================
+// STABILISATION V1.2 : RÉGRESSION PROFIL VIERGE, SÉRIE QUOTIDIENNE & ARÈNE
+// =========================================================================
+test("Stabilisation V1.2: Un profil vierge réconcilié reste vierge (0 étape, série 0, fusion livres maîtrisés)", () => {
+  const fresh = reconcilePelerinData({}, {});
+  assert.deepEqual(fresh.completedStages, []);
+  assert.equal(fresh.streak, 0);
+
+  const mergedBooks = reconcilePelerinData(
+    { saved: { completedStages: [1], masteredBooks: ["gen", "psa"] } },
+    { saved: { completedStages: [1], masteredBooks: ["psa", "jea"] } }
+  );
+  assert.deepEqual(mergedBooks.saved.masteredBooks.sort(), ["gen", "jea", "psa"]);
+});
+
+test("Stabilisation V1.2: Calcul et incrément de la série quotidienne (streak)", () => {
+  const day100 = 100 * 86400000 + 3600000;
+  const day101 = 101 * 86400000 + 3600000;
+  const day104 = 104 * 86400000 + 3600000;
+
+  const s1 = updateDailyStreak({ streak: 0 }, day100);
+  assert.equal(s1.streak, 1);
+
+  const sameDay = updateDailyStreak({ streak: s1.streak, lastActiveDay: s1.lastActiveDay }, day100 + 7200000);
+  assert.equal(sameDay.streak, 1);
+
+  const nextDay = updateDailyStreak({ streak: sameDay.streak, lastActiveDay: sameDay.lastActiveDay }, day101);
+  assert.equal(nextDay.streak, 2);
+
+  const broken = updateDailyStreak({ streak: nextDay.streak, lastActiveDay: nextDay.lastActiveDay }, day104);
+  assert.equal(broken.streak, 1);
+
+  const stage = EPOCH_STAGES.racines.find((s) => s.id === 1);
+  const completed = awardStageCompletion({ completedStages: [], xp: 0, pearls: 0, streak: 0 }, stage, day100);
+  assert.equal(completed.saved.streak, 1);
+  assert.equal(completed.saved.lastActiveDay, 100);
+});
+
+test("Stabilisation V1.2: Moteur Arène Infinie sans crash sur Vrai/Faux et Qui a dit ?", () => {
+  assert.equal(getComboTier(0).multiplier, 1.0);
+  assert.equal(getComboTier(10).multiplier, 2.0);
+
+  for (let i = 0; i < 60; i++) {
+    const q = generateArenaQuestion("intermediaire", i);
+    assert.ok(q && q.id && q.titre && q.consigne);
+    if (q.type === "truefalse" || q.type === "qcm") {
+      assert.ok(Array.isArray(q.options) && q.options.length >= 2, `Options requises pour ${q.type}`);
+    }
+    if (q.type === "whosaid") {
+      assert.ok(Array.isArray(q.speakers) && q.speakers.length >= 2);
+      q.speakers.forEach((sp) => {
+        assert.equal(typeof sp, "object");
+        assert.ok(typeof sp.nom === "string" && sp.nom.length > 0);
+      });
+    }
+  }
+});
+
+test("Stabilisation V1.2: Tous les 18 chapitres bibliques, BONUS_STAGES, Arène et 66 Livres sont branchés dans main.jsx", () => {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const mainContent = fs.readFileSync(path.resolve(__dirname, "../src/main.jsx"), "utf-8");
+
+  assert.equal(Object.keys(BIBLE_CHAPTERS).length, 18, "BIBLE_CHAPTERS doit contenir les 18 chapitres");
+  for (const chKey of Object.keys(BIBLE_CHAPTERS)) {
+    assert.ok(mainContent.includes(`"${chKey}"`), `Le chapitre ${chKey} doit être accessible dans BOOK_CHAPTERS_MAP de main.jsx`);
+  }
+  assert.ok(mainContent.includes("InfiniteArenaModal"), "InfiniteArenaModal doit être monté dans main.jsx");
+  assert.ok(mainContent.includes("Bible66BooksModal"), "Bible66BooksModal doit être monté dans main.jsx");
+  assert.ok(mainContent.includes("BONUS_STAGES.filter"), "BONUS_STAGES doit être affiché dans le Parcours de main.jsx");
+  assert.ok(mainContent.includes("loadCarnetNotes"), "loadCarnetNotes doit charger le Carnet Cloud dans main.jsx");
 });
 
 

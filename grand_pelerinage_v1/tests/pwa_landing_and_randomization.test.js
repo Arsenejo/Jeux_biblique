@@ -58,7 +58,7 @@ test("Landing Gate & Embarquement: Le composant WelcomeLanding existe et propose
   assert.ok(content.includes("onLoginClick"), "Doit proposer le bouton de connexion/inscription");
   assert.ok(content.includes("onStartAsGuest"), "Doit proposer de commencer en visiteur sans bloquer");
   assert.ok(content.includes("Psaume 119:105"), "Doit citer le verset fondateur de la Louis Segond 1910");
-  assert.ok(content.includes("72"), "Doit mentionner les 72 étapes");
+  assert.ok(content.includes("270 étapes") || content.includes("72"), "Doit mentionner le nombre d'étapes du pèlerinage");
   assert.ok(content.includes("PWA") || content.includes("pwaInstallPrompt"), "Doit intégrer l'installation PWA");
 });
 

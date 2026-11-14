@@ -30,6 +30,27 @@ export function stageVerseText(stage) {
   return stage.quote || stage.titre || stage.ref;
 }
 
+export function updateDailyStreak(prev, now = Date.now()) {
+  const base = prev && typeof prev === "object" ? prev : {};
+  const today = Math.floor(now / DAY_MS);
+  const prevDay = Number.isFinite(base.lastActiveDay) ? base.lastActiveDay : null;
+  const currentStreak = Math.max(0, Number(base.streak) || 0);
+
+  let nextStreak;
+  if (prevDay === null || prevDay === today || prevDay > today) {
+    nextStreak = Math.max(1, currentStreak);
+  } else if (prevDay === today - 1) {
+    nextStreak = currentStreak + 1;
+  } else {
+    nextStreak = 1;
+  }
+
+  return {
+    streak: nextStreak,
+    lastActiveDay: Math.max(today, prevDay || 0)
+  };
+}
+
 export function awardStageCompletion(prev, stage, now = Date.now(), epochId = "") {
   const base = prev && typeof prev === "object" ? prev : {};
   const completed = Array.isArray(base.completedStages) ? base.completedStages : [];
@@ -55,12 +76,15 @@ export function awardStageCompletion(prev, stage, now = Date.now(), epochId = ""
   };
 
   const capped = clampScore(nextCompleted.length, (base.xp || 0) + gainedXp, (base.pearls || 0) + gainedPearls);
+  const streakUpdate = updateDailyStreak(base, now);
   return {
     saved: {
       ...base,
       completedStages: nextCompleted,
       xp: capped.xp,
       pearls: capped.pearls,
+      streak: streakUpdate.streak,
+      lastActiveDay: streakUpdate.lastActiveDay,
       leitnerCards: cards
     },
     gainedXp,
@@ -95,8 +119,9 @@ export function reviewLeitnerCard(prev, cardRef, isSuccess, now = Date.now()) {
   const gainedPearls = isSuccess ? 1 : 0;
   const completedCount = Array.isArray(base.completedStages) ? base.completedStages.length : 0;
   const capped = clampScore(completedCount, (base.xp || 0) + gainedXp, (base.pearls || 0) + gainedPearls);
+  const streakUpdate = isSuccess ? updateDailyStreak(base, now) : {};
   return {
-    saved: { ...base, xp: capped.xp, pearls: capped.pearls, leitnerCards: cards },
+    saved: { ...base, ...streakUpdate, xp: capped.xp, pearls: capped.pearls, leitnerCards: cards },
     awarded: gainedXp > 0,
     waiting: false,
     newBox

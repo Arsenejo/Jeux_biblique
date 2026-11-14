@@ -29,15 +29,20 @@ export function reconcilePelerinData(localData = {}, cloudData = {}) {
   const cloudStages = Array.isArray(cloudSaved.completedStages) ? cloudSaved.completedStages : [];
   const mergedStages = Array.from(new Set([...localStages, ...cloudStages]));
 
-  // 3. Points de joie (XP) et Perles : Toujours retenir le maximum acquis
+  // 3. Points de joie (XP), Perles et Série quotidienne : Toujours retenir le maximum acquis
   const mergedXp = Math.max(Number(localSaved.xp) || 0, Number(cloudSaved.xp) || 0);
   const mergedPearls = Math.max(Number(localSaved.pearls) || 0, Number(cloudSaved.pearls) || 0);
-  const mergedStreak = Math.max(Number(localSaved.streak) || 1, Number(cloudSaved.streak) || 1);
+  const mergedStreak = Math.max(Number(localSaved.streak) || 0, Number(cloudSaved.streak) || 0);
+  const mergedLastActiveDay = Math.max(Number(localSaved.lastActiveDay) || 0, Number(cloudSaved.lastActiveDay) || 0);
 
-  // 4. Versets ancrés : Union des références
+  // 4. Versets ancrés et Livres maîtrisés : Union des références
   const localAnchored = Array.isArray(localSaved.anchoredVerses) ? localSaved.anchoredVerses : [];
   const cloudAnchored = Array.isArray(cloudSaved.anchoredVerses) ? cloudSaved.anchoredVerses : [];
   const mergedAnchored = Array.from(new Set([...localAnchored, ...cloudAnchored]));
+
+  const localMastered = Array.isArray(localSaved.masteredBooks) ? localSaved.masteredBooks : [];
+  const cloudMastered = Array.isArray(cloudSaved.masteredBooks) ? cloudSaved.masteredBooks : [];
+  const mergedMastered = Array.from(new Set([...localMastered, ...cloudMastered]));
 
   // 5. Cartes Leitner du Jardin de la Parole : Fusion par niveau d'ancrage maximal
   const normalizeCards = (cards) => {
@@ -99,13 +104,15 @@ export function reconcilePelerinData(localData = {}, cloudData = {}) {
   }
 
   const resultSaved = {
-    completedStages: mergedStages.length > 0 ? mergedStages : [1],
+    completedStages: mergedStages,
     xp: mergedXp,
     pearls: mergedPearls,
     streak: mergedStreak,
+    ...(mergedLastActiveDay > 0 ? { lastActiveDay: mergedLastActiveDay } : {}),
     lampes: mergedLampes,
     leitnerCards: finalLeitnerCards,
-    anchoredVerses: mergedAnchored
+    anchoredVerses: mergedAnchored,
+    ...(mergedMastered.length > 0 ? { masteredBooks: mergedMastered } : {})
   };
 
   return {

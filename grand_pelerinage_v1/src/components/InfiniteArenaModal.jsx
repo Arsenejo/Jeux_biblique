@@ -265,9 +265,12 @@ export function InfiniteArenaModal({
                     })}
 
                   {currentQuestion.type === "whosaid" &&
-                    currentQuestion.speakers.map((spk, idx) => {
-                      const isSelected = selectedOption === spk;
-                      const isCorrect = spk === currentQuestion.correctSpeaker;
+                    (currentQuestion.speakers || []).map((spk, idx) => {
+                      const spkName = typeof spk === "string" ? spk : spk.nom;
+                      const spkRole = typeof spk === "string" ? "" : spk.role;
+                      const spkAvatar = typeof spk === "string" ? "📜" : (spk.avatar || "🗣️");
+                      const isSelected = selectedOption === spkName;
+                      const isCorrect = spkName === currentQuestion.correctSpeaker;
                       let btnClass = "arena-opt-btn";
 
                       if (feedback) {
@@ -279,11 +282,14 @@ export function InfiniteArenaModal({
                         <button
                           key={idx}
                           className={btnClass}
-                          onClick={() => handleSelectOption(spk)}
+                          onClick={() => handleSelectOption(spkName)}
                           disabled={!!feedback}
                         >
                           <span className="opt-marker">{String.fromCharCode(65 + idx)}</span>
-                          <span className="opt-label">{spk}</span>
+                          <span className="opt-label">
+                            {spkAvatar} {spkName}
+                            {spkRole ? <small className="opt-role"> — {spkRole}</small> : null}
+                          </span>
                         </button>
                       );
                     })}

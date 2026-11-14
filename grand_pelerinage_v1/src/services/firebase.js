@@ -29,7 +29,7 @@ import {
   enableNetwork,
   disableNetwork
 } from "firebase/firestore";
-import { reconcilePelerinData, reconcilePrayers } from "./dataReconciliation.js";
+import { reconcilePelerinData, reconcileCarnetNotes, reconcilePrayers } from "./dataReconciliation.js";
 import { getReportedPrayerIds, reportPrayerLocally } from "./moderation.js";
 import { sendWelcomeEmail } from "./brevoMailer.js";
 import { clampScore } from "./progression.js";
@@ -606,7 +606,7 @@ export async function saveCarnetNote(uid, note) {
 }
 
 /**
- * Récupère les prières et réflexions du carnet
+ * Récupère les prières et réflexions du carnet depuis le cache local
  */
 export function getLocalCarnetNotes(uid) {
   try {
@@ -614,6 +614,35 @@ export function getLocalCarnetNotes(uid) {
   } catch {
     return [];
   }
+}
+
+/**
+ * Charge et réconcilie les notes du Carnet Spirituel depuis Firestore et LocalStorage
+ */
+export async function loadCarnetNotes(uid) {
+  const localUidNotes = getLocalCarnetNotes(uid);
+  const localGuestNotes = uid && uid !== "local" ? getLocalCarnetNotes("local") : [];
+  const mergedLocal = reconcileCarnetNotes(localUidNotes, localGuestNotes);
+
+  const { db } = getFirebaseServices();
+  if (!db || !uid || uid === "local") return mergedLocal;
+
+  try {
+    const q = query(collection(db, "pelerins", uid, "carnet"), limit(100));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const cloudNotes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const reconciled = reconcileCarnetNotes(mergedLocal, cloudNotes);
+      try {
+        localStorage.setItem("pelerinage_carnet_" + uid, JSON.stringify(reconciled));
+      } catch {}
+      return reconciled;
+    }
+  } catch (err) {
+    console.warn("Lecture Cloud du carnet impossible :", err.message);
+  }
+
+  return mergedLocal;
 }
 
 /**

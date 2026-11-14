@@ -6,7 +6,7 @@ import {
   Lightbulb, Users, Leaf, MapPinned, BookMarked, Send, MessageCircleHeart,
   Award, ShieldCheck, Smile, Moon, Sun, Search, Flag, LogIn, LogOut, Globe,
   AlertCircle, MailCheck, RefreshCw, Timer, Clock, UserPlus, Info, AlertTriangle,
-  Shuffle, Wifi, WifiOff, Download, Smartphone, X
+  Shuffle, Wifi, WifiOff, Download, Smartphone, X, Zap
 } from "lucide-react";
 
 import "./styles.css";
@@ -16,11 +16,14 @@ import { AuthModal } from "./components/AuthModal";
 import InviteShareModal from "./components/InviteShareModal";
 import BlessingShareModal from "./components/BlessingShareModal";
 import WelcomeLanding from "./components/WelcomeLanding";
+import { InfiniteArenaModal } from "./components/InfiniteArenaModal";
+import { Bible66BooksModal } from "./components/Bible66BooksModal";
 import {
   initPelerinAuth,
   syncPelerinProfile,
   loadPelerinProfile,
   saveCarnetNote,
+  loadCarnetNotes,
   getLocalCarnetNotes,
   fetchClassementFraternel,
   fetchCommunityPrayers,
@@ -66,6 +69,23 @@ import {
   playLampRestoreSound,
   playErrorGentleTone
 } from "./services/audioSpeech";
+
+// Correspondance exacte entre les livres disponibles en lecture intégrale et leurs clés BIBLE_CHAPTERS
+const BOOK_CHAPTERS_MAP = {
+  gen: ["gen-1", "gen-14", "gen-22"],
+  exo: ["exo-3", "exo-20"],
+  deu: ["deu-6"],
+  psa: ["psa-23", "psa-91"],
+  pro: ["pro-30"],
+  esa: ["esa-53"],
+  dan: ["dan-9"],
+  mat: ["mat-5"],
+  jea: ["jea-1", "jea-3"],
+  act: ["act-17"],
+  rom: ["rom-8"],
+  "1co": ["1co-13"],
+  apo: ["apo-21"]
+};
 
 // Utilitaire de mélange aléatoire pour renouveler les questions et susciter le suspense
 function shuffleArray(arr) {
@@ -218,9 +238,11 @@ function App() {
   const [shuffledWhosaidSpeakers, setShuffledWhosaidSpeakers] = useState([]);
   const [shuffledPairsRight, setShuffledPairsRight] = useState([]);
 
-  // Bénédiction WhatsApp & Boutique de Grâce
+  // Bénédiction WhatsApp, Boutique de Grâce, Arène Infinie & Trésor des 66 Livres
   const [blessingModalOpen, setBlessingModalOpen] = useState(false);
   const [graceShopModalOpen, setGraceShopModalOpen] = useState(false);
+  const [showInfiniteArena, setShowInfiniteArena] = useState(false);
+  const [showBible66Modal, setShowBible66Modal] = useState(false);
 
   // Colombe de la Paix 🕊️ Mascotte
   const [doveVisible, setDoveVisible] = useState(false);
@@ -241,6 +263,10 @@ function App() {
   const completedStages = useMemo(
     () => (Array.isArray(saved.completedStages) ? saved.completedStages : []),
     [saved.completedStages]
+  );
+  const masteredBooks = useMemo(
+    () => (Array.isArray(saved.masteredBooks) ? saved.masteredBooks : []),
+    [saved.masteredBooks]
   );
   const visibleScore = clampScore(completedStages.length, saved.xp || 0, saved.pearls || 0);
   const frontierStage = useMemo(
@@ -371,7 +397,7 @@ function App() {
             }
           }
         }
-        const notes = getLocalCarnetNotes(currentUser.uid);
+        const notes = await loadCarnetNotes(currentUser.uid);
         setCarnetNotes(notes);
       } else {
         const notes = getLocalCarnetNotes("local");
@@ -475,7 +501,7 @@ function App() {
         if (cloudData.profileName) setProfileName(cloudData.profileName);
         if (cloudData.saved) setSaved((prev) => ({ ...prev, ...cloudData.saved }));
       }
-      const notes = getLocalCarnetNotes(authenticatedUser.uid);
+      const notes = await loadCarnetNotes(authenticatedUser.uid);
       setCarnetNotes(notes);
     }
   };
@@ -484,6 +510,7 @@ function App() {
     await logoutPelerin();
     setUser(null);
     setFirebaseStatus("guest");
+    setCarnetNotes(getLocalCarnetNotes("local"));
     notify("Tu es déconnecté·e. Ta progression reste en sécurité sur ton compte 🌿");
   };
 
@@ -1158,12 +1185,14 @@ function App() {
         notify(`« ${verseRef} » est déjà dans ton Jardin (Niveau ${existing.box}) 🌿`);
         return prev;
       }
+      const count = Array.isArray(prev.completedStages) ? prev.completedStages.length : 0;
+      const capped = clampScore(count, prev.xp || 0, (prev.pearls || 0) + 1);
       playPeaceTone();
       triggerHaptic([25]);
       notify(`« ${verseRef} » a été planté dans ton Jardin de la Parole 🌱`);
       return {
         ...prev,
-        pearls: (prev.pearls || 0) + 1,
+        pearls: capped.pearls,
         leitnerCards: {
           ...prevCards,
           [verseRef]: {
@@ -1177,6 +1206,44 @@ function App() {
         }
       };
     });
+  };
+
+  // Récompenses issues de l'Arène de la Foi (plafonnées selon les règles serveur)
+  const handleArenaRewards = ({ xp: earnedXp = 0, perles: earnedPearls = 0 } = {}) => {
+    const addXp = Math.max(0, Math.round(Number(earnedXp) || 0));
+    const addPearls = Math.max(0, Math.round(Number(earnedPearls) || 0));
+    if (addXp === 0 && addPearls === 0) return;
+
+    setSaved((prev) => {
+      const count = Array.isArray(prev.completedStages) ? prev.completedStages.length : 0;
+      const capped = clampScore(count, (prev.xp || 0) + addXp, (prev.pearls || 0) + addPearls);
+      return {
+        ...prev,
+        xp: capped.xp,
+        pearls: capped.pearls
+      };
+    });
+    notify(`⚔️ Récolte de l'Arène : +${addXp} XP · +${addPearls} 💎 !`);
+  };
+
+  // Maîtrise d'un des 66 livres de la Bible (encyclopédie & quiz canonique)
+  const handleMasterBook = (bookId) => {
+    if (!bookId) return;
+    setSaved((prev) => {
+      const prevMastered = Array.isArray(prev.masteredBooks) ? prev.masteredBooks : [];
+      if (prevMastered.includes(bookId)) {
+        return prev;
+      }
+      const count = Array.isArray(prev.completedStages) ? prev.completedStages.length : 0;
+      const capped = clampScore(count, (prev.xp || 0) + 50, (prev.pearls || 0) + 2);
+      return {
+        ...prev,
+        xp: capped.xp,
+        pearls: capped.pearls,
+        masteredBooks: [...prevMastered, bookId]
+      };
+    });
+    notify("📚 Livre canonique maîtrisé ! +50 XP et +2 Perles ✨");
   };
 
   const currentBibleChapter = BIBLE_CHAPTERS[selectedChapterKey] || BIBLE_CHAPTERS["gen-1"];
@@ -1535,6 +1602,26 @@ function App() {
                   <div className="league-actions">
                     <button
                       type="button"
+                      className="elevation-btn arena-launch-btn"
+                      onClick={() => setShowInfiniteArena(true)}
+                      title="Relever des défis infinis avec multiplicateur de série"
+                    >
+                      <Zap size={16} />
+                      <span>Arène Infinie</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="elevation-btn books-launch-btn"
+                      onClick={() => setShowBible66Modal(true)}
+                      title="Explorer l'encyclopédie et les quiz des 66 livres de la Bible"
+                    >
+                      <BookOpen size={16} />
+                      <span>66 Livres ({masteredBooks.length}/66)</span>
+                    </button>
+
+                    <button
+                      type="button"
                       className="elevation-btn blessing-btn"
                       onClick={() => setBlessingModalOpen(true)}
                       title="Créer une carte biblique personnalisée"
@@ -1630,6 +1717,7 @@ function App() {
                 <button
                   className="secondary-button full"
                   onClick={() => {
+                    setSelectedBookId("jea");
                     setSelectedChapterKey("jea-3");
                     setTab("Bible");
                   }}
@@ -1724,15 +1812,35 @@ function App() {
                 <h1>Le Sentier de la Parole</h1>
                 <p>Voyage à travers les 7 grandes époques bibliques. Chaque étape est une découverte vivante.</p>
               </div>
-              <button
-                type="button"
-                className="secondary-button surprise-stage-btn"
-                onClick={handleRandomStageSurprise}
-                title="Lancer une étape aléatoire pour tester vos connaissances"
-              >
-                <Shuffle size={16} />
-                <span>🎲 Étape Surprise</span>
-              </button>
+              <div className="page-intro-actions">
+                <button
+                  type="button"
+                  className="secondary-button surprise-stage-btn"
+                  onClick={handleRandomStageSurprise}
+                  title="Lancer une étape aléatoire pour tester vos connaissances"
+                >
+                  <Shuffle size={16} />
+                  <span>🎲 Étape Surprise</span>
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setShowInfiniteArena(true)}
+                  title="Entrer dans l'Arène de la Foi (défi infini)"
+                >
+                  <Zap size={16} />
+                  <span>⚔️ Arène Infinie</span>
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setShowBible66Modal(true)}
+                  title="Découvrir les 66 livres canoniques et relever leurs défis"
+                >
+                  <BookOpen size={16} />
+                  <span>📚 66 Livres ({masteredBooks.length}/66)</span>
+                </button>
+              </div>
             </div>
 
             {/* SÉLECTEUR DE CARTE DES 7 ÉPOQUES (GAME HUD ÉPURÉ) */}
@@ -1913,6 +2021,63 @@ function App() {
                 <Sparkles size={18} />
               </div>
             </div>
+
+            {/* DÉFIS BONUS DE L'ÉPOQUE (IDs 73–81 : Paires, Vrai/Faux, Qui a dit ?) */}
+            {(() => {
+              const epochBonuses = BONUS_STAGES.filter((b) => b.epoch === selectedEpochId);
+              if (epochBonuses.length === 0) return null;
+              return (
+                <div className="bonus-stages-section">
+                  <div className="section-heading">
+                    <div>
+                      <span className="eyebrow">ATELIERS D'ÉLÉVATION</span>
+                      <h2>🌟 Défis Bonus de l'Époque</h2>
+                    </div>
+                    <small style={{ color: "var(--muted)" }}>
+                      Débloqués une fois toutes les étapes de « {activeEpoch.nom} » accomplies
+                    </small>
+                  </div>
+                  <div className="bonus-stages-grid">
+                    {epochBonuses.map((bonus) => {
+                      const isDone = completedStages.includes(bonus.id);
+                      const unlocked = isBonusPlayable(bonus, BIBLE_EPOCHS, EPOCH_STAGES, completedStages);
+                      const formatLabel =
+                        bonus.type === "pairs" ? "🔗 Paires"
+                          : bonus.type === "truefalse" ? "⚖️ Vrai / Faux"
+                            : "🗣️ Qui a dit ?";
+
+                      return (
+                        <button
+                          key={bonus.id}
+                          type="button"
+                          className={`bonus-stage-card ${isDone ? "done" : ""} ${unlocked ? "unlocked" : "locked"}`}
+                          onClick={() => startStage(bonus.id)}
+                          aria-disabled={!unlocked}
+                        >
+                          <div className="bonus-card-top">
+                            <span className="bonus-format-pill">{formatLabel}</span>
+                            <span className="bonus-reward-pill">
+                              +{bonus.recompense?.xp || 35} XP · +{bonus.recompense?.perles || 2} 💎
+                            </span>
+                          </div>
+                          <strong className="bonus-card-title">{bonus.titre}</strong>
+                          <small className="bonus-card-ref">📖 {bonus.ref}</small>
+                          <div className="bonus-card-status">
+                            {isDone ? (
+                              <span className="status-done"><Check size={14} /> Accompli · Rejouer</span>
+                            ) : unlocked ? (
+                              <span className="status-open">✨ Défi ouvert · Lancer</span>
+                            ) : (
+                              <span className="status-locked"><LockKeyhole size={14} /> Achève l'époque pour débloquer</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </section>
         )}
 
@@ -2260,7 +2425,10 @@ function App() {
 
                     <div className="whosaid-speakers-grid">
                       {(shuffledWhosaidSpeakers.length > 0 ? shuffledWhosaidSpeakers : (currentStage.speakers || [])).map((sp, idx) => {
-                        const isSelected = whosaidSelected === sp.nom;
+                        const spName = typeof sp === "string" ? sp : sp.nom;
+                        const spRole = typeof sp === "string" ? "Personnage biblique" : (sp.role || "Personnage biblique");
+                        const spAvatar = typeof sp === "string" ? "📜" : (sp.avatar || "👤");
+                        const isSelected = whosaidSelected === spName;
                         return (
                           <button
                             key={idx}
@@ -2268,14 +2436,14 @@ function App() {
                             className={`whosaid-speaker-card ${isSelected ? "selected" : ""}`}
                             disabled={!!exerciseFeedback}
                             onClick={() => {
-                              setWhosaidSelected(sp.nom);
+                              setWhosaidSelected(spName);
                               triggerHaptic(20);
                             }}
                           >
-                            <span className="speaker-avatar">{sp.avatar || "👤"}</span>
+                            <span className="speaker-avatar">{spAvatar}</span>
                             <div className="speaker-info">
-                              <span className="speaker-name">{sp.nom}</span>
-                              <span className="speaker-role">{sp.role}</span>
+                              <span className="speaker-name">{spName}</span>
+                              <span className="speaker-role">{spRole}</span>
                             </div>
                             {isSelected && <span className="speaker-check">✦</span>}
                           </button>
@@ -2346,69 +2514,75 @@ function App() {
         {/* 4. ONGLET BIBLE & CARNET SPIRITUEL */}
         {tab === "Bible" && (
           <section className="page">
-            <div className="page-intro">
-              <span className="eyebrow"><BookOpen size={14} /> LA PAROLE EN TOUT TEMPS</span>
-              <h1>Extraits de la Bible</h1>
-              <p>Quelques passages clés de la Louis Segond 1910, à lire, écouter et garder dans ton carnet. Ce n'est pas encore le texte intégral des 66 livres.</p>
+            <div className="page-intro with-action">
+              <div>
+                <span className="eyebrow"><BookOpen size={14} /> LA PAROLE EN TOUT TEMPS</span>
+                <h1>Extraits de la Bible</h1>
+                <p>18 passages clés intégraux de la Louis Segond 1910 répartis sur 13 livres, à lire, écouter et ancrer dans ton carnet.</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowBible66Modal(true)}
+                title="Explorer les fiches et quiz de tous les 66 livres de la Bible"
+              >
+                <BookOpen size={16} />
+                <span>📚 Trésor des 66 Livres ({masteredBooks.length}/66)</span>
+              </button>
             </div>
 
             <div className="bible-layout">
               <div className="bible-reader">
                 <div className="reader-top">
-                  <select
-                    value={selectedBookId}
-                    onChange={(e) => {
-                      const book = e.target.value;
-                      setSelectedBookId(book);
-                      if (book === "gen") setSelectedChapterKey("gen-1");
-                      if (book === "exo") setSelectedChapterKey("exo-20");
-                      if (book === "psa") setSelectedChapterKey("psa-23");
-                      if (book === "jea") setSelectedChapterKey("jea-1");
-                      if (book === "rom") setSelectedChapterKey("rom-8");
-                      if (book === "1co") setSelectedChapterKey("1co-13");
-                      if (book === "apo") setSelectedChapterKey("apo-21");
-                      stopSpeech();
-                      setAudioPlaying(false);
-                    }}
-                    aria-label="Livre biblique"
-                  >
-                    {BIBLE_BOOKS.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.nom} ({b.testament})
-                      </option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const activePrefix = selectedChapterKey.split("-")[0];
+                    const resolvedBookId = BOOK_CHAPTERS_MAP[activePrefix] ? activePrefix : (BOOK_CHAPTERS_MAP[selectedBookId] ? selectedBookId : "gen");
+                    const availableBooks = BIBLE_BOOKS.filter((b) => Boolean(BOOK_CHAPTERS_MAP[b.id]));
+                    const availableChapterKeys = BOOK_CHAPTERS_MAP[resolvedBookId] || ["gen-1"];
 
-                  <select
-                    value={selectedChapterKey}
-                    onChange={(e) => {
-                      setSelectedChapterKey(e.target.value);
-                      stopSpeech();
-                      setAudioPlaying(false);
-                    }}
-                    aria-label="Chapitre biblique"
-                  >
-                    {selectedBookId === "gen" && <option value="gen-1">Chapitre 1 (La Création)</option>}
-                    {selectedBookId === "exo" && <option value="exo-20">Chapitre 20 (Les 10 Commandements)</option>}
-                    {selectedBookId === "psa" && (
+                    return (
                       <>
-                        <option value="psa-23">Psaume 23 (Le Berger)</option>
-                        <option value="psa-91">Psaume 91 (La Protection Divine)</option>
+                        <select
+                          value={resolvedBookId}
+                          onChange={(e) => {
+                            const book = e.target.value;
+                            setSelectedBookId(book);
+                            const chList = BOOK_CHAPTERS_MAP[book] || ["gen-1"];
+                            setSelectedChapterKey(chList[0]);
+                            stopSpeech();
+                            setAudioPlaying(false);
+                          }}
+                          aria-label="Livre biblique"
+                        >
+                          {availableBooks.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.nom} ({b.testament})
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={selectedChapterKey}
+                          onChange={(e) => {
+                            setSelectedChapterKey(e.target.value);
+                            stopSpeech();
+                            setAudioPlaying(false);
+                          }}
+                          aria-label="Chapitre biblique"
+                        >
+                          {availableChapterKeys.map((chKey) => {
+                            const chData = BIBLE_CHAPTERS[chKey];
+                            if (!chData) return null;
+                            return (
+                              <option key={chKey} value={chKey}>
+                                Chapitre {chData.chapitre} · {chData.titre}
+                              </option>
+                            );
+                          })}
+                        </select>
                       </>
-                    )}
-                    {selectedBookId === "jea" && (
-                      <>
-                        <option value="jea-1">Chapitre 1 (La Parole faite chair)</option>
-                        <option value="jea-3">Chapitre 3 (Nicodème & Jean 3:16)</option>
-                      </>
-                    )}
-                    {selectedBookId === "rom" && <option value="rom-8">Chapitre 8 (Plus que vainqueurs)</option>}
-                    {selectedBookId === "1co" && <option value="1co-13">Chapitre 13 (Cantique de l'Amour)</option>}
-                    {selectedBookId === "apo" && <option value="apo-21">Chapitre 21 (La Cité de Paix)</option>}
-                    {!["gen", "exo", "psa", "jea", "rom", "1co", "apo"].includes(selectedBookId) && (
-                      <option value="gen-1">Chapitre 1</option>
-                    )}
-                  </select>
+                    );
+                  })()}
 
                   {/* BOUTON D'ÉCOUTE AUDIO */}
                   <button
@@ -3209,6 +3383,26 @@ function App() {
         profileName={profileName}
         leagueName={getCurrentLeague(xp).league.nom}
         notify={notify}
+      />
+
+      {/* MODAL ARÈNE DE LA FOI (DÉFI INFINI) */}
+      <InfiniteArenaModal
+        isOpen={showInfiniteArena}
+        onClose={() => setShowInfiniteArena(false)}
+        onAddRewards={handleArenaRewards}
+        playSuccessSound={playPairSuccessChime}
+        playErrorSound={playErrorGentleTone}
+        playChime={playDivineChime}
+      />
+
+      {/* MODAL ENCYCLOPÉDIE & DÉFI DES 66 LIVRES DE LA BIBLE */}
+      <Bible66BooksModal
+        isOpen={showBible66Modal}
+        onClose={() => setShowBible66Modal(false)}
+        masteredBooks={masteredBooks}
+        onMasterBook={handleMasterBook}
+        playSuccessSound={playDivineChime}
+        playErrorSound={playErrorGentleTone}
       />
 
       {/* MODAL BOUTIQUE DE GRÂCE (LAMPES & PERLES) */}

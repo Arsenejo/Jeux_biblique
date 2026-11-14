@@ -14,5 +14,9 @@ jobs:
           node-version: 22
       - name: Vérifier la banque Défi Jean
         run: node verifier-questions.js
-      - name: Installer et tester Le Grand Pèlerinage
-        run: npm --prefix grand_pelerinage_v1 install && npm --prefix grand_pelerinage_v1 test
+      - name: Installer, tester, auditer et construire Le Grand Pèlerinage
+        run: |
+          npm --prefix grand_pelerinage_v1 install
+          npm --prefix grand_pelerinage_v1 test
+          npm --prefix grand_pelerinage_v1 run build
+          npm --prefix grand_pelerinage_v1 audit --audit-level=high
