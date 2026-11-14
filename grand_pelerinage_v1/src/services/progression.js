@@ -128,7 +128,10 @@ export function reviewLeitnerCard(prev, cardRef, isSuccess, now = Date.now()) {
   };
 }
 
+import { loadAccessibilityPrefs } from "./accessibilitySettings.js";
+
 export function motionAllowed() {
+  if (loadAccessibilityPrefs().reducedMotion) return false;
   if (typeof window === "undefined" || !window.matchMedia) return true;
   return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

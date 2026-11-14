@@ -1,5 +1,88 @@
-// Module de réconciliation et de synchronisation résiliente multi-appareils
+// Module de réconciliation, migration V2 et synchronisation résiliente multi-appareils
 // Garantit : Zéro perte de données, Zéro écrasement intempestif, Zéro doublon.
+
+export const DATA_SCHEMA_VERSION = 2;
+
+const DEFAULT_ACCESSIBILITY = {
+  fontSize: "normal",
+  soundEnabled: true,
+  hapticEnabled: true,
+  reducedMotion: false
+};
+
+/**
+ * Migre de manière idempotente un profil joueur V1 vers le schéma V2.0
+ * sans jamais perdre les étapes, XP, perles, séries ou cartes Leitner existantes.
+ */
+export function migratePelerinProfileV2(rawSaved = {}) {
+  const base = rawSaved && typeof rawSaved === "object" && !Array.isArray(rawSaved) ? rawSaved : {};
+  const validProfile = ["decouverte", "explorateur", "expert"].includes(base.pedagogicalProfile)
+    ? base.pedagogicalProfile
+    : "explorateur";
+
+  return {
+    ...base,
+    schemaVersion: DATA_SCHEMA_VERSION,
+    completedStages: Array.isArray(base.completedStages) ? Array.from(new Set(base.completedStages)) : [],
+    xp: Math.max(0, Number(base.xp) || 0),
+    pearls: Math.max(0, Number(base.pearls) || 0),
+    stars: Math.max(0, Number(base.stars) || 0),
+    streak: Math.max(0, Number(base.streak) || 0),
+    lampes: typeof base.lampes === "number" ? Math.min(5, Math.max(0, base.lampes)) : 5,
+    leitnerCards: base.leitnerCards && typeof base.leitnerCards === "object" ? base.leitnerCards : {},
+    masteredBooks: Array.isArray(base.masteredBooks) ? Array.from(new Set(base.masteredBooks)) : [],
+    pedagogicalProfile: validProfile,
+    unlockedChests: Array.isArray(base.unlockedChests) ? Array.from(new Set(base.unlockedChests)) : [],
+    memorizationCards:
+      base.memorizationCards && typeof base.memorizationCards === "object" && !Array.isArray(base.memorizationCards)
+        ? base.memorizationCards
+        : {},
+    dailyChallengeHistory:
+      base.dailyChallengeHistory && typeof base.dailyChallengeHistory === "object" && !Array.isArray(base.dailyChallengeHistory)
+        ? base.dailyChallengeHistory
+        : {},
+    gameStats:
+      base.gameStats && typeof base.gameStats === "object" && !Array.isArray(base.gameStats)
+        ? base.gameStats
+        : {},
+    missionsState:
+      base.missionsState && typeof base.missionsState === "object" && !Array.isArray(base.missionsState)
+        ? base.missionsState
+        : {},
+    accessibility: {
+      ...DEFAULT_ACCESSIBILITY,
+      ...(base.accessibility && typeof base.accessibility === "object" ? base.accessibility : {})
+    }
+  };
+}
+
+function mergeMemorizationCards(localMemo = {}, cloudMemo = {}) {
+  const merged = {};
+  const keys = new Set([...Object.keys(localMemo || {}), ...Object.keys(cloudMemo || {})]);
+  keys.forEach((ref) => {
+    const l = localMemo[ref];
+    const c = cloudMemo[ref];
+    if (l && c) {
+      const pick = (Number(l.stage) || 1) >= (Number(c.stage) || 1) ? l : c;
+      merged[ref] = {
+        ...pick,
+        stage: Math.max(Number(l.stage) || 1, Number(c.stage) || 1),
+        intervalDays: Math.max(Number(l.intervalDays) || 1, Number(c.intervalDays) || 1),
+        attempts: Math.max(Number(l.attempts) || 0, Number(c.attempts) || 0),
+        successes: Math.max(Number(l.successes) || 0, Number(c.successes) || 0),
+        delayedSuccesses: Math.max(Number(l.delayedSuccesses) || 0, Number(c.delayedSuccesses) || 0),
+        passed24h: Boolean(l.passed24h || c.passed24h),
+        passed7d: Boolean(l.passed7d || c.passed7d),
+        passed30d: Boolean(l.passed30d || c.passed30d),
+        lastReviewedAt: Math.max(Number(l.lastReviewedAt) || 0, Number(c.lastReviewedAt) || 0),
+        nextReviewAt: Math.max(Number(l.nextReviewAt) || 0, Number(c.nextReviewAt) || 0)
+      };
+    } else {
+      merged[ref] = { ...(l || c) };
+    }
+  });
+  return merged;
+}
 
 /**
  * Réconcilie les données de progression entre le cache local (appareil) et le Cloud Firestore.
@@ -103,6 +186,28 @@ export function reconcilePelerinData(localData = {}, cloudData = {}) {
     finalLeitnerCards = { ...mergedCards };
   }
 
+  const mergedStars = Math.max(Number(localSaved.stars) || 0, Number(cloudSaved.stars) || 0);
+  const mergedChests = Array.from(
+    new Set([
+      ...(Array.isArray(localSaved.unlockedChests) ? localSaved.unlockedChests : []),
+      ...(Array.isArray(cloudSaved.unlockedChests) ? cloudSaved.unlockedChests : [])
+    ])
+  );
+  const mergedMemorization = mergeMemorizationCards(localSaved.memorizationCards, cloudSaved.memorizationCards);
+  const mergedDailyChallenge = {
+    ...(cloudSaved.dailyChallengeHistory || {}),
+    ...(localSaved.dailyChallengeHistory || {})
+  };
+  const mergedGameStats = {
+    ...(cloudSaved.gameStats || {}),
+    ...(localSaved.gameStats || {})
+  };
+  const mergedMissions = {
+    ...(cloudSaved.missionsState || {}),
+    ...(localSaved.missionsState || {})
+  };
+  const mergedPedagogicalProfile = localSaved.pedagogicalProfile || cloudSaved.pedagogicalProfile;
+
   const resultSaved = {
     completedStages: mergedStages,
     xp: mergedXp,
@@ -112,7 +217,14 @@ export function reconcilePelerinData(localData = {}, cloudData = {}) {
     lampes: mergedLampes,
     leitnerCards: finalLeitnerCards,
     anchoredVerses: mergedAnchored,
-    ...(mergedMastered.length > 0 ? { masteredBooks: mergedMastered } : {})
+    ...(mergedMastered.length > 0 ? { masteredBooks: mergedMastered } : {}),
+    ...(mergedStars > 0 ? { stars: mergedStars } : {}),
+    ...(mergedChests.length > 0 ? { unlockedChests: mergedChests } : {}),
+    ...(Object.keys(mergedMemorization).length > 0 ? { memorizationCards: mergedMemorization } : {}),
+    ...(Object.keys(mergedDailyChallenge).length > 0 ? { dailyChallengeHistory: mergedDailyChallenge } : {}),
+    ...(Object.keys(mergedGameStats).length > 0 ? { gameStats: mergedGameStats } : {}),
+    ...(Object.keys(mergedMissions).length > 0 ? { missionsState: mergedMissions } : {}),
+    ...(mergedPedagogicalProfile ? { pedagogicalProfile: mergedPedagogicalProfile } : {})
   };
 
   return {

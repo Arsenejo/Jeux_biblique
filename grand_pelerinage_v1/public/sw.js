@@ -1,4 +1,4 @@
-const CACHE_NAME = "grand-pelerinage-v3";
+const CACHE_NAME = "grand-pelerinage-v4";
 const PRECACHE_ASSETS = [
   "/",
   "/index.html",
@@ -90,6 +90,57 @@ self.addEventListener("fetch", (event) => {
             return caches.match("/favicon.svg");
           }
         });
+    })
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let payload = {
+    title: "Le Grand Pèlerinage",
+    body: "Une étape ou un verset vous attend aujourd'hui.",
+    url: "/?notif=accueil",
+    tag: "grand-pelerinage-notif",
+  };
+  try {
+    if (event.data) {
+      const parsed = event.data.json();
+      payload = { ...payload, ...(parsed.notification || {}), ...(parsed.data || {}), ...parsed };
+    }
+  } catch {
+    if (event.data) {
+      payload.body = event.data.text() || payload.body;
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "Le Grand Pèlerinage", {
+      body: payload.body,
+      icon: "/icons/icon-192.png",
+      badge: "/favicon.svg",
+      tag: payload.tag || "grand-pelerinage-notif",
+      data: { url: payload.url || "/?notif=accueil" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) {
+          client.focus();
+          if ("navigate" in client) {
+            return client.navigate(targetUrl).catch(() => client);
+          }
+          return client;
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+      return undefined;
     })
   );
 });

@@ -1,4 +1,13 @@
 // Assistant vocal pour l'écoute paisible de la Parole et retours haptiques
+import { loadAccessibilityPrefs } from "./accessibilitySettings.js";
+
+function isSoundEnabled() {
+  return loadAccessibilityPrefs().soundEnabled !== false;
+}
+
+function isHapticEnabled() {
+  return loadAccessibilityPrefs().hapticEnabled !== false;
+}
 
 export function playSpeech(text, onStart, onEnd) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -41,6 +50,7 @@ export function stopSpeech() {
 }
 
 export function triggerHaptic(pattern = [20, 40, 20]) {
+  if (!isHapticEnabled()) return;
   if (typeof window !== "undefined" && "vibrate" in navigator) {
     try {
       navigator.vibrate(pattern);
@@ -52,6 +62,7 @@ export function triggerHaptic(pattern = [20, 40, 20]) {
 let audioCtx = null;
 
 function getAudioContext() {
+  if (!isSoundEnabled()) return null;
   if (typeof window === "undefined") return null;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return null;
@@ -229,4 +240,15 @@ export function playErrorGentleTone() {
     osc.start(now + idx * 0.12);
     osc.stop(now + idx * 0.12 + 0.45);
   });
+}
+
+export function speakFrench(text) {
+  return playSpeech(text);
+}
+
+export function playSfx(type = "tap") {
+  if (type === "victory") return playDivineChime();
+  if (type === "error") return playErrorGentleTone();
+  if (type === "tap") return playPairSuccessChime();
+  return playPeaceTone();
 }

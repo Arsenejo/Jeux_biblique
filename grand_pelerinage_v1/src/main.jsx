@@ -6,7 +6,7 @@ import {
   Lightbulb, Users, Leaf, MapPinned, BookMarked, Send, MessageCircleHeart,
   Award, ShieldCheck, Smile, Moon, Sun, Search, Flag, LogIn, LogOut, Globe,
   AlertCircle, MailCheck, RefreshCw, Timer, Clock, UserPlus, Info, AlertTriangle,
-  Shuffle, Wifi, WifiOff, Download, Smartphone, X, Zap
+  Shuffle, Wifi, WifiOff, Download, Smartphone, X, Zap, Gamepad2, Bell, Gift, Shield
 } from "lucide-react";
 
 import "./styles.css";
@@ -18,6 +18,15 @@ import BlessingShareModal from "./components/BlessingShareModal";
 import WelcomeLanding from "./components/WelcomeLanding";
 import { InfiniteArenaModal } from "./components/InfiniteArenaModal";
 import { Bible66BooksModal } from "./components/Bible66BooksModal";
+import GamesHubView from "./features/games/GamesHubView";
+import MemorizationHubModal from "./features/memorization/MemorizationHubModal";
+import NotificationCenterModal from "./features/notifications/NotificationCenterModal";
+import HomeDashboardV2 from "./features/home/HomeDashboardV2";
+import CommunityGroupsV2 from "./features/community/CommunityGroupsV2";
+import BibleStudyEnhancements from "./features/bible/BibleStudyEnhancements";
+import ChurchAdminModal from "./features/admin/ChurchAdminModal";
+import PedagogicalAndAccessibilityCard from "./features/profile/PedagogicalAndAccessibilityCard";
+import { EXTENDED_BIBLE_CHAPTERS } from "./data/bibleGamesData";
 import {
   initPelerinAuth,
   syncPelerinProfile,
@@ -37,9 +46,24 @@ import {
   setFirestoreOffline,
   normalizePseudo
 } from "./services/firebase";
-import { reconcilePelerinData } from "./services/dataReconciliation";
+import { reconcilePelerinData, migratePelerinProfileV2 } from "./services/dataReconciliation";
 import { sendProgressSummaryEmail } from "./services/brevoMailer";
-import { awardStageCompletion, clampScore, dueLeitnerCards, motionAllowed, reviewLeitnerCard } from "./services/progression";
+import { awardStageCompletion, clampScore, dueLeitnerCards, motionAllowed, reviewLeitnerCard, updateDailyStreak } from "./services/progression";
+import { createMemorizationCard, getMemorizationDashboardStats } from "./services/memorizationEngine";
+import { getEpochChests } from "./services/gamificationEngine";
+import { loadAccessibilityPrefs, saveAccessibilityPrefs, applyAccessibilityToDocument } from "./services/accessibilitySettings";
+import {
+  loadNotificationPrefs,
+  saveNotificationPrefs,
+  generateSmartNotifications,
+  loadLocalNotificationInbox,
+  saveLocalNotificationInbox,
+  syncNotificationToFirestore,
+  fetchFirestoreNotifications
+} from "./services/notificationsEngine";
+import { loadGroup } from "./services/churchGroup";
+import { fetchChurchAnnouncements, loadLocalAnnouncements } from "./services/adminAnalytics";
+import { contributeCollectiveChallenge } from "./services/churchGroupCloud";
 import { firstOpenStage, isBonusPlayable, isEpochUnlocked, isStagePlayable } from "./services/pathProgress";
 import ChurchGroupCard from "./components/ChurchGroupCard";
 import { validatePrayerContent } from "./services/moderation";
@@ -70,22 +94,27 @@ import {
   playErrorGentleTone
 } from "./services/audioSpeech";
 
-// Correspondance exacte entre les livres disponibles en lecture intégrale et leurs clés BIBLE_CHAPTERS
+// Correspondance exacte entre les livres disponibles en lecture intégrale et leurs clés BIBLE_CHAPTERS / EXTENDED_BIBLE_CHAPTERS
 const BOOK_CHAPTERS_MAP = {
   gen: ["gen-1", "gen-14", "gen-22"],
   exo: ["exo-3", "exo-20"],
   deu: ["deu-6"],
-  psa: ["psa-23", "psa-91"],
-  pro: ["pro-30"],
+  psa: ["psa-1", "psa-23", "psa-91", "psa-121"],
+  pro: ["pro-3", "pro-30"],
   esa: ["esa-53"],
   dan: ["dan-9"],
-  mat: ["mat-5"],
-  jea: ["jea-1", "jea-3"],
+  mat: ["mat-5", "mat-6"],
+  jea: ["jea-1", "jea-3", "jea-14", "jea-15"],
   act: ["act-17"],
-  rom: ["rom-8"],
+  rom: ["rom-8", "rom-12"],
   "1co": ["1co-13"],
+  phi: ["phi-4"],
+  jac: ["jac-1"],
+  "1je": ["1jn-4"],
   apo: ["apo-21"]
 };
+
+const ALL_BIBLE_CHAPTERS = { ...BIBLE_CHAPTERS, ...EXTENDED_BIBLE_CHAPTERS };
 
 // Utilitaire de mélange aléatoire pour renouveler les questions et susciter le suspense
 function shuffleArray(arr) {
@@ -146,9 +175,11 @@ function App() {
     try {
       const raw = localStorage.getItem("pelerinage_progress");
       const parsed = raw ? JSON.parse(raw) : null;
-      return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
+      return migratePelerinProfileV2(
+        parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}
+      );
     } catch {
-      return {};
+      return migratePelerinProfileV2({});
     }
   });
 
@@ -248,6 +279,27 @@ function App() {
   const [doveVisible, setDoveVisible] = useState(false);
   const [doveMessage, setDoveMessage] = useState("");
   const doveTimeoutRef = useRef(null);
+
+  // Version 2.0 : Mémorisation 4 étapes, Centre Notifications, Accessibilité, Communauté & Responsables
+  const [memorizationHubOpen, setMemorizationHubOpen] = useState(false);
+  const [notifCenterOpen, setNotifCenterOpen] = useState(false);
+  const [churchAdminOpen, setChurchAdminOpen] = useState(false);
+  const [accessibilityPrefs, setAccessibilityPrefs] = useState(() => loadAccessibilityPrefs());
+  const [notifPrefs, setNotifPrefs] = useState(() => loadNotificationPrefs());
+  const [notifInbox, setNotifInbox] = useState(() => loadLocalNotificationInbox());
+  const [churchGroupState, setChurchGroupState] = useState(() => loadGroup());
+  const [churchAnnouncements, setChurchAnnouncements] = useState(() => loadLocalAnnouncements());
+  const [bibleChaptersReadCount, setBibleChaptersReadCount] = useState(0);
+
+  useEffect(() => {
+    applyAccessibilityToDocument(accessibilityPrefs);
+  }, [accessibilityPrefs]);
+
+  useEffect(() => {
+    fetchChurchAnnouncements().then((anns) => {
+      if (Array.isArray(anns) && anns.length > 0) setChurchAnnouncements(anns);
+    });
+  }, []);
 
   const leitnerCards = useMemo(() => {
     const cards = saved.leitnerCards;
@@ -391,12 +443,25 @@ function App() {
         if (cloudData) {
           if (cloudData.profileName) setProfileName(cloudData.profileName);
           if (cloudData.saved) {
-            setSaved((prev) => ({ ...prev, ...cloudData.saved }));
+            setSaved((prev) => migratePelerinProfileV2({ ...prev, ...cloudData.saved }));
             if (typeof cloudData.saved.lampes === "number") {
               setLampes(cloudData.saved.lampes);
             }
           }
         }
+        fetchFirestoreNotifications(currentUser.uid).then((remoteNotifs) => {
+          if (Array.isArray(remoteNotifs) && remoteNotifs.length > 0) {
+            setNotifInbox((prev) => {
+              const map = new Map();
+              [...remoteNotifs, ...prev].forEach((n) => {
+                if (n?.id) map.set(n.id, n);
+              });
+              const merged = Array.from(map.values()).slice(0, 60);
+              saveLocalNotificationInbox(merged);
+              return merged;
+            });
+          }
+        });
         const notes = await loadCarnetNotes(currentUser.uid);
         setCarnetNotes(notes);
       } else {
@@ -1176,20 +1241,23 @@ function App() {
     setLeitnerReviewIndex((idx) => idx + 1);
   };
 
-  // Ancrer un verset lu dans le Jardin depuis la Bible
-  const handleAnchorVerse = (verseRef, verseText) => {
+  // Ancrer un verset lu dans le Jardin depuis la Bible (V1 Leitner + V2 4-étapes)
+  const handleAnchorVerse = (verseRef, verseText, livre = "") => {
     setSaved((prev) => {
       const prevCards = prev.leitnerCards || {};
-      const existing = prevCards[verseRef];
+      const prevMemoCards = prev.memorizationCards || {};
+      const existing = prevCards[verseRef] || prevMemoCards[verseRef];
       if (existing) {
-        notify(`« ${verseRef} » est déjà dans ton Jardin (Niveau ${existing.box}) 🌿`);
+        notify(`« ${verseRef} » est déjà dans Mes Versets à Retenir 🌿`);
         return prev;
       }
       const count = Array.isArray(prev.completedStages) ? prev.completedStages.length : 0;
       const capped = clampScore(count, prev.xp || 0, (prev.pearls || 0) + 1);
       playPeaceTone();
       triggerHaptic([25]);
-      notify(`« ${verseRef} » a été planté dans ton Jardin de la Parole 🌱`);
+      notify(`« ${verseRef} » a été planté dans Mes Versets à Retenir 🌱`);
+      const memoCard = createMemorizationCard({ ref: verseRef, texte: verseText, livre }, Date.now());
+      contributeCollectiveChallenge("col-memo-10", 1);
       return {
         ...prev,
         pearls: capped.pearls,
@@ -1203,6 +1271,10 @@ function App() {
             lastReviewed: Date.now(),
             nextReview: Date.now() + 24 * 3600 * 1000
           }
+        },
+        memorizationCards: {
+          ...prevMemoCards,
+          [verseRef]: memoCard
         }
       };
     });
@@ -1246,15 +1318,150 @@ function App() {
     notify("📚 Livre canonique maîtrisé ! +50 XP et +2 Perles ✨");
   };
 
-  const currentBibleChapter = BIBLE_CHAPTERS[selectedChapterKey] || BIBLE_CHAPTERS["gen-1"];
+  const memorizationStats = useMemo(
+    () => getMemorizationDashboardStats(saved.memorizationCards, saved.leitnerCards),
+    [saved.memorizationCards, saved.leitnerCards]
+  );
+
+  const unlockedEpochsCount = useMemo(
+    () => BIBLE_EPOCHS.filter((ep) => isEpochUnlocked(ep.id, BIBLE_EPOCHS, EPOCH_STAGES, completedStages)).length,
+    [completedStages]
+  );
+
+  const collectionStats = useMemo(() => ({
+    charactersPlayed: Array.isArray(saved.playedCharacters) ? saved.playedCharacters.length : 0,
+    masteredBooksCount: masteredBooks.length,
+    versesAnchored: memorizationStats.discoveredCount,
+    chestsCount: Array.isArray(saved.unlockedChests) ? saved.unlockedChests.length : 0,
+    stagesCount: completedStages.length,
+    epochsCount: unlockedEpochsCount
+  }), [saved.playedCharacters, masteredBooks.length, memorizationStats.discoveredCount, saved.unlockedChests, completedStages.length, unlockedEpochsCount]);
+
+  const totalStagesCount = useMemo(
+    () => Object.values(EPOCH_STAGES).reduce((sum, list) => sum + list.length, 0),
+    []
+  );
+
+  // Génération intelligente des notifications dans le Centre de Notifications (sans spam ni plage silencieuse)
+  useEffect(() => {
+    const currentInbox = loadLocalNotificationInbox();
+    const { notifications, generated } = generateSmartNotifications(
+      {
+        lastActiveDay: saved.lastActiveDay,
+        streak,
+        dueMemorizationCount: memorizationStats.dueCount,
+        nextStageTitle: frontierStage?.titre,
+        groupCode: churchGroupState?.code,
+        weeklyChallengeDone: Boolean(churchGroupState?.weekDone && Object.keys(churchGroupState.weekDone).length > 0)
+      },
+      notifPrefs,
+      currentInbox,
+      Date.now()
+    );
+    if (generated.length > 0) {
+      setNotifInbox(notifications);
+      saveLocalNotificationInbox(notifications);
+      if (user && !user.isAnonymous) {
+        generated.forEach((g) => syncNotificationToFirestore(user.uid, g));
+      }
+    }
+  }, [frontierStage?.id, memorizationStats.dueCount, saved.lastActiveDay, streak, churchGroupState?.code, notifPrefs, user?.uid]);
+
+  const handleV2GameReward = ({ gameId, xp: gainXp = 0, pearls: gainPearls = 0, stars: gainStars = 0, characterId }) => {
+    setSaved((prev) => {
+      const count = Array.isArray(prev.completedStages) ? prev.completedStages.length : 0;
+      const capped = clampScore(count, (prev.xp || 0) + gainXp, (prev.pearls || 0) + gainPearls);
+      const streakUp = updateDailyStreak(prev, Date.now());
+      const prevGameStats = prev.gameStats && typeof prev.gameStats === "object" ? prev.gameStats : {};
+      const prevChars = Array.isArray(prev.playedCharacters) ? prev.playedCharacters : [];
+      const nextChars = characterId && !prevChars.includes(characterId) ? [...prevChars, characterId] : prevChars;
+      return {
+        ...prev,
+        xp: capped.xp,
+        pearls: capped.pearls,
+        stars: (prev.stars || 0) + gainStars,
+        streak: streakUp.streak,
+        lastActiveDay: streakUp.lastActiveDay,
+        playedCharacters: nextChars,
+        gameStats: {
+          ...prevGameStats,
+          [gameId]: (prevGameStats[gameId] || 0) + 1
+        }
+      };
+    });
+    contributeCollectiveChallenge("col-games-100", 1);
+  };
+
+  const handleDailyChallengeCompleted = ({ dateKey, score, total, recompense }) => {
+    setSaved((prev) => {
+      const count = Array.isArray(prev.completedStages) ? prev.completedStages.length : 0;
+      const capped = clampScore(count, (prev.xp || 0) + (recompense?.xp || 40), (prev.pearls || 0) + (recompense?.perles || 3));
+      const streakUp = updateDailyStreak(prev, Date.now());
+      const prevDaily = prev.dailyChallengeHistory && typeof prev.dailyChallengeHistory === "object" ? prev.dailyChallengeHistory : {};
+      return {
+        ...prev,
+        xp: capped.xp,
+        pearls: capped.pearls,
+        stars: (prev.stars || 0) + (score >= total - 1 ? 3 : 2),
+        streak: streakUp.streak,
+        lastActiveDay: streakUp.lastActiveDay,
+        dailyChallengeHistory: {
+          ...prevDaily,
+          [dateKey]: { score, total, completedAt: Date.now() }
+        },
+        gameStats: {
+          ...(prev.gameStats || {}),
+          daily: ((prev.gameStats || {}).daily || 0) + 1
+        }
+      };
+    });
+    if (motionAllowed()) setConfettiActive(true);
+    notify(`☀️ Défi du Jour validé (${score}/${total}) ! +${recompense?.xp || 40} XP · +${recompense?.perles || 3} 💎`);
+  };
+
+  const handleUpdateMemorizationCard = (ref, updatedCard) => {
+    setSaved((prev) => ({
+      ...prev,
+      memorizationCards: {
+        ...(prev.memorizationCards || {}),
+        [ref]: updatedCard
+      }
+    }));
+  };
+
+  const handleClaimEpochChest = (chest) => {
+    if (!chest || !chest.ready || chest.claimed) return;
+    setSaved((prev) => {
+      const prevChests = Array.isArray(prev.unlockedChests) ? prev.unlockedChests : [];
+      if (prevChests.includes(chest.id)) return prev;
+      const count = Array.isArray(prev.completedStages) ? prev.completedStages.length : 0;
+      const capped = clampScore(count, (prev.xp || 0) + (chest.reward?.xp || 35), (prev.pearls || 0) + (chest.reward?.pearls || 2));
+      return {
+        ...prev,
+        xp: capped.xp,
+        pearls: capped.pearls,
+        unlockedChests: [...prevChests, chest.id]
+      };
+    });
+    if (motionAllowed()) setConfettiActive(true);
+    playLeagueFanfare();
+    notify(`🎁 ${chest.titre} ouvert ! +${chest.reward?.xp || 35} XP · +${chest.reward?.pearls || 2} 💎`);
+  };
+
+  const unreadNotificationsCount = useMemo(
+    () => notifInbox.filter((n) => !n.archived && !n.read).length,
+    [notifInbox]
+  );
+
+  const currentBibleChapter = ALL_BIBLE_CHAPTERS[selectedChapterKey] || ALL_BIBLE_CHAPTERS["gen-1"];
   const activeEpoch = BIBLE_EPOCHS.find((e) => e.id === selectedEpochId) || BIBLE_EPOCHS[0];
   const activeTheme = THEMATIC_VERSES.find((t) => t.themeId === selectedThemeId) || THEMATIC_VERSES[0];
 
   const navTabs = [
     { name: "Accueil", icon: Home },
     { name: "Parcours", icon: Compass },
+    { name: "Jeux", icon: Gamepad2 },
     { name: "Bible", icon: BookOpen },
-    { name: "Fraternité", icon: Users },
     { name: "Profil", icon: UserRound }
   ];
 
@@ -1342,6 +1549,17 @@ function App() {
               <span>{name}</span>
             </button>
           ))}
+          <button
+            className={`nav-link ${tab === "Fraternité" ? "active" : ""}`}
+            onClick={() => {
+              setTab("Fraternité");
+              stopSpeech();
+              setAudioPlaying(false);
+            }}
+          >
+            <Users size={19} />
+            <span>Fraternité</span>
+          </button>
         </nav>
 
         <div className="sidebar-bottom">
@@ -1438,6 +1656,29 @@ function App() {
             </button>
 
             <button
+              type="button"
+              className="invite-badge-btn"
+              onClick={() => setMemorizationHubOpen(true)}
+              title="Je retiens la Parole — Mes Versets à Retenir (4 étapes)"
+            >
+              <Leaf size={15} />
+              <span className="hide-mobile">Versets{memorizationStats.dueCount > 0 ? ` (${memorizationStats.dueCount})` : ""}</span>
+            </button>
+
+            <button
+              type="button"
+              className="icon-button v2-bell-btn"
+              onClick={() => setNotifCenterOpen(true)}
+              aria-label="Centre de notifications"
+              title="Notifications et rappels"
+            >
+              <Bell size={18} />
+              {unreadNotificationsCount > 0 && (
+                <span className="v2-bell-badge">{unreadNotificationsCount}</span>
+              )}
+            </button>
+
+            <button
               className="icon-button hide-mobile"
               onClick={() => notify("Tu es fidèle dans ta marche. Que la paix soit avec toi !")}
               aria-label="Encouragement du jour"
@@ -1517,6 +1758,26 @@ function App() {
                 <button type="button" className="close-banner-btn" onClick={() => setInvitedByBanner(null)} aria-label="Fermer le bandeau">✕</button>
               </div>
             )}
+
+            <HomeDashboardV2
+              pelerinName={profileName}
+              xp={xp}
+              streak={streak}
+              completedStages={completedStages}
+              totalStages={totalStagesCount}
+              dueMemorizationCount={memorizationStats.dueCount}
+              masteredVersesCount={memorizationStats.masteredCount}
+              todayChallengeDone={Boolean(saved.dailyChallengeHistory?.[new Date().toISOString().slice(0, 10)])}
+              bibleChaptersRead={bibleChaptersReadCount}
+              prayerShared={communityPrayers.some((p) => p.auteur === profileName)}
+              weeklyGroupDone={Boolean(churchGroupState?.weekDone && Object.keys(churchGroupState.weekDone).length > 0)}
+              collectionStats={collectionStats}
+              nextStage={frontierStage}
+              announcements={churchAnnouncements}
+              onResumeStage={(st) => startStage(st.id)}
+              onNavigate={(targetTab) => setTab(targetTab)}
+              onOpenMemorization={() => setMemorizationHubOpen(true)}
+            />
 
             <div className="hero">
               <div className="hero-copy">
@@ -1916,6 +2177,31 @@ function App() {
                   {Math.round((completedStages.filter((id) => currentStages.some((s) => s.id === id)).length / currentStages.length) * 100)}% de maîtrise
                 </small>
               </div>
+            </div>
+
+            {/* COFFRES DE RÉCOMPENSE D'ÉPOQUE V2.0 */}
+            <div className="v2-chests-row">
+              {getEpochChests(selectedEpochId, currentStages, completedStages, saved.unlockedChests || []).map((chest) => (
+                <div key={chest.id} className={`card v2-chest-card ${chest.claimed ? "claimed" : chest.ready ? "ready" : ""}`}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Gift size={20} />
+                    <div>
+                      <strong>{chest.titre}</strong>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {chest.completed} / {chest.required} étapes · +{chest.reward.xp} XP · +{chest.reward.pearls} 💎
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`btn small ${chest.ready && !chest.claimed ? "primary" : "secondary"}`}
+                    disabled={!chest.ready || chest.claimed}
+                    onClick={() => handleClaimEpochChest(chest)}
+                  >
+                    {chest.claimed ? "✅ Ouvert" : chest.ready ? "🎁 Ouvrir" : "🔒 Verrouillé"}
+                  </button>
+                </div>
+              ))}
             </div>
 
             {/* INDICATION DE GLISSEMENT TACTILE ET SOURIS */}
@@ -2511,6 +2797,24 @@ function App() {
           </section>
         )}
 
+        {/* 3B. ONGLET JEUX BIBLIQUES V2.0 */}
+        {tab === "Jeux" && (
+          <section className="page">
+            <GamesHubView
+              pelerinName={profileName}
+              pedagogicalProfile={saved.pedagogicalProfile || "explorateur"}
+              dailyChallengeHistory={saved.dailyChallengeHistory || {}}
+              gameStats={saved.gameStats || {}}
+              onReward={handleV2GameReward}
+              onDailyCompleted={handleDailyChallengeCompleted}
+              onAnchorVerse={handleAnchorVerse}
+              onOpenArena={() => setShowInfiniteArena(true)}
+              onOpen66Books={() => setShowBible66Modal(true)}
+              onToast={notify}
+            />
+          </section>
+        )}
+
         {/* 4. ONGLET BIBLE & CARNET SPIRITUEL */}
         {tab === "Bible" && (
           <section className="page">
@@ -2518,7 +2822,7 @@ function App() {
               <div>
                 <span className="eyebrow"><BookOpen size={14} /> LA PAROLE EN TOUT TEMPS</span>
                 <h1>Extraits de la Bible</h1>
-                <p>18 passages clés intégraux de la Louis Segond 1910 répartis sur 13 livres, à lire, écouter et ancrer dans ton carnet.</p>
+                <p>28 passages clés intégraux de la Louis Segond 1910 (dont 10 nouveaux chapitres V2.0) répartis sur 16 livres, avec introductions et parcours thématiques.</p>
               </div>
               <button
                 type="button"
@@ -2535,7 +2839,8 @@ function App() {
               <div className="bible-reader">
                 <div className="reader-top">
                   {(() => {
-                    const activePrefix = selectedChapterKey.split("-")[0];
+                    const rawPrefix = selectedChapterKey.split("-")[0];
+                    const activePrefix = rawPrefix === "1jn" ? "1je" : rawPrefix;
                     const resolvedBookId = BOOK_CHAPTERS_MAP[activePrefix] ? activePrefix : (BOOK_CHAPTERS_MAP[selectedBookId] ? selectedBookId : "gen");
                     const availableBooks = BIBLE_BOOKS.filter((b) => Boolean(BOOK_CHAPTERS_MAP[b.id]));
                     const availableChapterKeys = BOOK_CHAPTERS_MAP[resolvedBookId] || ["gen-1"];
@@ -2549,6 +2854,8 @@ function App() {
                             setSelectedBookId(book);
                             const chList = BOOK_CHAPTERS_MAP[book] || ["gen-1"];
                             setSelectedChapterKey(chList[0]);
+                            setBibleChaptersReadCount((c) => c + 1);
+                            contributeCollectiveChallenge("col-read-jean", 1);
                             stopSpeech();
                             setAudioPlaying(false);
                           }}
@@ -2565,13 +2872,15 @@ function App() {
                           value={selectedChapterKey}
                           onChange={(e) => {
                             setSelectedChapterKey(e.target.value);
+                            setBibleChaptersReadCount((c) => c + 1);
+                            contributeCollectiveChallenge("col-read-jean", 1);
                             stopSpeech();
                             setAudioPlaying(false);
                           }}
                           aria-label="Chapitre biblique"
                         >
                           {availableChapterKeys.map((chKey) => {
-                            const chData = BIBLE_CHAPTERS[chKey];
+                            const chData = ALL_BIBLE_CHAPTERS[chKey];
                             if (!chData) return null;
                             return (
                               <option key={chKey} value={chKey}>
@@ -2754,6 +3063,19 @@ function App() {
                 ))}
               </div>
             </div>
+            <BibleStudyEnhancements
+              activeChapterKey={selectedChapterKey}
+              allChapters={ALL_BIBLE_CHAPTERS}
+              onSelectChapter={(chKey) => {
+                setSelectedChapterKey(chKey);
+                const prefix = chKey.split("-")[0];
+                setSelectedBookId(prefix === "1jn" ? "1je" : prefix);
+                setBibleChaptersReadCount((c) => c + 1);
+                stopSpeech();
+                setAudioPlaying(false);
+              }}
+              onToast={notify}
+            />
           </section>
         )}
 
@@ -2765,6 +3087,19 @@ function App() {
               <h1>La Fraternité des Pèlerins</h1>
               <p>Marcher ensemble, prier les uns pour les autres et s'édifier mutuellement.</p>
             </div>
+
+            <CommunityGroupsV2
+              pelerinName={profileName}
+              uid={user?.uid}
+              xp={xp}
+              memorizedCount={memorizationStats.discoveredCount}
+              gamesPlayed={Object.values(saved.gameStats || {}).reduce((s, n) => s + (Number(n) || 0), 0)}
+              churchGroup={churchGroupState}
+              leaderboard={leaderboard}
+              onGroupUpdated={(g) => setChurchGroupState(g)}
+              onOpenAdmin={() => setChurchAdminOpen(true)}
+              onToast={notify}
+            />
 
             <ChurchGroupCard />
 
@@ -3138,6 +3473,26 @@ function App() {
                 <b>Ta valeur ne se mesure pas en points ni en vitesse.</b> Ces étapes célèbrent simplement les moments précieux que tu consacres à Dieu.
               </span>
             </div>
+
+            <PedagogicalAndAccessibilityCard
+              pedagogicalProfile={saved.pedagogicalProfile || "explorateur"}
+              onChangePedagogicalProfile={(profId) => {
+                setSaved((prev) => ({ ...prev, pedagogicalProfile: profId }));
+                notify(`🎓 Profil pédagogique activé : ${profId}`);
+              }}
+              accessibilityPrefs={accessibilityPrefs}
+              onUpdateAccessibility={(nextPrefs) => {
+                const savedPrefs = saveAccessibilityPrefs(nextPrefs);
+                setAccessibilityPrefs(savedPrefs);
+                applyAccessibilityToDocument(savedPrefs);
+                notify("♿ Préférences d'accessibilité mises à jour ✨");
+              }}
+              xp={xp}
+              stagesCount={completedStages.length}
+              memorizedCount={memorizationStats.masteredCount}
+              collectionStats={collectionStats}
+              onOpenNotifications={() => setNotifCenterOpen(true)}
+            />
 
             {/* CARTE OFFICIELLE DE PROPRIÉTÉ DANS L'ONGLET PROFIL */}
             <div className="church-ownership-profile-card">
@@ -3516,6 +3871,81 @@ function App() {
           </div>
         </div>
       )}
+
+      <MemorizationHubModal
+        open={memorizationHubOpen}
+        onClose={() => setMemorizationHubOpen(false)}
+        memorizationCards={saved.memorizationCards || {}}
+        leitnerCards={saved.leitnerCards || {}}
+        onUpdateMemorizationCard={handleUpdateMemorizationCard}
+        onReward={({ xp: gXp = 0, pearls: gPearls = 0 }) => handleV2GameReward({ gameId: "memorization", xp: gXp, pearls: gPearls, stars: 3 })}
+        onToast={notify}
+      />
+
+      <NotificationCenterModal
+        open={notifCenterOpen}
+        onClose={() => setNotifCenterOpen(false)}
+        inbox={notifInbox}
+        prefs={notifPrefs}
+        uid={user?.uid}
+        onUpdatePrefs={(next) => {
+          const clean = saveNotificationPrefs(next);
+          setNotifPrefs(clean);
+        }}
+        onMarkRead={(id) => {
+          setNotifInbox((prev) => {
+            const next = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+            saveLocalNotificationInbox(next);
+            const target = next.find((n) => n.id === id);
+            if (target && user && !user.isAnonymous) syncNotificationToFirestore(user.uid, target);
+            return next;
+          });
+        }}
+        onMarkAllRead={() => {
+          setNotifInbox((prev) => {
+            const next = prev.map((n) => ({ ...n, read: true }));
+            saveLocalNotificationInbox(next);
+            return next;
+          });
+        }}
+        onArchive={(id) => {
+          setNotifInbox((prev) => {
+            const next = prev.map((n) => (n.id === id ? { ...n, archived: true, read: true } : n));
+            saveLocalNotificationInbox(next);
+            const target = next.find((n) => n.id === id);
+            if (target && user && !user.isAnonymous) syncNotificationToFirestore(user.uid, target);
+            return next;
+          });
+        }}
+        onOpenTarget={(n) => {
+          if (n.targetAction === "open_memorization") {
+            setMemorizationHubOpen(true);
+          } else if (n.targetTab) {
+            setTab(n.targetTab);
+          }
+        }}
+        onToast={notify}
+      />
+
+      <ChurchAdminModal
+        open={churchAdminOpen}
+        onClose={() => setChurchAdminOpen(false)}
+        pelerinName={profileName}
+        leaderboard={leaderboard}
+        groups={churchGroupState ? [churchGroupState] : []}
+        prayers={communityPrayers}
+        memorizationStats={memorizationStats}
+        completedStages={completedStages}
+        gameStats={saved.gameStats || {}}
+        epochStages={EPOCH_STAGES}
+        onAnnouncementPublished={(anns) => setChurchAnnouncements(anns)}
+        onModeratePrayer={(prayerId) => {
+          setCommunityPrayers((prev) => prev.filter((p) => p.id !== prayerId));
+          flagCommunityPrayer(prayerId);
+          notify("🕊️ Intention modérée avec bienveillance.");
+        }}
+        onToast={notify}
+      />
 
       {/* TOAST DE NOTIFICATION BIENVEILLANT */}
       {toast && (

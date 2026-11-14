@@ -57,6 +57,14 @@ service cloud.firestore {
       match /carnet/{noteId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
+
+      match /notifications/{notifId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /fcm_tokens/{tokenId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     match /classement_pelerins/{uid} {
@@ -121,6 +129,42 @@ service cloud.firestore {
                     && resource.data.uid == request.auth.uid
                     && request.resource.data.uid == resource.data.uid;
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    match /groupes_eglise/{groupCode} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+                            && groupCode.size() == 6
+                            && request.resource.data.code == groupCode
+                            && request.resource.data.nom is string
+                            && request.resource.data.nom.size() >= 2
+                            && request.resource.data.nom.size() <= 50
+                            && !('email' in request.resource.data)
+                            && !('telephone' in request.resource.data);
+      allow delete: if request.auth != null
+                    && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /duels_bibliques/{duelId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+                            && request.resource.data.code is string
+                            && !('email' in request.resource.data)
+                            && !('telephone' in request.resource.data);
+      allow delete: if false;
+    }
+
+    match /annonces_eglise/{annonceId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+                            && request.resource.data.auteurId == request.auth.uid
+                            && request.resource.data.texte is string
+                            && request.resource.data.texte.size() >= 5
+                            && request.resource.data.texte.size() <= 600
+                            && !('email' in request.resource.data)
+                            && !('telephone' in request.resource.data);
+      allow delete: if request.auth != null
+                    && resource.data.auteurId == request.auth.uid;
     }
   }
 }
