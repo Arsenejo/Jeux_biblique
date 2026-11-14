@@ -723,14 +723,20 @@ export async function fetchCommunityPrayers() {
  * Publie une intention de prière ou gratitude sur le mur
  */
 export async function addCommunityPrayer(prayer) {
-  const { db } = getFirebaseServices();
+  const { db, auth } = getFirebaseServices();
+  const currentUser = auth?.currentUser || null;
   const prayerItem = {
     ...prayer,
+    // L'identifiant vient toujours de Firebase Auth, jamais des données du formulaire.
+    ...(currentUser?.uid ? { auteurId: currentUser.uid } : {}),
     soutiens: 1,
     signaux: 0,
     masque: false,
     dateCreation: new Date().toISOString()
   };
+  if (!currentUser?.uid) {
+    delete prayerItem.auteurId;
+  }
 
   // Sauvegarde locale instantanée
   let localPrayers = [];
@@ -740,7 +746,9 @@ export async function addCommunityPrayer(prayer) {
     localStorage.setItem("pelerinage_prieres_communaute", JSON.stringify(localPrayers));
   } catch {}
 
-  if (!db) return localPrayers;
+  // Sans session Firebase authentifiée, la prière reste locale.
+  // Firestore exige request.auth.uid == auteurId à la création.
+  if (!db || !currentUser?.uid) return localPrayers;
 
   try {
     const ref = doc(db, "prieres", prayer.id);

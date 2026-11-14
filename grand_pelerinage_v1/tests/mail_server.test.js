@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { processMail, resetRateLimit } = require(path.resolve("..", "api", "mailCore.cjs"));
+const { processMail, resetRateLimit } = require(
+  fileURLToPath(new URL("../api/mailCore.cjs", import.meta.url))
+);
 
 test("Le serveur refuse un courriel arbitraire et simule sans clé", async () => {
   resetRateLimit();

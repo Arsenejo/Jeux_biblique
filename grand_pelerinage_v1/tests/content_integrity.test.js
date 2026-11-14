@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { EPOCH_STAGES } from "../src/data/bibleData.js";
 import { JEAN_STAGES_BY_EPOCH } from "../src/data/jeanStages.js";
 
@@ -33,9 +33,16 @@ test("Les étapes étendues et les 126 questions du Défi Jean sont branchées",
 });
 
 test("La banque questions.js et les étapes générées ont le même effectif", () => {
-  const questionsPath = path.resolve("..", "questions.js");
-  const code = fs.readFileSync(questionsPath, "utf8");
-  const { BANQUE_QUESTIONS } = new Function(`${code}\nreturn { BANQUE_QUESTIONS };`)();
+  const questionsPath = fileURLToPath(new URL("../../questions.js", import.meta.url));
   const written = Object.values(JEAN_STAGES_BY_EPOCH).reduce((sum, list) => sum + list.length, 0);
-  assert.equal(written, BANQUE_QUESTIONS.length);
+
+  if (fs.existsSync(questionsPath)) {
+    const code = fs.readFileSync(questionsPath, "utf8");
+    const { BANQUE_QUESTIONS } = new Function(`${code}\nreturn { BANQUE_QUESTIONS };`)();
+    assert.equal(BANQUE_QUESTIONS.length, 126);
+    assert.equal(written, BANQUE_QUESTIONS.length);
+  } else {
+    // Mode archive autonome (hors dépôt racine contenant questions.js)
+    assert.equal(written, 126);
+  }
 });
