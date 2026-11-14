@@ -12,9 +12,14 @@ En complément du correctif `grand_pelerinage_v1_corrige.zip`, les trois fragili
 3. `tests/security_and_penetration.test.js` : repli hors-ligne sur l'intégrité de `package-lock.json` uniquement lorsque `npm audit --json` échoue par absence de réseau (tout en maintenant l'échec strict si des vulnérabilités sont signalées en ligne).
 
 ## Déploiement avant mise en production
-1. Déployer les règles Firestore existantes :
-   ```bash
-   firebase deploy --only firestore:rules
-   ```
+1. Déployer les règles Firestore existantes (`firestore.rules`, projet `defi-jean` configuré dans `.firebaserc`) :
+   - **Option A — Terminal CLI** :
+     ```bash
+     firebase login
+     firebase deploy --only firestore:rules
+     ```
+     *(ou `npm run deploy:rules` depuis la racine du dépôt).*
+   - **Option B — Console Web Firebase (sans CLI)** :
+     Ouvrir `https://console.firebase.google.com/project/defi-jean/firestore/rules`, copier-coller le contenu de `firestore.rules`, puis cliquer sur **Publier**.
 2. Effectuer un essai réel de publication de prière avec un compte Firebase connecté (Google ou Email/Mot de passe) en production ou sur émulateur Firebase Auth + Firestore, puis vérifier l'apparition du document dans `/prieres/{prayerId}` avec `auteurId == request.auth.uid`.
 
