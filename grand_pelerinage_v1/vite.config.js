@@ -1,4 +1,6 @@
 import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -38,8 +40,24 @@ function mailApiPlugin() {
   };
 }
 
+function adminSpaEntryPlugin() {
+  return {
+    name: "admin-spa-entry",
+    closeBundle() {
+      const distDir = path.resolve(__dirname, "dist");
+      const indexFile = path.join(distDir, "index.html");
+      if (!fs.existsSync(indexFile)) return;
+      const html = fs.readFileSync(indexFile, "utf8");
+      fs.writeFileSync(path.join(distDir, "admin.html"), html, "utf8");
+      const adminDir = path.join(distDir, "admin");
+      fs.mkdirSync(adminDir, { recursive: true });
+      fs.writeFileSync(path.join(adminDir, "index.html"), html, "utf8");
+    }
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), mailApiPlugin()],
+  plugins: [react(), mailApiPlugin(), adminSpaEntryPlugin()],
   server: {
     host: true,
     port: 5173,
