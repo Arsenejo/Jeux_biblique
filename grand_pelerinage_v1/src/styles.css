@@ -7076,9 +7076,22 @@ body.night-mode .option-btn {
   .v2-setting-row .v2-select {
     width: 100%;
   }
+  .shop-balance-banner {
+    grid-template-columns: 1fr;
+  }
+  .podium-container {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .podium-card.first {
+    transform: none;
+  }
 }
 
 @media (max-width: 380px) {
+  body {
+    min-width: 0;
+  }
   .bottom-nav-item {
     font-size: 10px;
     padding: 4px 2px;
@@ -7090,11 +7103,26 @@ body.night-mode .option-btn {
     white-space: nowrap;
     max-width: 100%;
   }
+  .tf-buttons-row {
+    grid-template-columns: 1fr;
+  }
+  .league-actions {
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 340px) {
+  .profile-metrics,
   .profile-metrics-4 {
     grid-template-columns: 1fr;
+  }
+  .profile-metrics > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 0;
+  }
+  .profile-metrics > div:last-child {
+    border-bottom: 0;
   }
 }
 
