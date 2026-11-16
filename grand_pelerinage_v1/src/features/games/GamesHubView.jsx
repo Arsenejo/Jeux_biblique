@@ -27,9 +27,15 @@ import {
   encodeDuelInvitePayload,
   decodeDuelInvitePayload,
   compareDuelResults,
-  getCharacterJourney
+  getCharacterJourney,
+  getDynamicMysteryVersesPool,
+  getDynamicWhoAmIPool,
+  getDynamicChronologyPool,
+  getDynamicWordPairsPool,
+  getDynamicListenPool
 } from "../../services/gamesEngine.js";
 import { speakFrench, playSfx } from "../../services/audioSpeech.js";
+import { loadGamesAdminConfig } from "../../services/adminAnalytics.js";
 
 const GAMES_CATALOG = [
   { id: "daily", titre: "Le Défi du Jour", icone: "☀️", badge: "Quotidien", resume: "5 questions variées renouvelées chaque jour pour toute l'église." },
@@ -58,6 +64,17 @@ export default function GamesHubView({
   const [activeGame, setActiveGame] = useState("hub");
   const todayKey = getTodayDateKey();
   const dailyDoneToday = Boolean(dailyChallengeHistory?.[todayKey]);
+  const gamesAdminCfg = useMemo(() => loadGamesAdminConfig(), []);
+  const awardWithMultiplier = (payload) => {
+    const mult = Number(gamesAdminCfg?.xpMultiplier) || 1;
+    onReward?.({ ...payload, xp: Math.round((Number(payload?.xp) || 0) * mult) });
+  };
+
+  const mvPool = useMemo(() => getDynamicMysteryVersesPool(), []);
+  const waiPool = useMemo(() => getDynamicWhoAmIPool(), []);
+  const chronoPool = useMemo(() => getDynamicChronologyPool(), []);
+  const pairsPool = useMemo(() => getDynamicWordPairsPool(), []);
+  const listenPool = useMemo(() => getDynamicListenPool(), []);
 
   // 1. Verset Mystère state
   const [mvIndex, setMvIndex] = useState(0);
@@ -154,7 +171,7 @@ export default function GamesHubView({
     setMvResult(res);
     if (res.valid) {
       playSfx("victory");
-      onReward?.({ gameId: "mystery", xp: res.xp, pearls: res.pearls, stars: res.stars });
+      awardWithMultiplier({ gameId: "mystery", xp: res.xp, pearls: res.pearls, stars: res.stars });
     } else {
       playSfx("error");
     }
@@ -167,7 +184,7 @@ export default function GamesHubView({
       const s = scoreWhoAmI(waiCluesRevealed, pedagogicalProfile);
       setWaiResult({ ok: true, ...s, chosen: optionName });
       playSfx("victory");
-      onReward?.({ gameId: "whoami", xp: s.xp, pearls: s.pearls, stars: s.stars, characterId: waiChallenge.id });
+      awardWithMultiplier({ gameId: "whoami", xp: s.xp, pearls: s.pearls, stars: s.stars, characterId: waiChallenge.id });
     } else {
       setWaiResult({ ok: false, xp: 0, pearls: 0, stars: 0, chosen: optionName });
       playSfx("error");
@@ -200,7 +217,7 @@ export default function GamesHubView({
       playSfx("tap");
       if (nextMatched.length === pairsRound.pairs.length) {
         playSfx("victory");
-        onReward?.({ gameId: "pairs", xp: 25, pearls: 2, stars: 3 });
+        awardWithMultiplier({ gameId: "pairs", xp: 25, pearls: 2, stars: 3 });
         setPairFeedback("🏆 Toutes les paires ont été associées !");
       }
     } else {
@@ -220,7 +237,7 @@ export default function GamesHubView({
         setAdvCompleted(true);
         setAdvFeedback(`🏆 Trésor ouvert : ${currentAdventure.recompense.coffreNom} !`);
         playSfx("victory");
-        onReward?.({
+        awardWithMultiplier({
           gameId: "treasure",
           xp: currentAdventure.recompense.xp,
           pearls: currentAdventure.recompense.pearls,
@@ -252,49 +269,66 @@ export default function GamesHubView({
   };
 
   if (activeGame === "hub") {
+    const visibleGames = GAMES_CATALOG
+      .filter((g) => gamesAdminCfg?.enabledGames?.[g.id] !== false)
+      .sort((a, b) => (a.id === gamesAdminCfg?.featuredGameId ? -1 : b.id === gamesAdminCfg?.featuredGameId ? 1 : 0));
+
     return (
       <div className="v2-games-hub fade-in">
         <div className="card v2-hero-banner">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <div>
-              <span className="pill">🎮 9 Jeux Bibliques V2.0 + Arène & 66 Livres</span>
+              <span className="pill">
+                🎮 {visibleGames.length} Jeux Bibliques V2.0
+                {gamesAdminCfg?.xpMultiplier > 1 ? ` · ⚡ Bonus ${gamesAdminCfg.xpMultiplier}x` : ""}
+              </span>
               <h2 style={{ marginTop: 8, marginBottom: 6 }}>Espace Jeux Bibliques</h2>
               <p className="muted" style={{ margin: 0 }}>
                 Découvrir, comprendre, mémoriser, pratiquer et partager la Parole (Louis Segond 1910).
               </p>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button className="btn secondary" onClick={onOpenArena}>⚔️ Arène Infinie</button>
-              <button className="btn secondary" onClick={onOpen66Books}>📚 Défi 66 Livres</button>
+              {gamesAdminCfg?.enabledGames?.arena !== false && (
+                <button className="btn secondary" onClick={onOpenArena}>⚔️ Arène Infinie</button>
+              )}
+              {gamesAdminCfg?.enabledGames?.books66 !== false && (
+                <button className="btn secondary" onClick={onOpen66Books}>📚 Défi 66 Livres</button>
+              )}
             </div>
           </div>
         </div>
 
         <div className="v2-games-grid">
-          {GAMES_CATALOG.map((g) => (
-            <div key={g.id} className="card v2-game-card">
-              <div className="v2-game-card-top">
-                <span className="v2-game-emoji">{g.icone}</span>
-                <span className="badge">{g.id === "daily" && dailyDoneToday ? "✅ Fait aujourd'hui" : g.badge}</span>
+          {visibleGames.map((g) => {
+            const isFeatured = g.id === gamesAdminCfg?.featuredGameId;
+            return (
+              <div key={g.id} className="card v2-game-card" style={isFeatured ? { borderColor: "#f59e0b" } : undefined}>
+                <div className="v2-game-card-top">
+                  <span className="v2-game-emoji">{g.icone}</span>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    {isFeatured && <span className="badge" style={{ background: "#fef3c7", color: "#92400e" }}>⭐ En vedette</span>}
+                    <span className="badge">{g.id === "daily" && dailyDoneToday ? "✅ Fait aujourd'hui" : g.badge}</span>
+                  </div>
+                </div>
+                <h3 style={{ margin: "10px 0 6px" }}>{g.titre}</h3>
+                <p className="muted" style={{ fontSize: 13, minHeight: 40 }}>{g.resume}</p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    Parties : {gameStats?.[g.id] || 0}
+                  </span>
+                  <button
+                    className="btn primary small"
+                    onClick={() => {
+                      setActiveGame(g.id);
+                      if (g.id === "chrono") selectChronoLevel(chronoLevelIdx);
+                    }}
+                  >
+                    Jouer →
+                  </button>
+                </div>
               </div>
-              <h3 style={{ margin: "10px 0 6px" }}>{g.titre}</h3>
-              <p className="muted" style={{ fontSize: 13, minHeight: 40 }}>{g.resume}</p>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                  Parties : {gameStats?.[g.id] || 0}
-                </span>
-                <button
-                  className="btn primary small"
-                  onClick={() => {
-                    setActiveGame(g.id);
-                    if (g.id === "chrono") selectChronoLevel(chronoLevelIdx);
-                  }}
-                >
-                  Jouer →
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -329,7 +363,7 @@ export default function GamesHubView({
 
           <div className="callout" style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-              <strong>Verset #{mvIndex + 1} / {MYSTERY_VERSES_POOL.length} — {mvChallenge.verse.livre}</strong>
+              <strong>Verset #{mvIndex + 1} / {mvPool.length} — {mvChallenge.verse.livre}</strong>
               <div style={{ display: "flex", gap: 6 }}>
                 <button className="btn secondary small" onClick={() => speakFrench(mvChallenge.verse.texte)}>
                   🔊 Écouter
@@ -456,7 +490,7 @@ export default function GamesHubView({
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
             <button className="btn primary" onClick={handleValidateMystery}>Valider ma réponse</button>
-            <button className="btn secondary" onClick={() => resetMysteryRound((mvIndex + 1) % MYSTERY_VERSES_POOL.length, mvMode)}>
+            <button className="btn secondary" onClick={() => resetMysteryRound((mvIndex + 1) % mvPool.length, mvMode)}>
               Verset suivant →
             </button>
             <button
@@ -485,7 +519,7 @@ export default function GamesHubView({
       {activeGame === "whoami" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <strong>Personnage #{waiIndex + 1} / {BIBLE_WHO_AM_I_CHARACTERS.length}</strong>
+            <strong>Personnage #{waiIndex + 1} / {waiPool.length}</strong>
             <span className="badge">Indices utilisés : {waiCluesRevealed} / 3</span>
           </div>
           <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
@@ -522,7 +556,7 @@ export default function GamesHubView({
             <button
               className="btn primary small"
               onClick={() => {
-                setWaiIndex((i) => (i + 1) % BIBLE_WHO_AM_I_CHARACTERS.length);
+                setWaiIndex((i) => (i + 1) % waiPool.length);
                 setWaiCluesRevealed(1);
                 setWaiResult(null);
               }}
@@ -537,7 +571,7 @@ export default function GamesHubView({
       {activeGame === "chrono" && (
         <div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-            {BIBLE_CHRONOLOGY_LEVELS.map((lvl, idx) => (
+            {chronoPool.map((lvl, idx) => (
               <button key={lvl.id} className={`btn small ${chronoLevelIdx === idx ? "primary" : "secondary"}`} onClick={() => selectChronoLevel(idx)}>
                 {idx + 1}. {lvl.titre}
               </button>
@@ -572,7 +606,7 @@ export default function GamesHubView({
                 setChronoResult(res);
                 if (res.valid) {
                   playSfx("victory");
-                  onReward?.({ gameId: "chrono", xp: res.xp, pearls: res.pearls, stars: res.stars });
+                  awardWithMultiplier({ gameId: "chrono", xp: res.xp, pearls: res.pearls, stars: res.stars });
                 } else {
                   playSfx("error");
                 }
@@ -598,7 +632,7 @@ export default function GamesHubView({
       {activeGame === "pairs" && (
         <div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-            {WORD_PAIRS_CATEGORIES.map((c, idx) => (
+            {pairsPool.map((c, idx) => (
               <button
                 key={c.id}
                 className={`btn small ${pairsCatIdx === idx ? "primary" : "secondary"}`}
@@ -711,7 +745,7 @@ export default function GamesHubView({
       {activeGame === "listen" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-            <strong>Extrait #{listenIdx + 1} / {LISTEN_AND_RECOGNIZE_ITEMS.length} — {listenItem.categorie}</strong>
+            <strong>Extrait #{listenIdx + 1} / {listenPool.length} — {listenItem.categorie}</strong>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="btn primary small" onClick={() => speakFrench(listenItem.audioText)}>
                 🔊 Écouter l'extrait
@@ -735,7 +769,7 @@ export default function GamesHubView({
                   setListenResult(opt);
                   if (opt.isCorrect) {
                     playSfx("victory");
-                    onReward?.({ gameId: "listen", xp: 20, pearls: 1, stars: 3 });
+                    awardWithMultiplier({ gameId: "listen", xp: 20, pearls: 1, stars: 3 });
                   } else {
                     playSfx("error");
                   }
@@ -755,7 +789,7 @@ export default function GamesHubView({
             className="btn secondary small"
             style={{ marginTop: 12 }}
             onClick={() => {
-              setListenIdx((i) => (i + 1) % LISTEN_AND_RECOGNIZE_ITEMS.length);
+              setListenIdx((i) => (i + 1) % listenPool.length);
               setListenResult(null);
               setListenTranscriptVisible(false);
             }}
@@ -952,7 +986,7 @@ export default function GamesHubView({
                             setDuelSelectedOpt(null);
                           } else {
                             setDuelFinished(true);
-                            onReward?.({ gameId: "duel", xp: 20 + duelScore * 4, pearls: 2, stars: duelScore >= 4 ? 3 : 2 });
+                            awardWithMultiplier({ gameId: "duel", xp: 20 + duelScore * 4, pearls: 2, stars: duelScore >= 4 ? 3 : 2 });
                           }
                         }}
                       >
@@ -1014,7 +1048,7 @@ export default function GamesHubView({
                       const ok = idx === currentCharacter.questions[charQuizIdx].correctIndex;
                       if (ok) {
                         playSfx("victory");
-                        onReward?.({ gameId: "characters", xp: 15, pearls: 1, stars: 3, characterId: currentCharacter.id });
+                        awardWithMultiplier({ gameId: "characters", xp: 15, pearls: 1, stars: 3, characterId: currentCharacter.id });
                         setCharFeedback("✅ Bonne réponse ! +15 XP · +1 💎");
                         if (charQuizIdx + 1 < currentCharacter.questions.length) {
                           setCharQuizIdx((q) => q + 1);

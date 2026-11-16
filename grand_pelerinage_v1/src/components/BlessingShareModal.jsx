@@ -10,46 +10,10 @@ import {
   MessageCircle,
   Palette
 } from "lucide-react";
+import { loadBlessingsConfig, DEFAULT_BLESSING_CARDS, DEFAULT_BLESSING_THEMES } from "../services/adminAnalytics.js";
 
-const CURATED_BLESSINGS = [
-  {
-    ref: "Psaume 23:1-3",
-    texte: "L'Éternel est mon berger : je ne manquerai de rien. Il me fait reposer dans de verts pâturages, Il me dirige près des eaux paisibles. Il restaure mon âme.",
-    theme: "Paix & Restauration"
-  },
-  {
-    ref: "Jérémie 29:11",
-    texte: "Car je connais les projets que j'ai formés sur vous, dit l'Éternel, projets de paix et non de malheur, afin de vous donner un avenir et de l'espérance.",
-    theme: "Espérance & Avenir"
-  },
-  {
-    ref: "Jean 14:27",
-    texte: "Je vous laisse la paix, je vous donne ma paix. Je ne vous donne pas comme le monde donne. Que votre cœur ne se trouble point, et ne s'alarme point.",
-    theme: "Sérénité divine"
-  },
-  {
-    ref: "Philippiens 4:13",
-    texte: "Je puis tout par celui qui me fortifie.",
-    theme: "Force & Courage"
-  },
-  {
-    ref: "Ésaïe 40:31",
-    texte: "Ceux qui se confient en l'Éternel renouvellent leur force. Ils prennent le vol comme les aigles ; Ils courent, et ne se lassent point ; Ils marchent, et ne se fatiguent point.",
-    theme: "Renouvellement"
-  },
-  {
-    ref: "Nombres 6:24-26",
-    texte: "Que l'Éternel te bénisse, et qu'il te garde ! Que l'Éternel fasse luire sa face sur toi, et qu'il t'accorde sa grâce ! Que l'Éternel tourne sa face vers toi, et qu'il te donne la paix !",
-    theme: "Bénédiction sacerdotale"
-  }
-];
-
-const THEMES = [
-  { id: "or-celeste", nom: "Or Céleste", bg1: "#0f172a", bg2: "#1e1b4b", gold: "#f59e0b", accent: "#fbbf24" },
-  { id: "emeraude", nom: "Jardin d'Éden", bg1: "#064e3b", bg2: "#022c22", gold: "#34d399", accent: "#a7f3d0" },
-  { id: "saphir", nom: "Ciel de Gloire", bg1: "#1e3a8a", bg2: "#0f172a", gold: "#60a5fa", accent: "#93c5fd" },
-  { id: "crepuscule", nom: "Flamme Sacrée", bg1: "#4c0519", bg2: "#1c1917", gold: "#fb7185", accent: "#fda4af" }
-];
+const CURATED_BLESSINGS = DEFAULT_BLESSING_CARDS;
+const THEMES = DEFAULT_BLESSING_THEMES;
 
 export default function BlessingShareModal({
   isOpen,
@@ -58,15 +22,30 @@ export default function BlessingShareModal({
   leagueName = "Airain",
   notify = () => {}
 }) {
+  const [blessingsCfg, setBlessingsCfg] = useState(() => loadBlessingsConfig());
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const [themeId, setThemeId] = useState("or-celeste");
-  const [personalDedication, setPersonalDedication] = useState("Que la paix et la grâce de Dieu inondent ta journée !");
+  const [themeId, setThemeId] = useState(() => loadBlessingsConfig().themes?.[0]?.id || "or-celeste");
+  const [personalDedication, setPersonalDedication] = useState(() => loadBlessingsConfig().defaultDedication);
   const [rendering, setRendering] = useState(false);
   const [copied, setCopied] = useState(false);
   const canvasRef = useRef(null);
 
-  const selectedBlessing = CURATED_BLESSINGS[selectedIdx];
-  const activeTheme = THEMES.find((t) => t.id === themeId) || THEMES[0];
+  useEffect(() => {
+    if (isOpen) {
+      const fresh = loadBlessingsConfig();
+      setBlessingsCfg(fresh);
+      setSelectedIdx(0);
+      setPersonalDedication(fresh.defaultDedication);
+      if (!fresh.themes.some((t) => t.id === themeId)) {
+        setThemeId(fresh.themes[0]?.id || "or-celeste");
+      }
+    }
+  }, [isOpen]);
+
+  const cardsList = blessingsCfg.cards?.length ? blessingsCfg.cards : CURATED_BLESSINGS;
+  const themesList = blessingsCfg.themes?.length ? blessingsCfg.themes : THEMES;
+  const selectedBlessing = cardsList[selectedIdx] || cardsList[0];
+  const activeTheme = themesList.find((t) => t.id === themeId) || themesList[0];
 
   // Dessin sur Canvas 1080x1350 (format Status WhatsApp / Story Instagram)
   useEffect(() => {
@@ -135,7 +114,7 @@ export default function BlessingShareModal({
     ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
     ctx.font = "500 20px system-ui";
     ctx.letterSpacing = "2px";
-    ctx.fillText("Église Évangélique Assemblée de la Grâce — Issia (Côte d'Ivoire)", width / 2, 205);
+    ctx.fillText(blessingsCfg.churchSubtitle || "Église Évangélique Assemblée de la Grâce — Issia (Côte d'Ivoire)", width / 2, 205);
 
     // Petit séparateur doré
     ctx.strokeStyle = activeTheme.gold;
@@ -220,10 +199,10 @@ export default function BlessingShareModal({
     ctx.letterSpacing = "1px";
     ctx.fillText(`Offert par ${profileName} · Pèlerin de la Ligue ${leagueName}`, width / 2, footerY + 50);
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
     ctx.font = "400 18px system-ui";
-    ctx.fillText("Médite et partage la Parole sur : legrandpelerinage.fr 🌿", width / 2, footerY + 85);
-  }, [isOpen, selectedBlessing, activeTheme, personalDedication, profileName, leagueName]);
+    ctx.fillText(`Médite et partage la Parole sur : ${blessingsCfg.shareUrl || "https://jeux-eeag.vercel.app"} 🌿`, width / 2, footerY + 85);
+  }, [isOpen, selectedBlessing, activeTheme, personalDedication, profileName, leagueName, blessingsCfg]);
 
   if (!isOpen) return null;
 
@@ -250,13 +229,15 @@ export default function BlessingShareModal({
 
   // Partage WhatsApp avec message formaté
   const handleWhatsAppShare = () => {
-    const text = `🕊️ *Bénédiction de la Parole de Dieu*\n\n« ${selectedBlessing.texte} »\n— *${selectedBlessing.ref}* (Louis Segond 1910)\n\n_${personalDedication}_\n\nOffert par *${profileName}* avec amour.\nDécouvre le Grand Pèlerinage de la Bible : https://legrandpelerinage.fr`;
+    const shareTargetUrl = blessingsCfg.shareUrl || "https://jeux-eeag.vercel.app";
+    const text = `🕊️ *Bénédiction de la Parole de Dieu*\n\n« ${selectedBlessing.texte} »\n— *${selectedBlessing.ref}* (Louis Segond 1910)\n\n_${personalDedication}_\n\nOffert par *${profileName}* avec amour.\nDécouvre le Grand Pèlerinage de la Bible : ${shareTargetUrl}`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
 
   // Partage natif mobile avec fichier image si supporté
   const handleNativeShare = async () => {
+    const shareTargetUrl = blessingsCfg.shareUrl || "https://jeux-eeag.vercel.app";
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -278,7 +259,7 @@ export default function BlessingShareModal({
           } else {
             await navigator.share({
               title: `Bénédiction : ${selectedBlessing.ref}`,
-              text: `« ${selectedBlessing.texte} » — ${selectedBlessing.ref} 🕊️ https://legrandpelerinage.fr`
+              text: `« ${selectedBlessing.texte} » — ${selectedBlessing.ref} 🕊️ ${shareTargetUrl}`
             });
           }
         }, "image/png");
@@ -319,9 +300,9 @@ export default function BlessingShareModal({
               📖 Choisis la parole à offrir :
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 135px), 1fr))", gap: "8px" }}>
-              {CURATED_BLESSINGS.map((b, idx) => (
+              {cardsList.map((b, idx) => (
                 <button
-                  key={idx}
+                  key={b.id || idx}
                   type="button"
                   onClick={() => setSelectedIdx(idx)}
                   className={`blessing-select-btn ${selectedIdx === idx ? "active" : ""}`}
@@ -329,15 +310,15 @@ export default function BlessingShareModal({
                     padding: "8px 12px",
                     textAlign: "left",
                     borderRadius: "10px",
-                    border: selectedIdx === idx ? "2px solid #f59e0b" : "1px solid rgba(255,255,255,0.15)",
-                    background: selectedIdx === idx ? "rgba(245, 158, 11, 0.15)" : "rgba(255,255,255,0.04)",
+                    border: selectedIdx === idx ? "2px solid #f59e0b" : "1.5px solid rgba(15, 42, 74, 0.16)",
+                    background: selectedIdx === idx ? "rgba(245, 158, 11, 0.14)" : "rgba(15, 42, 74, 0.03)",
                     color: "inherit",
                     cursor: "pointer",
                     transition: "all 0.2s"
                   }}
                 >
                   <div style={{ fontWeight: "700", fontSize: "13px" }}>{b.ref}</div>
-                  <div style={{ fontSize: "11px", opacity: 0.75 }}>{b.theme}</div>
+                  <div style={{ fontSize: "11px", opacity: 0.78 }}>{b.theme}</div>
                 </button>
               ))}
             </div>
@@ -349,16 +330,17 @@ export default function BlessingShareModal({
               <Palette size={14} /> Ambiance visuelle :
             </label>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              {THEMES.map((t) => (
+              {themesList.map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => setThemeId(t.id)}
                   style={{
-                    flex: 1,
-                    padding: "6px",
+                    flex: "1 1 110px",
+                    padding: "7px 8px",
                     borderRadius: "8px",
-                    border: themeId === t.id ? "2px solid #fff" : "1px solid rgba(255,255,255,0.2)",
+                    border: themeId === t.id ? "2px solid #f59e0b" : "1px solid rgba(15, 42, 74, 0.25)",
+                    boxShadow: themeId === t.id ? "0 0 0 2px rgba(245, 158, 11, 0.35)" : "none",
                     background: `linear-gradient(135deg, ${t.bg1}, ${t.bg2})`,
                     color: "#fff",
                     fontSize: "11px",
@@ -379,19 +361,14 @@ export default function BlessingShareModal({
             </label>
             <input
               type="text"
+              className="v2-text-input"
               value={personalDedication}
               onChange={(e) => setPersonalDedication(e.target.value)}
               maxLength={90}
               placeholder="Ex: Que la paix de Dieu t'accompagne !"
               style={{
                 width: "100%",
-                padding: "8px 12px",
-                borderRadius: "8px",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(0,0,0,0.2)",
-                color: "inherit",
-                fontSize: "13px",
-                boxSizing: "border-box"
+                fontSize: "13px"
               }}
             />
           </div>

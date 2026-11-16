@@ -44,6 +44,8 @@ export const ADMIN_TEAM_KEY = "pelerinage_admin_team_v2";
 export const ADMIN_AUDIT_LOGS_KEY = "pelerinage_admin_audit_logs_v2";
 export const SYSTEM_FLAGS_KEY = "pelerinage_admin_system_flags_v2";
 export const GLOBAL_BROADCASTS_KEY = "pelerinage_admin_broadcasts_v2";
+export const BLESSINGS_ADMIN_KEY = "pelerinage_admin_blessings_v2";
+export const GAMES_ADMIN_CONFIG_KEY = "pelerinage_admin_games_cfg_v2";
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 5;
@@ -504,7 +506,13 @@ export async function addCustomBibleContent({
   question = "",
   options = [],
   correctIndex = 0,
-  explication = ""
+  explication = "",
+  reponse = "",
+  indices = [],
+  audioText = "",
+  titre = "",
+  events = [],
+  pairs = []
 }) {
   const bookExists = BIBLE_66_BOOKS.some((b) => normalizeStr(b.nom) === normalizeStr(livre));
   if (!bookExists) {
@@ -515,13 +523,33 @@ export async function addCustomBibleContent({
     return { ok: false, error: "Veuillez indiquer une référence biblique précise (ex. Jean 15:5)." };
   }
 
+  const cleanOpts = (Array.isArray(options) ? options : []).map((o) => String(o || "").trim()).filter(Boolean);
+
   if (type === "qcm") {
     if (!question || String(question).trim().length < 8) {
       return { ok: false, error: "La question doit contenir au moins 8 caractères." };
     }
-    const cleanOpts = (Array.isArray(options) ? options : []).map((o) => String(o || "").trim()).filter(Boolean);
     if (cleanOpts.length < 2) {
       return { ok: false, error: "Veuillez fournir au moins 2 choix de réponse." };
+    }
+  } else if (type === "whoami") {
+    const cleanInds = (Array.isArray(indices) ? indices : []).map((x) => String(x || "").trim()).filter(Boolean);
+    if (!reponse || cleanInds.length < 3 || cleanOpts.length < 2) {
+      return { ok: false, error: "Qui suis-je ? requiert un personnage, 3 indices progressifs et au moins 2 options." };
+    }
+  } else if (type === "listen") {
+    if (!audioText || String(audioText).trim().length < 10 || !question || cleanOpts.length < 2) {
+      return { ok: false, error: "Écoute et Reconnais requiert un extrait audio/texte, une question et des choix." };
+    }
+  } else if (type === "chrono") {
+    const validEvents = (Array.isArray(events) ? events : []).filter((e) => e && e.label);
+    if (!titre || validEvents.length < 3) {
+      return { ok: false, error: "Chronologie requiert un titre et au moins 3 événements ordonnés." };
+    }
+  } else if (type === "pairs") {
+    const validPairs = (Array.isArray(pairs) ? pairs : []).filter((p) => p && p.left && p.right);
+    if (!titre || validPairs.length < 3) {
+      return { ok: false, error: "Les Paires requièrent un titre et au moins 3 paires associées." };
     }
   } else if (!texte || String(texte).trim().length < 10) {
     return { ok: false, error: "Le texte du verset (Louis Segond 1910) est requis." };
@@ -534,8 +562,22 @@ export async function addCustomBibleContent({
     ref: cleanRef,
     texte: String(texte || "").trim().slice(0, 400),
     question: String(question || "").trim().slice(0, 260),
-    options: (Array.isArray(options) ? options : []).map((o) => String(o || "").trim()).filter(Boolean),
+    options: cleanOpts,
     correctIndex: Math.max(0, Number(correctIndex) || 0),
+    reponse: String(reponse || "").trim().slice(0, 60),
+    indices: (Array.isArray(indices) ? indices : []).map((x) => String(x || "").trim().slice(0, 200)).filter(Boolean),
+    audioText: String(audioText || "").trim().slice(0, 500),
+    titre: String(titre || "").trim().slice(0, 90),
+    events: (Array.isArray(events) ? events : []).map((e, i) => ({
+      id: e.id || `ce-${Date.now()}-${i}`,
+      label: String(e.label || "").trim().slice(0, 140),
+      ref: String(e.ref || cleanRef).trim().slice(0, 40)
+    })),
+    pairs: (Array.isArray(pairs) ? pairs : []).map((p, i) => ({
+      id: p.id || `cp-${Date.now()}-${i}`,
+      left: String(p.left || "").trim().slice(0, 90),
+      right: String(p.right || "").trim().slice(0, 120)
+    })),
     explication: String(explication || "Référence authentique Louis Segond 1910.").trim().slice(0, 320),
     createdAt: Date.now()
   };
@@ -836,6 +878,8 @@ export function buildFullAdminBackupPayload(extraState = {}) {
     announcements: loadLocalAnnouncements(),
     campaigns: loadChurchCampaigns(),
     customBibleContents: loadCustomBibleContents(),
+    gamesConfig: loadGamesAdminConfig(),
+    blessingsConfig: loadBlessingsConfig(),
     dynamicBlacklist: loadDynamicBlacklist(),
     adminTeam: loadAdminTeam(),
     systemFlags: loadSystemFlags(),
@@ -854,4 +898,224 @@ export function exportLeaderboardCsv(entries = []) {
     Number(u.stagesValidees || u.niveauxDebloques) || 0
   ]);
   return [header.join(","), ...rows.map((r) => r.join(","))].join("\n");
+}
+
+/* ============================================================================
+   PILIER 11 : STUDIO DES JEUX (ACTIVATION, VEDETTE, MULTIPLICATEUR XP)
+   ============================================================================ */
+
+export const DEFAULT_GAMES_ADMIN_CONFIG = {
+  enabledGames: {
+    daily: true,
+    mystery: true,
+    whoami: true,
+    chrono: true,
+    pairs: true,
+    treasure: true,
+    listen: true,
+    duel: true,
+    characters: true,
+    arena: true,
+    books66: true
+  },
+  featuredGameId: "daily",
+  xpMultiplier: 1,
+  updatedAt: 0
+};
+
+export function loadGamesAdminConfig() {
+  const stored = readJsonStore(GAMES_ADMIN_CONFIG_KEY, {});
+  return {
+    ...DEFAULT_GAMES_ADMIN_CONFIG,
+    ...(stored || {}),
+    enabledGames: {
+      ...DEFAULT_GAMES_ADMIN_CONFIG.enabledGames,
+      ...((stored && stored.enabledGames) || {})
+    }
+  };
+}
+
+export async function saveGamesAdminConfig(cfg = {}) {
+  const clean = {
+    enabledGames: {
+      ...DEFAULT_GAMES_ADMIN_CONFIG.enabledGames,
+      ...((cfg && cfg.enabledGames) || {})
+    },
+    featuredGameId: String(cfg.featuredGameId || DEFAULT_GAMES_ADMIN_CONFIG.featuredGameId),
+    xpMultiplier: [1, 1.5, 2].includes(Number(cfg.xpMultiplier)) ? Number(cfg.xpMultiplier) : 1,
+    updatedAt: Date.now()
+  };
+  writeJsonStore(GAMES_ADMIN_CONFIG_KEY, clean);
+
+  const { db, auth } = getFirebaseServices();
+  if (db && auth?.currentUser?.uid) {
+    try {
+      await setDoc(doc(db, "config_eglise", "jeux"), { ...clean, serverUpdatedAt: serverTimestamp() }, { merge: true });
+    } catch {}
+  }
+  await recordAdminAuditLog({
+    action: "Configuration Studio des Jeux",
+    details: `vedette=${clean.featuredGameId}, multiplicateur=${clean.xpMultiplier}x`
+  });
+  return clean;
+}
+
+/* ============================================================================
+   PILIER 12 : CARTES DE BÉNÉDICTION WHATSAPP & FRATERNELLES
+   ============================================================================ */
+
+export const DEFAULT_BLESSING_CARDS = [
+  {
+    id: "bl-psa-23",
+    ref: "Psaume 23:1-3",
+    texte: "L'Éternel est mon berger : je ne manquerai de rien. Il me fait reposer dans de verts pâturages, Il me dirige près des eaux paisibles. Il restaure mon âme.",
+    theme: "Paix & Restauration",
+    message: "Que le Seigneur restaure ton âme aujourd'hui."
+  },
+  {
+    id: "bl-jer-29",
+    ref: "Jérémie 29:11",
+    texte: "Car je connais les projets que j'ai formés sur vous, dit l'Éternel, projets de paix et non de malheur, afin de vous donner un avenir et de l'espérance.",
+    theme: "Espérance & Avenir",
+    message: "L'Éternel prépare un avenir rempli d'espérance pour toi."
+  },
+  {
+    id: "bl-jea-14",
+    ref: "Jean 14:27",
+    texte: "Je vous laisse la paix, je vous donne ma paix. Je ne vous donne pas comme le monde donne. Que votre cœur ne se trouble point, et ne s'alarme point.",
+    theme: "Sérénité divine",
+    message: "Que la paix du Seigneur repose sur toi et ta maison aujourd'hui."
+  },
+  {
+    id: "bl-phi-4",
+    ref: "Philippiens 4:13",
+    texte: "Je puis tout par celui qui me fortifie.",
+    theme: "Force & Courage",
+    message: "Sois fortifié(e) par la grâce du Seigneur !"
+  },
+  {
+    id: "bl-esa-40",
+    ref: "Ésaïe 40:31",
+    texte: "Mais ceux qui se confient en l'Éternel renouvellent leur force. Ils prennent le vol comme les aigles ; ils courent, et ne se lassent point, ils marchent, et ne se fatiguent point.",
+    theme: "Renouvellement",
+    message: "Que Dieu renouvelle tes forces comme celles de l'aigle."
+  },
+  {
+    id: "bl-nom-6",
+    ref: "Nombres 6:24-26",
+    texte: "Que l'Éternel te bénisse, et qu'il te garde ! Que l'Éternel fasse luire sa face sur toi, et qu'il t'accorde sa grâce ! Que l'Éternel tourne sa face vers toi, et qu'il te donne la paix !",
+    theme: "Bénédiction sacerdotale",
+    message: "Que la bénédiction et la grâce de Dieu brillent sur ta vie."
+  }
+];
+
+export const DEFAULT_BLESSING_THEMES = [
+  { id: "or-celeste", nom: "Or Céleste", bg1: "#0f172a", bg2: "#1e1b4b", gold: "#f59e0b", accent: "#fbbf24" },
+  { id: "emeraude", nom: "Jardin d'Éden", bg1: "#064e3b", bg2: "#022c22", gold: "#34d399", accent: "#a7f3d0" },
+  { id: "saphir", nom: "Ciel de Gloire", bg1: "#1e3a8a", bg2: "#0f172a", gold: "#60a5fa", accent: "#93c5fd" },
+  { id: "crepuscule", nom: "Flamme Sacrée", bg1: "#4c0519", bg2: "#1c1917", gold: "#fb7185", accent: "#fda4af" }
+];
+
+const DEFAULT_BLESSINGS_SETTINGS = {
+  defaultDedication: "Que la paix et la grâce de Dieu inondent ta journée !",
+  churchSubtitle: "Église Évangélique Assemblée de la Grâce — Issia (Côte d'Ivoire)",
+  shareUrl: "https://jeux-eeag.vercel.app"
+};
+
+export function loadBlessingsConfig() {
+  const stored = readJsonStore(BLESSINGS_ADMIN_KEY, null);
+  const cards = Array.isArray(stored?.cards) && stored.cards.length > 0 ? stored.cards : DEFAULT_BLESSING_CARDS;
+  const themes = Array.isArray(stored?.themes) && stored.themes.length > 0 ? stored.themes : DEFAULT_BLESSING_THEMES;
+  return {
+    cards,
+    themes,
+    defaultDedication: stored?.defaultDedication || DEFAULT_BLESSINGS_SETTINGS.defaultDedication,
+    churchSubtitle: stored?.churchSubtitle || DEFAULT_BLESSINGS_SETTINGS.churchSubtitle,
+    shareUrl: stored?.shareUrl || DEFAULT_BLESSINGS_SETTINGS.shareUrl
+  };
+}
+
+async function persistBlessingsConfig(nextCfg, auditAction, auditDetails) {
+  writeJsonStore(BLESSINGS_ADMIN_KEY, nextCfg);
+  const { db, auth } = getFirebaseServices();
+  if (db && auth?.currentUser?.uid) {
+    try {
+      await setDoc(doc(db, "config_eglise", "benedictions"), { ...nextCfg, serverUpdatedAt: serverTimestamp() }, { merge: true });
+    } catch {}
+  }
+  await recordAdminAuditLog({ action: auditAction, details: auditDetails });
+  return nextCfg;
+}
+
+export async function addAdminBlessingCard({ ref, texte, theme, message = "" }) {
+  const cleanRef = String(ref || "").trim().slice(0, 60);
+  const cleanText = String(texte || "").trim().slice(0, 420);
+  const cleanTheme = String(theme || "Bénédiction").trim().slice(0, 50);
+  if (cleanRef.length < 3 || cleanText.length < 10) {
+    return { ok: false, error: "Veuillez indiquer une référence biblique et un verset Louis Segond 1910 complets." };
+  }
+  const current = loadBlessingsConfig();
+  const card = {
+    id: `bl-${Date.now()}`,
+    ref: cleanRef,
+    texte: cleanText,
+    theme: cleanTheme,
+    message: String(message || cleanTheme).trim().slice(0, 200)
+  };
+  const next = { ...current, cards: [card, ...current.cards].slice(0, 30) };
+  await persistBlessingsConfig(next, "Ajout carte de bénédiction", cleanRef);
+  return { ok: true, card, config: next };
+}
+
+export async function deleteAdminBlessingCard(cardId) {
+  const current = loadBlessingsConfig();
+  const remaining = current.cards.filter((c) => c.id !== cardId);
+  if (remaining.length === 0) {
+    return { ok: false, error: "Au moins 1 carte de bénédiction doit rester active.", config: current };
+  }
+  const next = { ...current, cards: remaining };
+  await persistBlessingsConfig(next, "Suppression carte bénédiction", cardId);
+  return { ok: true, config: next };
+}
+
+export async function resetAdminBlessingCards() {
+  const current = loadBlessingsConfig();
+  const next = { ...current, cards: DEFAULT_BLESSING_CARDS, themes: DEFAULT_BLESSING_THEMES };
+  await persistBlessingsConfig(next, "Réinitialisation cartes bénédiction", "Catalogue par défaut restauré");
+  return next;
+}
+
+export async function addAdminBlessingTheme({ nom, bg1 = "#0f172a", bg2 = "#1e1b4b", gold = "#f59e0b", accent = "#fbbf24" }) {
+  const cleanNom = String(nom || "").trim().slice(0, 30);
+  if (cleanNom.length < 2) {
+    return { ok: false, error: "Le nom du thème visuel doit comporter au moins 2 caractères." };
+  }
+  const current = loadBlessingsConfig();
+  const newTheme = { id: `th-${Date.now()}`, nom: cleanNom, bg1, bg2, gold, accent };
+  const next = { ...current, themes: [...current.themes, newTheme].slice(0, 12) };
+  await persistBlessingsConfig(next, "Ajout thème carte bénédiction", cleanNom);
+  return { ok: true, theme: newTheme, config: next };
+}
+
+export async function deleteAdminBlessingTheme(themeId) {
+  const current = loadBlessingsConfig();
+  const remaining = current.themes.filter((t) => t.id !== themeId);
+  if (remaining.length === 0) {
+    return { ok: false, error: "Au moins 1 thème visuel doit rester actif.", config: current };
+  }
+  const next = { ...current, themes: remaining };
+  await persistBlessingsConfig(next, "Suppression thème carte bénédiction", themeId);
+  return { ok: true, config: next };
+}
+
+export async function saveBlessingCardSettings({ defaultDedication, churchSubtitle, shareUrl }) {
+  const current = loadBlessingsConfig();
+  const next = {
+    ...current,
+    defaultDedication: String(defaultDedication || DEFAULT_BLESSINGS_SETTINGS.defaultDedication).trim().slice(0, 140),
+    churchSubtitle: String(churchSubtitle || DEFAULT_BLESSINGS_SETTINGS.churchSubtitle).trim().slice(0, 100),
+    shareUrl: String(shareUrl || DEFAULT_BLESSINGS_SETTINGS.shareUrl).trim().slice(0, 120)
+  };
+  await persistBlessingsConfig(next, "Paramètres cartes bénédiction", next.shareUrl);
+  return next;
 }

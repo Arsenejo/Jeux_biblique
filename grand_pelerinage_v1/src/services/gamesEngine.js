@@ -51,34 +51,92 @@ export const MYSTERY_VERSE_MODES = [
   { id: "definition_word", label: "Retrouver un mot par sa définition" }
 ];
 
-export function getDynamicMysteryVersesPool() {
-  let extras = [];
+function readCustomCmsItems() {
   try {
-    if (typeof localStorage !== "undefined") {
-      const raw = localStorage.getItem("pelerinage_custom_bible_cms_v2");
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(parsed)) {
-        extras = parsed
-          .filter((c) => c && c.type !== "qcm" && c.ref && c.texte)
-          .map((c) => {
-            const words = String(c.texte).split(/\s+/).filter((w) => w.length >= 4);
-            const missingWords = words.slice(0, 3).map((w) => w.replace(/[.,;:!?«»"]/g, ""));
-            return {
-              id: c.id,
-              ref: c.ref,
-              livre: c.livre || "Bible",
-              texte: c.texte,
-              missingWords: missingWords.length ? missingWords : [words[0] || "Dieu"],
-              definitionWord: { mot: missingWords[0] || "Dieu", definition: c.explication || c.ref },
-              indice: `Passage ajouté par l'administration (${c.livre || "LSG 1910"}).`,
-              explication: c.explication || c.ref,
-              niveau: "explorateur"
-            };
-          });
-      }
-    }
-  } catch {}
+    if (typeof localStorage === "undefined") return [];
+    const raw = localStorage.getItem("pelerinage_custom_bible_cms_v2");
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getDynamicMysteryVersesPool() {
+  const extras = readCustomCmsItems()
+    .filter((c) => c && c.type !== "qcm" && c.type !== "whoami" && c.type !== "listen" && c.type !== "chrono" && c.type !== "pairs" && c.ref && c.texte)
+    .map((c) => {
+      const words = String(c.texte).split(/\s+/).filter((w) => w.length >= 4);
+      const missingWords = words.slice(0, 3).map((w) => w.replace(/[.,;:!?«»"]/g, ""));
+      return {
+        id: c.id,
+        ref: c.ref,
+        livre: c.livre || "Bible",
+        texte: c.texte,
+        missingWords: missingWords.length ? missingWords : [words[0] || "Dieu"],
+        definitionWord: { mot: missingWords[0] || "Dieu", definition: c.explication || c.ref },
+        indice: `Passage ajouté par l'administration (${c.livre || "LSG 1910"}).`,
+        explication: c.explication || c.ref,
+        niveau: "explorateur"
+      };
+    });
   return [...MYSTERY_VERSES_POOL, ...extras];
+}
+
+export function getDynamicWhoAmIPool() {
+  const extras = readCustomCmsItems()
+    .filter((c) => c && c.type === "whoami" && c.reponse && Array.isArray(c.indices) && c.indices.length >= 3)
+    .map((c) => ({
+      id: c.id,
+      reponse: c.reponse,
+      options: Array.isArray(c.options) && c.options.length >= 2 ? c.options : [c.reponse, "Moïse", "David", "Paul"],
+      indices: c.indices.slice(0, 3),
+      ref: c.ref,
+      explication: c.explication || c.ref
+    }));
+  return [...BIBLE_WHO_AM_I_CHARACTERS, ...extras];
+}
+
+export function getDynamicChronologyPool() {
+  const extras = readCustomCmsItems()
+    .filter((c) => c && c.type === "chrono" && c.titre && Array.isArray(c.events) && c.events.length >= 3)
+    .map((c) => ({
+      id: c.id,
+      titre: c.titre,
+      niveau: "explorateur",
+      events: c.events,
+      explication: c.explication || c.ref
+    }));
+  return [...BIBLE_CHRONOLOGY_LEVELS, ...extras];
+}
+
+export function getDynamicWordPairsPool() {
+  const extras = readCustomCmsItems()
+    .filter((c) => c && c.type === "pairs" && c.titre && Array.isArray(c.pairs) && c.pairs.length >= 3)
+    .map((c) => ({
+      id: c.id,
+      titre: c.titre,
+      description: `Série ajoutée par l'administration (${c.livre || "Bible"}).`,
+      pairs: c.pairs,
+      explication: c.explication || c.ref
+    }));
+  return [...WORD_PAIRS_CATEGORIES, ...extras];
+}
+
+export function getDynamicListenPool() {
+  const extras = readCustomCmsItems()
+    .filter((c) => c && c.type === "listen" && c.audioText && c.question && Array.isArray(c.options) && c.options.length >= 2)
+    .map((c) => ({
+      id: c.id,
+      categorie: c.livre || "Passage administré",
+      audioText: c.audioText,
+      question: c.question,
+      options: c.options,
+      correctIndex: Math.max(0, Number(c.correctIndex) || 0),
+      ref: c.ref,
+      explication: c.explication || c.ref
+    }));
+  return [...LISTEN_AND_RECOGNIZE_ITEMS, ...extras];
 }
 
 /**
@@ -217,7 +275,8 @@ export function scoreWhoAmI(cluesUsed = 1, pedagogicalProfile = "explorateur") {
 }
 
 export function getWhoAmIChallenge(index = 0) {
-  const item = BIBLE_WHO_AM_I_CHARACTERS[Math.abs(Number(index) || 0) % BIBLE_WHO_AM_I_CHARACTERS.length];
+  const pool = getDynamicWhoAmIPool();
+  const item = pool[Math.abs(Number(index) || 0) % pool.length];
   return {
     ...item,
     shuffledOptions: deterministicShuffle(item.options, `wai-${item.id}`)
@@ -228,7 +287,8 @@ export function getWhoAmIChallenge(index = 0) {
  * Jeu 3 : Chronologie Biblique
  */
 export function buildChronologyRound(levelIndex = 0, seed = "chrono") {
-  const level = BIBLE_CHRONOLOGY_LEVELS[Math.abs(Number(levelIndex) || 0) % BIBLE_CHRONOLOGY_LEVELS.length];
+  const pool = getDynamicChronologyPool();
+  const level = pool[Math.abs(Number(levelIndex) || 0) % pool.length];
   let shuffled = deterministicShuffle(level.events, `${seed}-${level.id}`);
   // Éviter qu'un mélange soit déjà dans l'ordre exact par hasard
   if (shuffled.every((e, i) => e.id === level.events[i].id) && shuffled.length > 1) {
@@ -257,7 +317,8 @@ export function evaluateChronologyOrder(level, orderedEventIds = []) {
  * Jeu 4 : Les Paires de la Parole
  */
 export function buildWordPairsRound(categoryIndex = 0, seed = "pairs") {
-  const cat = WORD_PAIRS_CATEGORIES[Math.abs(Number(categoryIndex) || 0) % WORD_PAIRS_CATEGORIES.length];
+  const pool = getDynamicWordPairsPool();
+  const cat = pool[Math.abs(Number(categoryIndex) || 0) % pool.length];
   return {
     ...cat,
     leftItems: cat.pairs.map((p) => ({ id: p.id, text: p.left })),
@@ -292,7 +353,8 @@ export function evaluateTreasureStep(adventure, stepIndex, optionIndex) {
  * Jeu 6 : Écoute et Reconnais
  */
 export function getListenAndRecognizeItem(index = 0) {
-  const item = LISTEN_AND_RECOGNIZE_ITEMS[Math.abs(Number(index) || 0) % LISTEN_AND_RECOGNIZE_ITEMS.length];
+  const pool = getDynamicListenPool();
+  const item = pool[Math.abs(Number(index) || 0) % pool.length];
   return {
     ...item,
     shuffledOptions: deterministicShuffle(

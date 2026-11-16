@@ -67,7 +67,8 @@ import {
   loadLocalAnnouncements,
   isRouteAdmin,
   loadSystemFlags,
-  loadWeeklySpiritualConfig
+  loadWeeklySpiritualConfig,
+  loadBlessingsConfig
 } from "./services/adminAnalytics";
 import { contributeCollectiveChallenge } from "./services/churchGroupCloud";
 import { firstOpenStage, isBonusPlayable, isEpochUnlocked, isStagePlayable } from "./services/pathProgress";
@@ -3267,22 +3268,30 @@ function App() {
                   </div>
                 </div>
 
-                {FRATERNAL_BLESSINGS.map((blessing, idx) => (
-                  <div key={idx} className="blessing-card">
+                {loadBlessingsConfig().cards.map((blessing, idx) => {
+                  const formatted = {
+                    titre: blessing.titre || blessing.theme || "Bénédiction",
+                    verset: blessing.verset || blessing.texte,
+                    ref: blessing.ref,
+                    message: blessing.message || blessing.theme || ""
+                  };
+                  return (
+                  <div key={blessing.id || idx} className="blessing-card">
                     <span className="pill">BÉNÉDICTION</span>
-                    <h3 style={{ margin: "10px 0 6px", fontSize: "16px" }}>{blessing.titre}</h3>
-                    <blockquote>« {blessing.verset} »</blockquote>
+                    <h3 style={{ margin: "10px 0 6px", fontSize: "16px" }}>{formatted.titre}</h3>
+                    <blockquote>« {formatted.verset} »</blockquote>
                     <small style={{ display: "block", color: "var(--muted)", marginBottom: "14px" }}>
-                      {blessing.ref}
+                      {formatted.ref}
                     </small>
                     <button
                       className="primary-button full"
-                      onClick={() => handleShareBlessing(blessing)}
+                      onClick={() => handleShareBlessing(formatted)}
                     >
                       <Share2 size={16} /> Envoyer à un frère ou une sœur
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </section>

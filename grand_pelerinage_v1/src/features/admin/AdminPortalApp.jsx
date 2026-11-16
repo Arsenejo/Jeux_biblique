@@ -36,6 +36,15 @@ import {
   loadAdminAuditLogs,
   loadSystemFlags,
   saveSystemFlags,
+  loadGamesAdminConfig,
+  saveGamesAdminConfig,
+  loadBlessingsConfig,
+  addAdminBlessingCard,
+  deleteAdminBlessingCard,
+  resetAdminBlessingCards,
+  addAdminBlessingTheme,
+  deleteAdminBlessingTheme,
+  saveBlessingCardSettings,
   buildFullAdminBackupPayload,
   exportLeaderboardCsv
 } from "../../services/adminAnalytics.js";
@@ -44,6 +53,8 @@ const ADMIN_TABS = [
   { id: "analytics", label: "📊 Analytique" },
   { id: "announcements", label: "📢 Annonces" },
   { id: "campaigns", label: "🎯 Pilotage & Concours" },
+  { id: "games", label: "🎮 Studio des Jeux" },
+  { id: "blessings", label: "🕊️ Cartes Bénédiction" },
   { id: "cms", label: "📖 CMS Biblique" },
   { id: "moderation", label: "🕊️ Modération" },
   { id: "users", label: "👥 Joueurs & Classements" },
@@ -51,6 +62,20 @@ const ADMIN_TABS = [
   { id: "broadcast", label: "🔔 Notifications" },
   { id: "rbac", label: "🔐 Rôles & Audit" },
   { id: "system", label: "⚙️ Système & Backup" }
+];
+
+const ADMIN_GAMES_LIST = [
+  { id: "daily", label: "☀️ Le Défi du Jour" },
+  { id: "mystery", label: "✨ Le Verset Mystère" },
+  { id: "whoami", label: "🕵️ Qui suis-je dans la Bible ?" },
+  { id: "chrono", label: "⏳ Chronologie Biblique" },
+  { id: "pairs", label: "🔗 Les Paires de la Parole" },
+  { id: "treasure", label: "🗝️ L'Énigme du Trésor" },
+  { id: "listen", label: "🔊 Écoute et Reconnais" },
+  { id: "duel", label: "🤝 Duel Biblique Asynchrone" },
+  { id: "characters", label: "🧭 Parcours des Personnages" },
+  { id: "arena", label: "⚔️ Arène QCM Infinie" },
+  { id: "books66", label: "📚 Défi 66 Livres" }
 ];
 
 function triggerFileDownload(filename, content, mimeType) {
@@ -129,6 +154,29 @@ export default function AdminPortalApp({
 
   const [systemFlags, setSystemFlags] = useState(() => loadSystemFlags());
 
+  const [gamesConfig, setGamesConfig] = useState(() => loadGamesAdminConfig());
+  const [gameContentType, setGameContentType] = useState("whoami");
+  const [gameBook, setGameBook] = useState("Genèse");
+  const [gameRef, setGameRef] = useState("");
+  const [gameTitle, setGameTitle] = useState("");
+  const [gameAnswer, setGameAnswer] = useState("");
+  const [gameAudioText, setGameAudioText] = useState("");
+  const [gameCluesText, setGameCluesText] = useState("");
+  const [gameOptionsText, setGameOptionsText] = useState("");
+  const [gameLinesText, setGameLinesText] = useState("");
+  const [gameExpl, setGameExpl] = useState("");
+
+  const [blessingsConfig, setBlessingsConfig] = useState(() => loadBlessingsConfig());
+  const [blCardRef, setBlCardRef] = useState("");
+  const [blCardTheme, setBlCardTheme] = useState("");
+  const [blCardText, setBlCardText] = useState("");
+  const [blCardMsg, setBlCardMsg] = useState("");
+  const [blThemeNom, setBlThemeNom] = useState("");
+  const [blThemeBg1, setBlThemeBg1] = useState("#0f172a");
+  const [blThemeBg2, setBlThemeBg2] = useState("#1e1b4b");
+  const [blThemeGold, setBlThemeGold] = useState("#f59e0b");
+  const [blThemeAccent, setBlThemeAccent] = useState("#fbbf24");
+
   useEffect(() => {
     setLocalPrayers(prayers);
   }, [prayers]);
@@ -141,6 +189,56 @@ export default function AdminPortalApp({
     setStatusToast(msg);
     setAuditLogs(loadAdminAuditLogs());
     window.setTimeout(() => setStatusToast(""), 3500);
+  };
+
+  const handleCreateGameContent = async () => {
+    const parsedOptions = gameOptionsText.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
+    const parsedClues = gameCluesText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const nowTag = Date.now();
+    const lines = gameLinesText.split("\n").map((l) => l.trim()).filter(Boolean);
+
+    const payload = {
+      type: gameContentType,
+      livre: gameBook,
+      ref: gameRef,
+      texte: gameContentType === "verset" ? gameAudioText : "",
+      question: gameContentType === "listen" || gameContentType === "qcm" ? gameTitle : "",
+      options: parsedOptions,
+      correctIndex: 0,
+      reponse: gameAnswer,
+      indices: parsedClues,
+      audioText: gameContentType === "listen" ? gameAudioText : "",
+      titre: gameContentType === "chrono" || gameContentType === "pairs" ? gameTitle : "",
+      events: gameContentType === "chrono"
+        ? lines.map((line, idx) => {
+          const [label, eRef] = line.split("|").map((p) => p.trim());
+          return { id: `ce-${nowTag}-${idx}`, label, ref: eRef || gameRef };
+        })
+        : [],
+      pairs: gameContentType === "pairs"
+        ? lines.map((line, idx) => {
+          const [left, right] = line.split("|").map((p) => p.trim());
+          return { id: `cp-${nowTag}-${idx}`, left: left || "", right: right || "" };
+        }).filter((p) => p.left && p.right)
+        : [],
+      explication: gameExpl
+    };
+
+    const res = await addCustomBibleContent(payload);
+    if (!res.ok) {
+      showMsg("⚠️ " + res.error);
+      return;
+    }
+    setCmsItems(res.contents);
+    setGameRef("");
+    setGameTitle("");
+    setGameAnswer("");
+    setGameAudioText("");
+    setGameCluesText("");
+    setGameOptionsText("");
+    setGameLinesText("");
+    setGameExpl("");
+    showMsg("✅ Niveau / contenu ajouté au Studio des Jeux !");
   };
 
   const refreshCloudCollections = useCallback(async () => {
@@ -805,6 +903,506 @@ export default function AdminPortalApp({
                   >
                     Exporter Classement (CSV)
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "games" && (
+            <div style={{ display: "grid", gap: 14 }}>
+              <div className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                  <h3 style={{ margin: 0 }}>🎮 Studio des Jeux — Activation & Réglages</h3>
+                  <span className="pill">
+                    {Object.values(gamesConfig.enabledGames || {}).filter(Boolean).length}/{ADMIN_GAMES_LIST.length} jeux actifs
+                  </span>
+                </div>
+                <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+                  Activez ou masquez chaque mini-jeu, mettez un jeu en vedette et ajustez le multiplicateur d'XP pour les défis spéciaux.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))", gap: 8, marginBottom: 12 }}>
+                  {ADMIN_GAMES_LIST.map((g) => (
+                    <label
+                      key={g.id}
+                      className="card"
+                      style={{ padding: 10, margin: 0, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "pointer" }}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{g.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={gamesConfig.enabledGames?.[g.id] !== false}
+                        onChange={(e) =>
+                          setGamesConfig((prev) => ({
+                            ...prev,
+                            enabledGames: { ...(prev.enabledGames || {}), [g.id]: e.target.checked }
+                          }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10, marginBottom: 12 }}>
+                  <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+                    <span>⭐ Jeu mis en vedette dans l'accueil Jeux</span>
+                    <select
+                      className="v2-select"
+                      value={gamesConfig.featuredGameId || "daily"}
+                      onChange={(e) => setGamesConfig((prev) => ({ ...prev, featuredGameId: e.target.value }))}
+                    >
+                      {ADMIN_GAMES_LIST.filter((g) => !["arena", "books66"].includes(g.id)).map((g) => (
+                        <option key={g.id} value={g.id}>{g.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+                    <span>✨ Multiplicateur XP global (Jeux)</span>
+                    <select
+                      className="v2-select"
+                      value={String(gamesConfig.xpMultiplier || 1)}
+                      onChange={(e) => setGamesConfig((prev) => ({ ...prev, xpMultiplier: Number(e.target.value) || 1 }))}
+                    >
+                      <option value="1">1x — Barème standard</option>
+                      <option value="1.5">1.5x — Week-end biblique</option>
+                      <option value="2">2x — Grande campagne / Concours</option>
+                    </select>
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="btn primary small"
+                  onClick={async () => {
+                    const saved = await saveGamesAdminConfig(gamesConfig);
+                    setGamesConfig(saved);
+                    showMsg("✅ Studio des Jeux enregistré et appliqué en direct !");
+                  }}
+                >
+                  Enregistrer la configuration des jeux
+                </button>
+              </div>
+
+              <div className="card">
+                <h3 style={{ marginTop: 0 }}>➕ Créer un Niveau / Contenu de Jeu Personnalisé</h3>
+                <p className="muted" style={{ fontSize: 13 }}>
+                  Enrichissez immédiatement les jeux avec des passages vérifiés Louis Segond 1910.
+                </p>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <select className="v2-select" value={gameContentType} onChange={(e) => setGameContentType(e.target.value)}>
+                      <option value="whoami">🕵️ Qui suis-je ? (Personnage + 3 indices)</option>
+                      <option value="listen">🔊 Écoute & Reconnais (Audio + Question)</option>
+                      <option value="chrono">⏳ Chronologie Biblique (Événements ordonnés)</option>
+                      <option value="pairs">🔗 Les Paires de la Parole (Associations)</option>
+                      <option value="verset">✨ Le Verset Mystère</option>
+                      <option value="qcm">📖 Question QCM</option>
+                    </select>
+                    <select className="v2-select" value={gameBook} onChange={(e) => setGameBook(e.target.value)}>
+                      {BIBLE_66_BOOKS.map((b) => <option key={b.id} value={b.nom}>{b.nom}</option>)}
+                    </select>
+                    <input
+                      className="v2-text-input"
+                      placeholder="Référence exacte (ex. Genèse 6:14)"
+                      value={gameRef}
+                      onChange={(e) => setGameRef(e.target.value)}
+                      style={{ flex: 1, minWidth: 180 }}
+                    />
+                  </div>
+
+                  {gameContentType === "whoami" && (
+                    <>
+                      <input
+                        className="v2-text-input"
+                        placeholder="Personnage réponse (ex. Noé)"
+                        value={gameAnswer}
+                        onChange={(e) => setGameAnswer(e.target.value)}
+                      />
+                      <textarea
+                        rows={3}
+                        className="v2-textarea"
+                        placeholder={"3 indices progressifs (1 par ligne) :\nJ'ai reçu l'ordre de bâtir une arche\nHuit personnes ont été sauvées avec moi\nUne colombe m'a rapporté un rameau d'olivier"}
+                        value={gameCluesText}
+                        onChange={(e) => setGameCluesText(e.target.value)}
+                      />
+                      <input
+                        className="v2-text-input"
+                        placeholder="4 choix séparés par une virgule (ex. Noé, Moïse, Abraham, David)"
+                        value={gameOptionsText}
+                        onChange={(e) => setGameOptionsText(e.target.value)}
+                      />
+                    </>
+                  )}
+
+                  {gameContentType === "listen" && (
+                    <>
+                      <textarea
+                        rows={3}
+                        className="v2-textarea"
+                        placeholder="Texte lu par synthèse vocale (Louis Segond 1910)..."
+                        value={gameAudioText}
+                        onChange={(e) => setGameAudioText(e.target.value)}
+                      />
+                      <input
+                        className="v2-text-input"
+                        placeholder="Question posée au joueur après l'écoute..."
+                        value={gameTitle}
+                        onChange={(e) => setGameTitle(e.target.value)}
+                      />
+                      <input
+                        className="v2-text-input"
+                        placeholder="Choix séparés par une virgule (le 1er choix est la bonne réponse)"
+                        value={gameOptionsText}
+                        onChange={(e) => setGameOptionsText(e.target.value)}
+                      />
+                    </>
+                  )}
+
+                  {gameContentType === "chrono" && (
+                    <>
+                      <input
+                        className="v2-text-input"
+                        placeholder="Titre de la séquence chronologique (ex. Voyages de l'apôtre Paul)"
+                        value={gameTitle}
+                        onChange={(e) => setGameTitle(e.target.value)}
+                      />
+                      <textarea
+                        rows={4}
+                        className="v2-textarea"
+                        placeholder={"Événements dans l'ordre exact (1 par ligne, référence optionnelle après |) :\nConversion sur le chemin de Damas | Actes 9:3\nPremier voyage missionnaire à Chypre | Actes 13:4\nConcile de Jérusalem | Actes 15:6"}
+                        value={gameLinesText}
+                        onChange={(e) => setGameLinesText(e.target.value)}
+                      />
+                    </>
+                  )}
+
+                  {gameContentType === "pairs" && (
+                    <>
+                      <input
+                        className="v2-text-input"
+                        placeholder="Titre du thème (ex. Rois d'Israël & Faits marquants)"
+                        value={gameTitle}
+                        onChange={(e) => setGameTitle(e.target.value)}
+                      />
+                      <textarea
+                        rows={4}
+                        className="v2-textarea"
+                        placeholder={"Paires (1 par ligne au format Gauche | Droite, minimum 3) :\nSalomon | Construction du Temple\nÉzéchias | Prière face à Sennachérib\nJosias | Redécouverte du livre de la loi"}
+                        value={gameLinesText}
+                        onChange={(e) => setGameLinesText(e.target.value)}
+                      />
+                    </>
+                  )}
+
+                  {gameContentType === "verset" && (
+                    <textarea
+                      rows={3}
+                      className="v2-textarea"
+                      placeholder="Texte exact Louis Segond 1910 pour Le Verset Mystère..."
+                      value={gameAudioText}
+                      onChange={(e) => setGameAudioText(e.target.value)}
+                    />
+                  )}
+
+                  {gameContentType === "qcm" && (
+                    <>
+                      <input
+                        className="v2-text-input"
+                        placeholder="Question biblique..."
+                        value={gameTitle}
+                        onChange={(e) => setGameTitle(e.target.value)}
+                      />
+                      <input
+                        className="v2-text-input"
+                        placeholder="Choix séparés par une virgule (le 1er choix est la bonne réponse)"
+                        value={gameOptionsText}
+                        onChange={(e) => setGameOptionsText(e.target.value)}
+                      />
+                    </>
+                  )}
+
+                  <input
+                    className="v2-text-input"
+                    placeholder="Explication pédagogique affichée après la réponse (Louis Segond 1910)"
+                    value={gameExpl}
+                    onChange={(e) => setGameExpl(e.target.value)}
+                  />
+                  <button type="button" className="btn primary small" onClick={handleCreateGameContent}>
+                    Publier dans le Studio des Jeux
+                  </button>
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 style={{ marginTop: 0 }}>📚 Niveaux Personnalisés Actifs ({cmsItems.length})</h3>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {cmsItems.length === 0 ? (
+                    <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                      Aucun niveau personnalisé ajouté pour le moment. Les pools natifs restent actifs.
+                    </p>
+                  ) : (
+                    cmsItems.map((c) => (
+                      <div key={c.id} className="card" style={{ padding: 10, margin: 0, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <span className="pill">{String(c.type || "cms").toUpperCase()}</span>{" "}
+                          <strong>{c.titre || c.reponse || c.ref}</strong> <span className="muted">({c.livre} · {c.ref})</span>
+                          <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
+                            {c.texte || c.question || c.audioText || c.explication}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn secondary small"
+                          onClick={async () => {
+                            setCmsItems(await deleteCustomBibleContent(c.id));
+                            showMsg("🗑️ Contenu de jeu supprimé.");
+                          }}
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "blessings" && (
+            <div style={{ display: "grid", gap: 14 }}>
+              <div className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                  <h3 style={{ margin: 0 }}>🕊️ Paramètres des Cartes de Bénédiction</h3>
+                  <span className="pill">
+                    {blessingsConfig.cards.length} cartes · {blessingsConfig.themes.length} thèmes
+                  </span>
+                </div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+                    <span>✍️ Dédicace d'encouragement par défaut</span>
+                    <input
+                      className="v2-text-input"
+                      value={blessingsConfig.defaultDedication || ""}
+                      onChange={(e) => setBlessingsConfig((prev) => ({ ...prev, defaultDedication: e.target.value }))}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+                    <span>⛪ En-tête / Signature de l'Église sur l'image HD</span>
+                    <input
+                      className="v2-text-input"
+                      value={blessingsConfig.churchSubtitle || ""}
+                      onChange={(e) => setBlessingsConfig((prev) => ({ ...prev, churchSubtitle: e.target.value }))}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 700 }}>
+                    <span>🔗 URL d'invitation imprimée en pied de carte & WhatsApp</span>
+                    <input
+                      className="v2-text-input"
+                      value={blessingsConfig.shareUrl || ""}
+                      onChange={(e) => setBlessingsConfig((prev) => ({ ...prev, shareUrl: e.target.value }))}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn primary small"
+                    onClick={async () => {
+                      const saved = await saveBlessingCardSettings(blessingsConfig);
+                      setBlessingsConfig(saved);
+                      showMsg("✅ Paramètres des Cartes de Bénédiction enregistrés !");
+                    }}
+                  >
+                    Enregistrer les paramètres des cartes
+                  </button>
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 style={{ marginTop: 0 }}>🎨 Ambiances Visuelles des Cartes ({blessingsConfig.themes.length})</h3>
+                <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
+                  <input
+                    className="v2-text-input"
+                    placeholder="Nom de la nouvelle ambiance (ex. Aube Dorée)"
+                    value={blThemeNom}
+                    onChange={(e) => setBlThemeNom(e.target.value)}
+                  />
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
+                      <span>Fond 1</span>
+                      <input type="color" value={blThemeBg1} onChange={(e) => setBlThemeBg1(e.target.value)} />
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
+                      <span>Fond 2</span>
+                      <input type="color" value={blThemeBg2} onChange={(e) => setBlThemeBg2(e.target.value)} />
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
+                      <span>Cadre Or</span>
+                      <input type="color" value={blThemeGold} onChange={(e) => setBlThemeGold(e.target.value)} />
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
+                      <span>Accent</span>
+                      <input type="color" value={blThemeAccent} onChange={(e) => setBlThemeAccent(e.target.value)} />
+                    </label>
+                    <span
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        background: `linear-gradient(135deg, ${blThemeBg1}, ${blThemeBg2})`,
+                        border: `2px solid ${blThemeGold}`,
+                        color: blThemeAccent
+                      }}
+                    >
+                      Aperçu · {blThemeNom || "Thème"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn primary small"
+                    onClick={async () => {
+                      const res = await addAdminBlessingTheme({
+                        nom: blThemeNom,
+                        bg1: blThemeBg1,
+                        bg2: blThemeBg2,
+                        gold: blThemeGold,
+                        accent: blThemeAccent
+                      });
+                      if (!res.ok) { showMsg("⚠️ " + res.error); return; }
+                      setBlessingsConfig(res.config);
+                      setBlThemeNom("");
+                      showMsg("🎨 Ambiance ajoutée aux cartes de bénédiction !");
+                    }}
+                  >
+                    Ajouter le thème visuel
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {blessingsConfig.themes.map((t) => (
+                    <div
+                      key={t.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "6px 10px",
+                        borderRadius: 10,
+                        background: `linear-gradient(135deg, ${t.bg1}, ${t.bg2})`,
+                        border: `1.5px solid ${t.gold}`,
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 700
+                      }}
+                    >
+                      <span style={{ color: t.accent }}>{t.nom}</span>
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        style={{ padding: "2px 6px", fontSize: 11 }}
+                        onClick={async () => {
+                          const res = await deleteAdminBlessingTheme(t.id);
+                          if (!res.ok) { showMsg("⚠️ " + res.error); return; }
+                          setBlessingsConfig(res.config);
+                          showMsg("🗑️ Thème retiré.");
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 style={{ marginTop: 0 }}>➕ Ajouter une Carte de Bénédiction (Louis Segond 1910)</h3>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      className="v2-text-input"
+                      placeholder="Référence (ex. Psaume 121:1-2)"
+                      value={blCardRef}
+                      onChange={(e) => setBlCardRef(e.target.value)}
+                      style={{ flex: 1, minWidth: 160 }}
+                    />
+                    <input
+                      className="v2-text-input"
+                      placeholder="Thème court (ex. Protection divine)"
+                      value={blCardTheme}
+                      onChange={(e) => setBlCardTheme(e.target.value)}
+                      style={{ flex: 1, minWidth: 160 }}
+                    />
+                  </div>
+                  <textarea
+                    rows={3}
+                    className="v2-textarea"
+                    placeholder="Verset exact Louis Segond 1910..."
+                    value={blCardText}
+                    onChange={(e) => setBlCardText(e.target.value)}
+                  />
+                  <input
+                    className="v2-text-input"
+                    placeholder="Message fraternel associé (affiché dans Fraternité)"
+                    value={blCardMsg}
+                    onChange={(e) => setBlCardMsg(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn primary small"
+                    onClick={async () => {
+                      const res = await addAdminBlessingCard({
+                        ref: blCardRef,
+                        theme: blCardTheme,
+                        texte: blCardText,
+                        message: blCardMsg
+                      });
+                      if (!res.ok) { showMsg("⚠️ " + res.error); return; }
+                      setBlessingsConfig(res.config);
+                      setBlCardRef("");
+                      setBlCardTheme("");
+                      setBlCardText("");
+                      setBlCardMsg("");
+                      showMsg("🕊️ Nouvelle carte de bénédiction publiée !");
+                    }}
+                  >
+                    Publier la carte de bénédiction
+                  </button>
+                </div>
+              </div>
+
+              <div className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                  <h3 style={{ margin: 0 }}>🗂️ Catalogue des Cartes ({blessingsConfig.cards.length})</h3>
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    onClick={async () => {
+                      const reset = await resetAdminBlessingCards();
+                      setBlessingsConfig(reset);
+                      showMsg("🔄 Cartes et thèmes par défaut restaurés !");
+                    }}
+                  >
+                    Réinitialiser par défaut
+                  </button>
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {blessingsConfig.cards.map((c) => (
+                    <div key={c.id} className="card" style={{ padding: 10, margin: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+                      <div style={{ flex: "1 1 240px" }}>
+                        <strong>{c.ref}</strong> <span className="pill">{c.theme}</span>
+                        <p style={{ margin: "6px 0 4px", fontSize: 13 }}>« {c.texte} »</p>
+                        {c.message && <p className="muted" style={{ margin: 0, fontSize: 12 }}>💬 {c.message}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        onClick={async () => {
+                          const res = await deleteAdminBlessingCard(c.id);
+                          if (!res.ok) { showMsg("⚠️ " + res.error); return; }
+                          setBlessingsConfig(res.config);
+                          showMsg("🗑️ Carte retirée.");
+                        }}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

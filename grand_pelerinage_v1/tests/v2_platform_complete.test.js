@@ -36,7 +36,11 @@ import {
   decodeDuelInvitePayload,
   compareDuelResults,
   getCharacterJourney,
-  getDynamicMysteryVersesPool
+  getDynamicMysteryVersesPool,
+  getDynamicWhoAmIPool,
+  getDynamicChronologyPool,
+  getDynamicWordPairsPool,
+  getDynamicListenPool
 } from "../src/services/gamesEngine.js";
 
 import {
@@ -90,6 +94,17 @@ import {
   removeAdminMember,
   loadAdminAuditLogs,
   saveSystemFlags,
+  loadGamesAdminConfig,
+  saveGamesAdminConfig,
+  DEFAULT_BLESSING_CARDS,
+  DEFAULT_BLESSING_THEMES,
+  loadBlessingsConfig,
+  addAdminBlessingCard,
+  deleteAdminBlessingCard,
+  resetAdminBlessingCards,
+  addAdminBlessingTheme,
+  deleteAdminBlessingTheme,
+  saveBlessingCardSettings,
   buildFullAdminBackupPayload,
   exportLeaderboardCsv
 } from "../src/services/adminAnalytics.js";
@@ -525,4 +540,192 @@ test("Portail /admin 10 piliers & Règles Firestore isAdmin() — CMS, modérati
     else globalThis.localStorage = prevLS;
   }
 });
+
+test("Pilier 11 /admin — Studio des Jeux : activation, vedette, multiplicateur XP et niveaux personnalisés", async () => {
+  const prevLS = globalThis.localStorage;
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+
+  try {
+    const savedCfg = await saveGamesAdminConfig({
+      enabledGames: { daily: true, duel: false, listen: true },
+      featuredGameId: "whoami",
+      xpMultiplier: 2
+    });
+    assert.equal(savedCfg.enabledGames.duel, false);
+    assert.equal(savedCfg.enabledGames.listen, true);
+    assert.equal(savedCfg.featuredGameId, "whoami");
+    assert.equal(savedCfg.xpMultiplier, 2);
+
+    const loadedCfg = loadGamesAdminConfig();
+    assert.equal(loadedCfg.featuredGameId, "whoami");
+    assert.equal(loadedCfg.xpMultiplier, 2);
+    assert.equal(loadedCfg.enabledGames.duel, false);
+
+    // Création de contenus personnalisés pour Qui suis-je ?, Écoute, Chronologie et Paires
+    const waiRes = await addCustomBibleContent({
+      type: "whoami",
+      livre: "Juges",
+      ref: "Juges 7:16",
+      reponse: "Gédéon",
+      indices: [
+        "Dieu réduisit mon armée à trois cents hommes.",
+        "Nous avons sonné de la trompette et brisé des cruches.",
+        "Une toison mouillée puis sèche confirma ma mission."
+      ],
+      options: ["Gédéon", "Samson", "Josué", "Saül"],
+      explication: "Gédéon délivra Israël avec 300 vaillants hommes (Juges 7)."
+    });
+    assert.equal(waiRes.ok, true);
+    const waiPool = getDynamicWhoAmIPool();
+    assert.equal(waiPool.length, BIBLE_WHO_AM_I_CHARACTERS.length + 1);
+    const waiRound = getWhoAmIChallenge(waiPool.length - 1);
+    assert.equal(waiRound.reponse, "Gédéon");
+
+    const listenRes = await addCustomBibleContent({
+      type: "listen",
+      livre: "Psaumes",
+      ref: "Psaume 100:1",
+      audioText: "Poussez vers l'Éternel des cris de joie, vous tous, habitants de la terre !",
+      question: "Quel livre invite ainsi toute la terre à louer l'Éternel ?",
+      options: ["Les Psaumes", "Les Proverbes", "L'Ecclésiaste", "Ésaïe"],
+      correctIndex: 0
+    });
+    assert.equal(listenRes.ok, true);
+    const listenPool = getDynamicListenPool();
+    assert.equal(listenPool.length, LISTEN_AND_RECOGNIZE_ITEMS.length + 1);
+    const listenItem = getListenAndRecognizeItem(listenPool.length - 1);
+    assert.equal(listenItem.ref, "Psaume 100:1");
+
+    const chronoRes = await addCustomBibleContent({
+      type: "chrono",
+      livre: "Actes des Apôtres",
+      ref: "Actes 9–15",
+      titre: "Ministère de l'apôtre Paul",
+      events: [
+        { id: "c1", label: "Conversion sur le chemin de Damas", ref: "Actes 9:3" },
+        { id: "c2", label: "Premier voyage missionnaire à Chypre", ref: "Actes 13:4" },
+        { id: "c3", label: "Concile de Jérusalem", ref: "Actes 15:6" }
+      ]
+    });
+    assert.equal(chronoRes.ok, true);
+    const chronoPool = getDynamicChronologyPool();
+    assert.equal(chronoPool.length, BIBLE_CHRONOLOGY_LEVELS.length + 1);
+    const chronoRound = buildChronologyRound(chronoPool.length - 1, "test-seed");
+    assert.equal(chronoRound.titre, "Ministère de l'apôtre Paul");
+
+    const pairsRes = await addCustomBibleContent({
+      type: "pairs",
+      livre: "1 Rois",
+      ref: "1 Rois 3–18",
+      titre: "Prophètes et événements",
+      pairs: [
+        { id: "p1", left: "Élie", right: "Sacrifice au mont Carmel" },
+        { id: "p2", left: "Élisée", right: "Guérison de Naaman dans le Jourdain" },
+        { id: "p3", left: "Nathan", right: "Parabole de la brebis devant David" }
+      ]
+    });
+    assert.equal(pairsRes.ok, true);
+    const pairsPool = getDynamicWordPairsPool();
+    assert.equal(pairsPool.length, WORD_PAIRS_CATEGORIES.length + 1);
+    const pairsRound = buildWordPairsRound(pairsPool.length - 1, "test-pairs");
+    assert.equal(pairsRound.leftItems.length, 3);
+
+    // Suppression propre
+    for (const id of [waiRes.item.id, listenRes.item.id, chronoRes.item.id, pairsRes.item.id]) {
+      await deleteCustomBibleContent(id);
+    }
+    assert.equal(getDynamicWhoAmIPool().length, BIBLE_WHO_AM_I_CHARACTERS.length);
+  } finally {
+    if (prevLS === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = prevLS;
+  }
+});
+
+test("Pilier 12 /admin — Cartes de Bénédiction : catalogue LSG 1910, thèmes, paramètres & intégrité", async () => {
+  const prevLS = globalThis.localStorage;
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+
+  try {
+    const initial = loadBlessingsConfig();
+    assert.equal(initial.cards.length, DEFAULT_BLESSING_CARDS.length);
+    assert.equal(initial.themes.length, DEFAULT_BLESSING_THEMES.length);
+
+    // Ajout d'une carte LSG 1910 personnalisée
+    const addedCard = await addAdminBlessingCard({
+      ref: "Psaume 121:1-2",
+      texte: "Je lève mes yeux vers les montagnes... D'où me viendra le secours ? Le secours me vient de l'Éternel, qui a fait les cieux et la terre.",
+      theme: "Secours divin",
+      message: "Le secours de l'Éternel veille sur toi."
+    });
+    assert.equal(addedCard.ok, true);
+    assert.equal(addedCard.config.cards.length, DEFAULT_BLESSING_CARDS.length + 1);
+
+    // Protection contre la suppression de la dernière carte active
+    let current = addedCard.config;
+    for (const c of current.cards.slice(1)) {
+      const delRes = await deleteAdminBlessingCard(c.id);
+      assert.equal(delRes.ok, true);
+    }
+    const lastRemainingCard = loadBlessingsConfig().cards[0];
+    const blockedCardDel = await deleteAdminBlessingCard(lastRemainingCard.id);
+    assert.equal(blockedCardDel.ok, false);
+
+    // Ajout & suppression de thème + garde dernier thème
+    const addedTheme = await addAdminBlessingTheme({
+      nom: "Aube Royale",
+      bg1: "#172554",
+      bg2: "#0f172a",
+      gold: "#f59e0b",
+      accent: "#fde68a"
+    });
+    assert.equal(addedTheme.ok, true);
+    assert.equal(addedTheme.config.themes.length, DEFAULT_BLESSING_THEMES.length + 1);
+
+    for (const t of addedTheme.config.themes.slice(1)) {
+      const delTheme = await deleteAdminBlessingTheme(t.id);
+      assert.equal(delTheme.ok, true);
+    }
+    const lastRemainingTheme = loadBlessingsConfig().themes[0];
+    const blockedThemeDel = await deleteAdminBlessingTheme(lastRemainingTheme.id);
+    assert.equal(blockedThemeDel.ok, false);
+
+    // Paramètres généraux + réinitialisation par défaut + backup
+    const settingsSaved = await saveBlessingCardSettings({
+      defaultDedication: "Que la faveur de Dieu t'accompagne toute la semaine !",
+      churchSubtitle: "Assemblée de la Grâce — Issia",
+      shareUrl: "https://jeux-eeag.vercel.app"
+    });
+    assert.equal(settingsSaved.defaultDedication, "Que la faveur de Dieu t'accompagne toute la semaine !");
+    assert.equal(settingsSaved.churchSubtitle, "Assemblée de la Grâce — Issia");
+
+    const resetCfg = await resetAdminBlessingCards();
+    assert.equal(resetCfg.cards.length, DEFAULT_BLESSING_CARDS.length);
+    assert.equal(resetCfg.themes.length, DEFAULT_BLESSING_THEMES.length);
+
+    const backup = buildFullAdminBackupPayload({ leaderboardCount: 0 });
+    assert.ok(backup.gamesConfig);
+    assert.ok(backup.blessingsConfig);
+
+    // Vérification UI /admin et BlessingShareModal
+    const adminPortalSrc = fs.readFileSync(path.join(appRoot, "src", "features", "admin", "AdminPortalApp.jsx"), "utf8");
+    assert.ok(adminPortalSrc.includes('id: "games"'));
+    assert.ok(adminPortalSrc.includes('id: "blessings"'));
+    const blessingModalSrc = fs.readFileSync(path.join(appRoot, "src", "components", "BlessingShareModal.jsx"), "utf8");
+    assert.ok(blessingModalSrc.includes("loadBlessingsConfig"));
+  } finally {
+    if (prevLS === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = prevLS;
+  }
+});
+
 
