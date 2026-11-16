@@ -1,6 +1,9 @@
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 const { processMail } = require("./mailCore.cjs");
 
-module.exports = async function sendEmail(req, res) {
+export default async function sendEmail(req, res) {
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -16,4 +19,4 @@ module.exports = async function sendEmail(req, res) {
   const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress || "inconnu";
   const result = await processMail(req.body || {}, process.env, ip);
   res.status(result.status).json(result.body);
-};
+}
