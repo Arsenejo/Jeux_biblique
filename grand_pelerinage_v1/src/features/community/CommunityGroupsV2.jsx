@@ -139,11 +139,11 @@ export default function CommunityGroupsV2({
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginTop: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12, marginTop: 14 }}>
           <div className="callout" style={{ margin: 0 }}>
             <strong style={{ display: "block", marginBottom: 6 }}>Créer un groupe</strong>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <input className="v2-text-input" value={groupNameInput} onChange={(e) => setGroupNameInput(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+              <input className="v2-text-input" value={groupNameInput} onChange={(e) => setGroupNameInput(e.target.value)} style={{ flex: 1, minWidth: "min(100%, 120px)" }} />
               <button className="btn primary small" disabled={busy} onClick={handleCreate}>Créer</button>
             </div>
           </div>
@@ -156,7 +156,7 @@ export default function CommunityGroupsV2({
                 placeholder="Ex: EEAG26"
                 value={joinCodeInput}
                 onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase().slice(0, 6))}
-                style={{ flex: 1, minWidth: 120 }}
+                style={{ flex: 1, minWidth: "min(100%, 120px)" }}
               />
               <button className="btn secondary small" disabled={busy} onClick={handleJoin}>Rejoindre</button>
             </div>
@@ -165,7 +165,7 @@ export default function CommunityGroupsV2({
 
         {/* 4 Défis Collectifs */}
         <h4 style={{ margin: "16px 0 8px" }}>🤝 4 Défis Collectifs Bienveillants</h4>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 10 }}>
           {COLLECTIVE_CHALLENGES.map((ch) => {
             const count = Number(churchGroup?.challengeProgress?.[ch.id]) || 0;
             const pct = Math.min(100, Math.round((count / ch.objectif) * 100));

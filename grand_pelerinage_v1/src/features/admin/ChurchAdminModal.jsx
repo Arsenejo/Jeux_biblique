@@ -129,7 +129,7 @@ export default function ChurchAdminModal({
           <h4 style={{ marginTop: 0 }}>🕊️ Modération du Mur de Prière ({prayers.length} intentions)</h4>
           <div style={{ display: "grid", gap: 8, maxHeight: 180, overflowY: "auto" }}>
             {prayers.slice(0, 6).map((p) => (
-              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 13 }}>
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
                 <span><strong>{p.auteur} :</strong> {String(p.texte || "").slice(0, 90)}</span>
                 <button className="btn secondary small" onClick={() => onModeratePrayer?.(p.id)}>Retirer</button>
               </div>

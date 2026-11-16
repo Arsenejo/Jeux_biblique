@@ -500,7 +500,7 @@ export default function GamesHubView({
               💡 Révéler un indice supplémentaire
             </button>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: 8 }}>
             {waiChallenge.shuffledOptions.map((opt) => (
               <button
                 key={opt}
@@ -871,7 +871,7 @@ export default function GamesHubView({
                     placeholder="Colle ici le jeton d'invitation reçu..."
                     value={duelInviteInput}
                     onChange={(e) => setDuelInviteInput(e.target.value)}
-                    style={{ flex: 1, minWidth: 220 }}
+                    style={{ flex: 1, minWidth: "min(100%, 180px)" }}
                   />
                   <button
                     className="btn secondary small"

@@ -318,7 +318,7 @@ export default function BlessingShareModal({
             <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "6px" }}>
               📖 Choisis la parole à offrir :
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 135px), 1fr))", gap: "8px" }}>
               {CURATED_BLESSINGS.map((b, idx) => (
                 <button
                   key={idx}
@@ -348,7 +348,7 @@ export default function BlessingShareModal({
             <label style={{ fontSize: "13px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
               <Palette size={14} /> Ambiance visuelle :
             </label>
-            <div style={{ display: "flex", gap: "8px" }}>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               {THEMES.map((t) => (
                 <button
                   key={t.id}
@@ -420,7 +420,7 @@ export default function BlessingShareModal({
           </div>
 
           {/* Boutons d'action */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 145px), 1fr))", gap: "10px" }}>
             <button
               type="button"
               className="primary-button"

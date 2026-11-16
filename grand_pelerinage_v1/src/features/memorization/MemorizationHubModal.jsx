@@ -153,7 +153,7 @@ export default function MemorizationHubModal({
                   const isDue = !card.nextReviewAt || card.nextReviewAt <= Date.now();
                   return (
                     <div key={card.ref} className="card" style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <div style={{ flex: 1, minWidth: 220 }}>
+                      <div style={{ flex: 1, minWidth: "min(100%, 180px)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <strong>{card.ref}</strong>
                           <span className="pill">Étape {stageMeta.id}/4 : {stageMeta.label}</span>
@@ -293,7 +293,7 @@ export default function MemorizationHubModal({
               const already = Boolean(memorizationCards?.[v.ref]);
               return (
                 <div key={v.id} className="card" style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ flex: 1, minWidth: "min(100%, 180px)" }}>
                     <strong>{v.ref}</strong> <span className="pill">{v.livre}</span>
                     <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>« {v.texte} »</p>
                   </div>

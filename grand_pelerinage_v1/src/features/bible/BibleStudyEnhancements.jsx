@@ -42,7 +42,7 @@ export default function BibleStudyEnhancements({
 
       <div className="card" style={{ padding: 14 }}>
         <h4 style={{ marginTop: 0 }}>🧭 Parcours Thématiques & Par Livres</h4>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 10 }}>
           {THEMATIC_PATHS_DATA.map((path) => (
             <div key={path.id} className="card" style={{ padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

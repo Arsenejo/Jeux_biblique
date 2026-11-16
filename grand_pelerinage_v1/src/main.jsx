@@ -3268,7 +3268,7 @@ function App() {
                 <label htmlFor="pelerin-name" style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px" }}>
                   Comment souhaites-tu être appelé·e ? (Nom unique garanti sans doublon)
                 </label>
-                <div style={{ display: "flex", gap: "8px", marginTop: "4px", marginBottom: "6px" }}>
+                <div className="profile-pseudo-row" style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px", marginBottom: "6px" }}>
                   <input
                     id="pelerin-name"
                     value={profileName}
@@ -3279,7 +3279,7 @@ function App() {
                     }}
                     maxLength={30}
                     placeholder="Ton prénom ou pseudo unique"
-                    style={{ flex: 1 }}
+                    style={{ flex: "1 1 160px", minWidth: 0 }}
                   />
                   <button
                     type="button"
@@ -3359,7 +3359,7 @@ function App() {
                   </div>
                 )}
 
-                <div className="profile-metrics" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+                <div className="profile-metrics profile-metrics-4">
                   <div>
                     <b>{xp}</b>
                     <small>Points de joie</small>

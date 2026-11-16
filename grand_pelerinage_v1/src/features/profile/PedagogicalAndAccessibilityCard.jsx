@@ -24,7 +24,7 @@ export default function PedagogicalAndAccessibilityCard({
         <p className="muted" style={{ fontSize: 13 }}>
           Adapte la longueur des textes, le nombre d'indices et le rythme sans jamais pénaliser l'apprentissage.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 185px), 1fr))", gap: 10 }}>
           {PEDAGOGICAL_PROFILES.map((prof) => {
             const active = pedagogicalProfile === prof.id;
             return (
@@ -50,7 +50,7 @@ export default function PedagogicalAndAccessibilityCard({
           <button className="btn secondary small" onClick={onOpenNotifications}>🔔 MES NOTIFICATIONS</button>
         </div>
         <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-          <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <label className="v2-setting-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <span>Taille du texte (toute l'application)</span>
             <select
               className="v2-select"
@@ -116,7 +116,7 @@ export default function PedagogicalAndAccessibilityCard({
       {/* 6 Collections débloquables */}
       <div className="card" style={{ padding: 16 }}>
         <h3 style={{ marginTop: 0 }}>🏺 Collections à Compléter</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 10 }}>
           {collections.map((c) => (
             <div key={c.id} className="card" style={{ padding: 12, borderColor: c.unlocked ? "#10b981" : undefined }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

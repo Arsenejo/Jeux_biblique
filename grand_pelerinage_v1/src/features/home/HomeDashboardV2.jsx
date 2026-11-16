@@ -73,7 +73,7 @@ export default function HomeDashboardV2({
           <h4 style={{ marginTop: 0 }}>🎯 Missions & Engagements</h4>
           <div style={{ display: "grid", gap: 6 }}>
             {missions.map((m) => (
-              <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 8px", borderRadius: 8, background: m.done ? "rgba(16,185,129,0.12)" : "rgba(148,163,184,0.1)" }}>
+              <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, fontSize: 13, padding: "6px 8px", borderRadius: 8, background: m.done ? "rgba(16,185,129,0.12)" : "rgba(148,163,184,0.1)" }}>
                 <span>{m.done ? "✅" : m.icone} {m.titre}</span>
                 <span className="badge" style={{ fontSize: 11 }}>{m.rewardLabel}</span>
               </div>

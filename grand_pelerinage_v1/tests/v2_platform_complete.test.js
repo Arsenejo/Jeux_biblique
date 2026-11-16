@@ -344,3 +344,42 @@ test("V2.0 Firestore rules — racine et grand_pelerinage_v1 identiques avec col
   assert.ok(rootRules.includes("/annonces_eglise/{annonceId}"));
 });
 
+test("V2.0 Responsivité Multi-Appareils — smartphones compacts, tablettes, grands écrans et mode paysage", () => {
+  const indexHtml = fs.readFileSync(path.join(appRoot, "index.html"), "utf8");
+  assert.ok(indexHtml.includes("viewport-fit=cover"), "index.html doit inclure viewport-fit=cover");
+
+  const mainJsx = fs.readFileSync(path.join(appRoot, "src", "main.jsx"), "utf8");
+  assert.ok(mainJsx.includes("profile-metrics-4"), "main.jsx doit utiliser profile-metrics-4 au lieu de 4 colonnes rigides en ligne");
+  assert.ok(mainJsx.includes("profile-pseudo-row"), "main.jsx doit autoriser le retour à la ligne sur le champ pseudo");
+  assert.ok(!mainJsx.includes('style={{ gridTemplateColumns: "repeat(4, 1fr)" }}'), "aucun style inline repeat(4, 1fr) figé ne doit rester dans main.jsx");
+
+  const blessingModal = fs.readFileSync(path.join(appRoot, "src", "components", "BlessingShareModal.jsx"), "utf8");
+  assert.ok(!blessingModal.includes('gridTemplateColumns: "1fr 1fr"'), "BlessingShareModal doit utiliser auto-fit min(100%, ...) au lieu de 1fr 1fr figé");
+
+  const featuresDir = path.join(appRoot, "src", "features");
+  const featureFiles = [
+    "games/GamesHubView.jsx",
+    "memorization/MemorizationHubModal.jsx",
+    "notifications/NotificationCenterModal.jsx",
+    "profile/PedagogicalAndAccessibilityCard.jsx",
+    "community/CommunityGroupsV2.jsx",
+    "bible/BibleStudyEnhancements.jsx",
+    "admin/ChurchAdminModal.jsx",
+    "home/HomeDashboardV2.jsx"
+  ];
+  featureFiles.forEach((rel) => {
+    const src = fs.readFileSync(path.join(featuresDir, rel), "utf8");
+    const minmaxMatches = src.match(/minmax\((?:[^)(]+|\([^)(]*\))+\)/g) || [];
+    minmaxMatches.forEach((m) => {
+      assert.ok(m.includes("min(100%"), `${rel} doit borner minmax avec min(100%, ...): ${m}`);
+    });
+  });
+
+  const stylesCss = fs.readFileSync(path.join(appRoot, "src", "styles.css"), "utf8");
+  assert.ok(stylesCss.includes(".profile-metrics-4"));
+  assert.ok(stylesCss.includes(".v2-setting-row"));
+  assert.ok(stylesCss.includes("@media (min-width: 1440px)"));
+  assert.ok(stylesCss.includes("@media (max-height: 540px) and (orientation: landscape)"));
+  assert.ok(stylesCss.includes("max-width: calc(100vw - 210px)"));
+});
+

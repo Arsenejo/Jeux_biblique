@@ -144,7 +144,7 @@ export default function NotificationCenterModal({
             <div className="card" style={{ padding: 14 }}>
               <h4 style={{ marginTop: 0 }}>Rythme, Heures silencieuses & Pause</h4>
               <div style={{ display: "grid", gap: 10 }}>
-                <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <label className="v2-setting-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <span>Fréquence des rappels</span>
                   <select
                     className="v2-select"
@@ -157,7 +157,7 @@ export default function NotificationCenterModal({
                   </select>
                 </label>
 
-                <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <label className="v2-setting-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <span>Plafond quotidien maximum</span>
                   <select
                     className="v2-select"
@@ -170,7 +170,7 @@ export default function NotificationCenterModal({
                   </select>
                 </label>
 
-                <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <label className="v2-setting-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <span>Plage silencieuse (aucun dérangement)</span>
                   <select
                     className="v2-select"
