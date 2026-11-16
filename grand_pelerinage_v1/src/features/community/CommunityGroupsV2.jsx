@@ -23,7 +23,6 @@ export default function CommunityGroupsV2({
   churchGroup,
   leaderboard = [],
   onGroupUpdated,
-  onOpenAdmin,
   onToast
 }) {
   const [groupNameInput, setGroupNameInput] = useState("Assemblée de la Grâce — Issia");
@@ -134,9 +133,6 @@ export default function CommunityGroupsV2({
                 : "Crée un groupe d'église ou rejoins celui de ta cellule avec un code à 6 caractères."}
             </p>
           </div>
-          <button className="btn secondary small" onClick={onOpenAdmin}>
-            🛡️ Espace Responsables & Stats
-          </button>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12, marginTop: 14 }}>

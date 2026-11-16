@@ -51,11 +51,41 @@ export const MYSTERY_VERSE_MODES = [
   { id: "definition_word", label: "Retrouver un mot par sa définition" }
 ];
 
+export function getDynamicMysteryVersesPool() {
+  let extras = [];
+  try {
+    if (typeof localStorage !== "undefined") {
+      const raw = localStorage.getItem("pelerinage_custom_bible_cms_v2");
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        extras = parsed
+          .filter((c) => c && c.type !== "qcm" && c.ref && c.texte)
+          .map((c) => {
+            const words = String(c.texte).split(/\s+/).filter((w) => w.length >= 4);
+            const missingWords = words.slice(0, 3).map((w) => w.replace(/[.,;:!?«»"]/g, ""));
+            return {
+              id: c.id,
+              ref: c.ref,
+              livre: c.livre || "Bible",
+              texte: c.texte,
+              missingWords: missingWords.length ? missingWords : [words[0] || "Dieu"],
+              definitionWord: { mot: missingWords[0] || "Dieu", definition: c.explication || c.ref },
+              indice: `Passage ajouté par l'administration (${c.livre || "LSG 1910"}).`,
+              explication: c.explication || c.ref,
+              niveau: "explorateur"
+            };
+          });
+      }
+    }
+  } catch {}
+  return [...MYSTERY_VERSES_POOL, ...extras];
+}
+
 /**
  * Jeu 1 : Construit un défi "Le Verset Mystère" parmi les 6 modes supportés.
  */
 export function buildMysteryVerseChallenge(verseIndex = 0, mode = "missing_words", seed = "v2") {
-  const safePool = MYSTERY_VERSES_POOL;
+  const safePool = getDynamicMysteryVersesPool();
   const verse = safePool[Math.abs(Number(verseIndex) || 0) % safePool.length];
   const tokens = verse.texte.split(/\s+/).filter(Boolean);
 

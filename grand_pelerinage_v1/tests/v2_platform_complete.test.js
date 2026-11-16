@@ -35,7 +35,8 @@ import {
   encodeDuelInvitePayload,
   decodeDuelInvitePayload,
   compareDuelResults,
-  getCharacterJourney
+  getCharacterJourney,
+  getDynamicMysteryVersesPool
 } from "../src/services/gamesEngine.js";
 
 import {
@@ -69,7 +70,29 @@ import {
 } from "../src/services/notificationsEngine.js";
 
 import { COLLECTIVE_CHALLENGES } from "../src/services/churchGroupCloud.js";
-import { buildChurchAdminMetrics, getPedagogicalDifficultyInsights } from "../src/services/adminAnalytics.js";
+import { validatePrayerContent } from "../src/services/moderation.js";
+import {
+  SUPER_ADMIN_EMAIL,
+  isRouteAdmin,
+  verifyAdminCredentials,
+  resetAdminRateLimitForTests,
+  buildChurchAdminMetrics,
+  getPedagogicalDifficultyInsights,
+  publishChurchAnnouncement,
+  deleteChurchAnnouncement,
+  saveWeeklySpiritualConfig,
+  createChurchCampaign,
+  deleteChurchCampaign,
+  addCustomBibleContent,
+  deleteCustomBibleContent,
+  saveDynamicBlacklist,
+  upsertAdminMember,
+  removeAdminMember,
+  loadAdminAuditLogs,
+  saveSystemFlags,
+  buildFullAdminBackupPayload,
+  exportLeaderboardCsv
+} from "../src/services/adminAnalytics.js";
 import { DATA_SCHEMA_VERSION, migratePelerinProfileV2, reconcilePelerinData } from "../src/services/dataReconciliation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -364,7 +387,7 @@ test("V2.0 Responsivité Multi-Appareils — smartphones compacts, tablettes, gr
     "profile/PedagogicalAndAccessibilityCard.jsx",
     "community/CommunityGroupsV2.jsx",
     "bible/BibleStudyEnhancements.jsx",
-    "admin/ChurchAdminModal.jsx",
+    "admin/AdminPortalApp.jsx",
     "home/HomeDashboardV2.jsx"
   ];
   featureFiles.forEach((rel) => {
@@ -381,5 +404,125 @@ test("V2.0 Responsivité Multi-Appareils — smartphones compacts, tablettes, gr
   assert.ok(stylesCss.includes("@media (min-width: 1440px)"));
   assert.ok(stylesCss.includes("@media (max-height: 540px) and (orientation: landscape)"));
   assert.ok(stylesCss.includes("max-width: calc(100vw - 210px)"));
+});
+
+test("Portail /admin isolé — routage strict, aucun accès public et authentification SHA-256 sécurisée", async () => {
+  assert.equal(isRouteAdmin("/admin"), true);
+  assert.equal(isRouteAdmin("/admin/"), true);
+  assert.equal(isRouteAdmin("/"), false);
+  assert.equal(isRouteAdmin("/fraternite"), false);
+
+  const communityView = fs.readFileSync(
+    path.join(appRoot, "src", "features", "community", "CommunityGroupsV2.jsx"),
+    "utf8"
+  );
+  assert.equal(communityView.includes("Espace Responsables"), false, "Aucun bouton admin ne doit figurer dans la vue publique");
+
+  // Aucun fichier dans src/ ne doit contenir le mot de passe en clair
+  const secretStr = ["Password", "1234"].join("");
+  const walkSrc = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walkSrc(full);
+      else if (/\.(js|jsx)$/.test(entry.name)) {
+        const content = fs.readFileSync(full, "utf8");
+        assert.equal(content.includes(secretStr), false, `Aucun mot de passe en clair toléré dans ${entry.name}`);
+      }
+    }
+  };
+  walkSrc(path.join(appRoot, "src"));
+
+  resetAdminRateLimitForTests();
+  const wrongPw = await verifyAdminCredentials(SUPER_ADMIN_EMAIL, "MauvaisMotDePasse");
+  assert.equal(wrongPw.ok, false);
+
+  const wrongEmail = await verifyAdminCredentials("visiteur@example.com", secretStr);
+  assert.equal(wrongEmail.ok, false);
+
+  const valid = await verifyAdminCredentials(SUPER_ADMIN_EMAIL, secretStr);
+  assert.equal(valid.ok, true);
+  assert.equal(valid.session.role, "super_admin");
+  assert.equal(valid.session.email, SUPER_ADMIN_EMAIL);
+
+  // Rate limit anti-brute-force après 5 échecs consécutifs
+  resetAdminRateLimitForTests();
+  for (let i = 0; i < 5; i += 1) {
+    await verifyAdminCredentials(SUPER_ADMIN_EMAIL, `bad-${i}`, 1000000 + i * 100);
+  }
+  const locked = await verifyAdminCredentials(SUPER_ADMIN_EMAIL, secretStr, 1001000);
+  assert.equal(locked.ok, false);
+  assert.equal(locked.rateLimited, true);
+  resetAdminRateLimitForTests();
+});
+
+test("Portail /admin 10 piliers & Règles Firestore isAdmin() — CMS, modération dynamique, RBAC, audit et backup", async () => {
+  const prevLS = globalThis.localStorage;
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+
+  try {
+    // Piliers 2 & 3 : Annonces, Pilotage Hebdo, Campagnes
+    const annRes = await publishChurchAnnouncement({ titre: "Veillée", texte: "Vendredi à 19h à Issia", epingle: true });
+    assert.equal(annRes.ok, true);
+    const remainingAnn = await deleteChurchAnnouncement(annRes.item.id);
+    assert.equal(remainingAnn.length, 0);
+
+    const weekly = await saveWeeklySpiritualConfig({ versetRef: "Jean 15:5", versetTexte: "Je suis le cep, vous êtes les sarments.", objectifSemaine: "Demeurer en Christ" });
+    assert.equal(weekly.versetRef, "Jean 15:5");
+
+    const camp = await createChurchCampaign({ titre: "Camp Jeunesse", livreCible: "Jean" });
+    assert.equal(camp.ok, true);
+    assert.equal((await deleteChurchCampaign(camp.campaign.id)).length, 0);
+
+    // Pilier 4 : CMS Biblique validé contre les 66 livres canoniques + enrichissement de Verset Mystère
+    const badBook = await addCustomBibleContent({ type: "verset", livre: "LivreInexistant", ref: "Test 1:1", texte: "Texte fictif suffisamment long" });
+    assert.equal(badBook.ok, false);
+    const goodVerse = await addCustomBibleContent({
+      type: "verset",
+      livre: "Romains",
+      ref: "Romains 8:28",
+      texte: "Nous savons, du reste, que toutes choses concourent au bien de ceux qui aiment Dieu."
+    });
+    assert.equal(goodVerse.ok, true);
+    assert.ok(getDynamicMysteryVersesPool().length > MYSTERY_VERSES_POOL.length);
+    assert.equal((await deleteCustomBibleContent(goodVerse.item.id)).length, 0);
+
+    // Pilier 5 : Liste noire dynamique reliée à moderation.js
+    await saveDynamicBlacklist(["arnaquefake", "fauxconcours"]);
+    const modCheck = validatePrayerContent("Rejoignez vite notre fauxconcours de prière", "Visiteur");
+    assert.equal(modCheck.valid, false);
+
+    // Pilier 9 : RBAC & Journal d'audit
+    const addedAdmin = await upsertAdminMember({ email: "moniteur@eeag-issia.org", nom: "Pasteur Koffi", role: "enseignant" });
+    assert.equal(addedAdmin.ok, true);
+    assert.equal((await removeAdminMember(SUPER_ADMIN_EMAIL)).ok, false);
+    assert.equal((await removeAdminMember("moniteur@eeag-issia.org")).ok, true);
+    assert.ok(loadAdminAuditLogs().length > 0);
+
+    // Pilier 10 : Feature Flags & Backup JSON / CSV
+    const flags = await saveSystemFlags({ maintenanceMode: true, prayersEnabled: false });
+    assert.equal(flags.maintenanceMode, true);
+    assert.equal(flags.prayersEnabled, false);
+    const backup = buildFullAdminBackupPayload({ leaderboardCount: 1 });
+    assert.equal(backup.systemFlags.maintenanceMode, true);
+    const csv = exportLeaderboardCsv([{ nom: "David", xp: 150, pearls: 4, stagesValidees: 5 }]);
+    assert.ok(csv.includes('"David",150,4,5'));
+
+    // Vérification Firestore rules isAdmin() et collections admin
+    const rules = fs.readFileSync(path.join(repoRoot, "firestore.rules"), "utf8");
+    assert.ok(rules.includes("function isAdmin()"));
+    assert.ok(rules.includes("admins_eglise"));
+    assert.ok(rules.includes("contenus_bibliques"));
+    assert.ok(rules.includes("campagnes_eglise"));
+    assert.ok(rules.includes("config_eglise"));
+    assert.ok(rules.includes("audit_logs"));
+  } finally {
+    if (prevLS === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = prevLS;
+  }
 });
 

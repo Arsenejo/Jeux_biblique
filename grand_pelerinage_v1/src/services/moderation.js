@@ -69,9 +69,18 @@ export function validatePrayerContent(text = "", author = "") {
     };
   }
 
-  // 3. Modération des propos haineux ou vulgaires
-  for (const word of FORBIDDEN_WORDS) {
-    if (combined.includes(word)) {
+  // 3. Modération des propos haineux, vulgaires ou bloqués dynamiquement par l'administration
+  let dynamicWords = [];
+  try {
+    if (typeof localStorage !== "undefined") {
+      const raw = localStorage.getItem("pelerinage_admin_blacklist_v2");
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) dynamicWords = parsed;
+    }
+  } catch {}
+
+  for (const word of [...FORBIDDEN_WORDS, ...dynamicWords]) {
+    if (word && combined.includes(String(word).toLowerCase())) {
       return {
         valid: false,
         reason: "Ce message ne respecte pas le climat de bienveillance, de respect et d'édification fraternelle 🕊️"

@@ -16,6 +16,7 @@ export default function HomeDashboardV2({
   collectionStats = {},
   nextStage = null,
   announcements = [],
+  weeklySpiritual = null,
   onResumeStage,
   onNavigate,
   onOpenMemorization
@@ -102,6 +103,12 @@ export default function HomeDashboardV2({
           </div>
         </div>
       </div>
+
+      {weeklySpiritual && weeklySpiritual.versetRef && (
+        <div className="callout" style={{ marginTop: 12 }}>
+          <strong>✨ Mot d'ordre de la semaine ({weeklySpiritual.versetRef}) :</strong> « {weeklySpiritual.versetTexte} » — {weeklySpiritual.objectifSemaine}
+        </div>
+      )}
 
       {announcements.length > 0 && (
         <div className="callout" style={{ marginTop: 12 }}>

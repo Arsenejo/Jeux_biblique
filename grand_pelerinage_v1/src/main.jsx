@@ -24,7 +24,7 @@ import NotificationCenterModal from "./features/notifications/NotificationCenter
 import HomeDashboardV2 from "./features/home/HomeDashboardV2";
 import CommunityGroupsV2 from "./features/community/CommunityGroupsV2";
 import BibleStudyEnhancements from "./features/bible/BibleStudyEnhancements";
-import ChurchAdminModal from "./features/admin/ChurchAdminModal";
+import AdminPortalApp from "./features/admin/AdminPortalApp";
 import PedagogicalAndAccessibilityCard from "./features/profile/PedagogicalAndAccessibilityCard";
 import { EXTENDED_BIBLE_CHAPTERS } from "./data/bibleGamesData";
 import {
@@ -62,7 +62,13 @@ import {
   fetchFirestoreNotifications
 } from "./services/notificationsEngine";
 import { loadGroup } from "./services/churchGroup";
-import { fetchChurchAnnouncements, loadLocalAnnouncements } from "./services/adminAnalytics";
+import {
+  fetchChurchAnnouncements,
+  loadLocalAnnouncements,
+  isRouteAdmin,
+  loadSystemFlags,
+  loadWeeklySpiritualConfig
+} from "./services/adminAnalytics";
 import { contributeCollectiveChallenge } from "./services/churchGroupCloud";
 import { firstOpenStage, isBonusPlayable, isEpochUnlocked, isStagePlayable } from "./services/pathProgress";
 import ChurchGroupCard from "./components/ChurchGroupCard";
@@ -280,16 +286,26 @@ function App() {
   const [doveMessage, setDoveMessage] = useState("");
   const doveTimeoutRef = useRef(null);
 
-  // Version 2.0 : Mémorisation 4 étapes, Centre Notifications, Accessibilité, Communauté & Responsables
+  // Version 2.0 : Mémorisation 4 étapes, Centre Notifications, Accessibilité, Communauté & Portail /admin isolé
+  const [isAdminRoute, setIsAdminRoute] = useState(() =>
+    isRouteAdmin(typeof window !== "undefined" ? window.location.pathname : "/")
+  );
   const [memorizationHubOpen, setMemorizationHubOpen] = useState(false);
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
-  const [churchAdminOpen, setChurchAdminOpen] = useState(false);
   const [accessibilityPrefs, setAccessibilityPrefs] = useState(() => loadAccessibilityPrefs());
   const [notifPrefs, setNotifPrefs] = useState(() => loadNotificationPrefs());
   const [notifInbox, setNotifInbox] = useState(() => loadLocalNotificationInbox());
   const [churchGroupState, setChurchGroupState] = useState(() => loadGroup());
   const [churchAnnouncements, setChurchAnnouncements] = useState(() => loadLocalAnnouncements());
+  const [systemFlags] = useState(() => loadSystemFlags());
   const [bibleChaptersReadCount, setBibleChaptersReadCount] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onPopState = () => setIsAdminRoute(isRouteAdmin(window.location.pathname));
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     applyAccessibilityToDocument(accessibilityPrefs);
@@ -710,6 +726,10 @@ function App() {
 
   // Création d'une intention de prière avec validation de fraternité et sécurité
   const handleCreatePrayer = async () => {
+    if (systemFlags.prayersEnabled === false) {
+      notify("🕊️ Le dépôt de nouvelles prières est momentanément en pause par l'administration.");
+      return;
+    }
     if (!newPrayerText.trim()) {
       notify("Écris ton intention de prière ou gratitude avant de déposer 🌿");
       return;
@@ -1465,6 +1485,21 @@ function App() {
     { name: "Profil", icon: UserRound }
   ];
 
+  // PORTAIL D'ADMINISTRATION STRICTEMENT ISOLÉ SUR /admin
+  if (isAdminRoute) {
+    return (
+      <AdminPortalApp
+        leaderboard={leaderboard}
+        prayers={communityPrayers}
+        memorizationStats={memorizationStats}
+        completedStages={completedStages}
+        gameStats={saved.gameStats || {}}
+        epochStages={EPOCH_STAGES}
+        onBackToPublic={() => setIsAdminRoute(false)}
+      />
+    );
+  }
+
   // PAGE D'ACCUEIL DE PRÉSENTATION & EMBARQUEMENT INITIAL (Landing Gate)
   if (!hasSeenLanding && (!user || user.isAnonymous)) {
     return (
@@ -1774,6 +1809,7 @@ function App() {
               collectionStats={collectionStats}
               nextStage={frontierStage}
               announcements={churchAnnouncements}
+              weeklySpiritual={loadWeeklySpiritualConfig()}
               onResumeStage={(st) => startStage(st.id)}
               onNavigate={(targetTab) => setTab(targetTab)}
               onOpenMemorization={() => setMemorizationHubOpen(true)}
@@ -3097,7 +3133,6 @@ function App() {
               churchGroup={churchGroupState}
               leaderboard={leaderboard}
               onGroupUpdated={(g) => setChurchGroupState(g)}
-              onOpenAdmin={() => setChurchAdminOpen(true)}
               onToast={notify}
             />
 
@@ -3927,25 +3962,11 @@ function App() {
         onToast={notify}
       />
 
-      <ChurchAdminModal
-        open={churchAdminOpen}
-        onClose={() => setChurchAdminOpen(false)}
-        pelerinName={profileName}
-        leaderboard={leaderboard}
-        groups={churchGroupState ? [churchGroupState] : []}
-        prayers={communityPrayers}
-        memorizationStats={memorizationStats}
-        completedStages={completedStages}
-        gameStats={saved.gameStats || {}}
-        epochStages={EPOCH_STAGES}
-        onAnnouncementPublished={(anns) => setChurchAnnouncements(anns)}
-        onModeratePrayer={(prayerId) => {
-          setCommunityPrayers((prev) => prev.filter((p) => p.id !== prayerId));
-          flagCommunityPrayer(prayerId);
-          notify("🕊️ Intention modérée avec bienveillance.");
-        }}
-        onToast={notify}
-      />
+      {systemFlags.maintenanceMode && (
+        <div className="toast" style={{ bottom: 16, background: "#92400e", color: "#fff" }}>
+          <span>🚧 {systemFlags.maintenanceMessage}</span>
+        </div>
+      )}
 
       {/* TOAST DE NOTIFICATION BIENVEILLANT */}
       {toast && (
